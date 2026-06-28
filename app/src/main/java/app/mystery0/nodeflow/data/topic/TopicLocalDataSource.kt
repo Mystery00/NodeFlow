@@ -5,9 +5,8 @@ import app.mystery0.nodeflow.core.database.entity.toEntity
 import app.mystery0.nodeflow.core.database.entity.toTopic
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
-import javax.inject.Inject
 
-class TopicLocalDataSource @Inject constructor(
+class TopicLocalDataSource(
     private val topicDao: TopicDao,
 ) {
     suspend fun latestTopics(): List<Topic> =

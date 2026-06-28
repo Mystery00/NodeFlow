@@ -5,8 +5,6 @@ import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,8 +12,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class SettingsViewModel @Inject constructor(
+class SettingsViewModel(
     observeSettings: ObserveSettingsUseCase,
     private val updateSettings: UpdateSettingsUseCase,
     private val clearCache: ClearCacheUseCase,

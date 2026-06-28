@@ -1,16 +1,14 @@
 package app.mystery0.nodeflow.data.user
 
-import app.mystery0.nodeflow.core.common.IoDispatcher
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.domain.user.UserRepository
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
-class UserRepositoryImpl @Inject constructor(
+class UserRepositoryImpl(
     private val remoteDataSource: UserRemoteDataSource,
     private val localDataSource: UserLocalDataSource,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : UserRepository {
     override suspend fun user(username: String, forceRefresh: Boolean): Result<User> =
         withContext(ioDispatcher) {

@@ -10,7 +10,7 @@ NodeFlow 是一个专注 Android 的现代 V2EX 第三方客户端，使用 Kotl
 - Material 3 / Material You
 - Navigation Compose
 - Coroutines + Flow
-- Hilt
+- Koin
 - Retrofit + OkHttp
 - kotlinx.serialization
 - Room
@@ -73,7 +73,7 @@ UI 遵循 UDF/MVI 思路：`Screen` 渲染 `UiState` 并发送 `UiEvent`，`View
 .\gradlew.bat :app:assembleDebug
 ```
 
-当前 AGP 9 模板启用了内置 Kotlin。为了让 Hilt 和 Room 的 `kapt` 路径稳定工作，项目临时关闭 `android.builtInKotlin` 与新 DSL，并保留后续迁移到 AGP 9 内置 Kotlin / KSP 的 TODO。
+当前 AGP 9 模板启用了内置 Kotlin。为了让 Room 的 `kapt` 路径稳定工作，项目临时关闭 `android.builtInKotlin` 与新 DSL，并保留后续迁移到 AGP 9 内置 Kotlin / KSP 的 TODO。
 
 ## 后续计划
 

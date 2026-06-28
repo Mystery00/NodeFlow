@@ -5,16 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.core.common.toUserMessage
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class TopicDetailViewModel @Inject constructor(
+class TopicDetailViewModel(
     savedStateHandle: SavedStateHandle,
     private val getTopicDetail: GetTopicDetailUseCase,
 ) : ViewModel() {

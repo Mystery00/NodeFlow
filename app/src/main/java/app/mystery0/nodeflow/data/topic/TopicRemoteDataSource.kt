@@ -9,11 +9,10 @@ import app.mystery0.nodeflow.data.common.V2exReplyDto
 import app.mystery0.nodeflow.data.common.V2exTopicDto
 import app.mystery0.nodeflow.data.common.toReply
 import app.mystery0.nodeflow.data.common.toTopic
-import javax.inject.Inject
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 
-class TopicRemoteDataSource @Inject constructor(
+class TopicRemoteDataSource(
     private val api: V2exRawApi,
     private val json: Json,
 ) {

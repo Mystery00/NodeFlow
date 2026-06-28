@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.data
 
+import app.mystery0.nodeflow.core.common.IO_DISPATCHER
 import app.mystery0.nodeflow.data.auth.AuthRepositoryImpl
 import app.mystery0.nodeflow.data.node.NodeRepositoryImpl
 import app.mystery0.nodeflow.data.notification.NotificationRepositoryImpl
@@ -12,36 +13,31 @@ import app.mystery0.nodeflow.domain.notification.NotificationRepository
 import app.mystery0.nodeflow.domain.settings.SettingsRepository
 import app.mystery0.nodeflow.domain.topic.TopicRepository
 import app.mystery0.nodeflow.domain.user.UserRepository
-import dagger.Binds
-import dagger.Module
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-import javax.inject.Singleton
+import org.koin.core.qualifier.named
+import org.koin.dsl.module
 
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class RepositoryModule {
-    @Binds
-    @Singleton
-    abstract fun bindTopicRepository(impl: TopicRepositoryImpl): TopicRepository
+val repositoryModule = module {
+    single<TopicRepository> {
+        TopicRepositoryImpl(get(), get(), get(named(IO_DISPATCHER)))
+    }
 
-    @Binds
-    @Singleton
-    abstract fun bindNodeRepository(impl: NodeRepositoryImpl): NodeRepository
+    single<NodeRepository> {
+        NodeRepositoryImpl(get(), get(), get(), get(named(IO_DISPATCHER)))
+    }
 
-    @Binds
-    @Singleton
-    abstract fun bindUserRepository(impl: UserRepositoryImpl): UserRepository
+    single<UserRepository> {
+        UserRepositoryImpl(get(), get(), get(named(IO_DISPATCHER)))
+    }
 
-    @Binds
-    @Singleton
-    abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+    single<SettingsRepository> {
+        SettingsRepositoryImpl(get(), get(), get(), get())
+    }
 
-    @Binds
-    @Singleton
-    abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
+    single<AuthRepository> {
+        AuthRepositoryImpl(get())
+    }
 
-    @Binds
-    @Singleton
-    abstract fun bindNotificationRepository(impl: NotificationRepositoryImpl): NotificationRepository
+    single<NotificationRepository> {
+        NotificationRepositoryImpl()
+    }
 }

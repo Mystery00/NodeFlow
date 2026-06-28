@@ -1,8 +1,6 @@
 package app.mystery0.nodeflow.domain.node
 
-import javax.inject.Inject
-
-class GetNodeTopicsUseCase @Inject constructor(
+class GetNodeTopicsUseCase(
     private val repository: NodeRepository,
 ) {
     suspend operator fun invoke(

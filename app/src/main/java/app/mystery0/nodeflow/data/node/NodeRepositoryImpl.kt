@@ -1,19 +1,17 @@
 package app.mystery0.nodeflow.data.node
 
-import app.mystery0.nodeflow.core.common.IoDispatcher
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.data.topic.TopicLocalDataSource
 import app.mystery0.nodeflow.domain.node.NodeRepository
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
-class NodeRepositoryImpl @Inject constructor(
+class NodeRepositoryImpl(
     private val remoteDataSource: NodeRemoteDataSource,
     private val localDataSource: NodeLocalDataSource,
     private val topicLocalDataSource: TopicLocalDataSource,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : NodeRepository {
     override suspend fun node(name: String, forceRefresh: Boolean): Result<Node> =
         withContext(ioDispatcher) {

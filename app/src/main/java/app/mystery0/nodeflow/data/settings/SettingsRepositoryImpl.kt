@@ -7,10 +7,9 @@ import app.mystery0.nodeflow.domain.node.NodeRepository
 import app.mystery0.nodeflow.domain.settings.SettingsRepository
 import app.mystery0.nodeflow.domain.topic.TopicRepository
 import app.mystery0.nodeflow.domain.user.UserRepository
-import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 
-class SettingsRepositoryImpl @Inject constructor(
+class SettingsRepositoryImpl(
     private val settingsStore: SettingsStore,
     private val topicRepository: TopicRepository,
     private val nodeRepository: NodeRepository,

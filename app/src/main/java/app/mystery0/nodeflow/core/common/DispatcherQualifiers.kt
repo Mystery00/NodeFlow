@@ -1,11 +1,5 @@
 package app.mystery0.nodeflow.core.common
 
-import javax.inject.Qualifier
+const val IO_DISPATCHER = "ioDispatcher"
 
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class IoDispatcher
-
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class DefaultDispatcher
+const val DEFAULT_DISPATCHER = "defaultDispatcher"

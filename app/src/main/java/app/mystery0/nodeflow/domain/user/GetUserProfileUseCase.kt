@@ -1,8 +1,6 @@
 package app.mystery0.nodeflow.domain.user
 
-import javax.inject.Inject
-
-class GetUserProfileUseCase @Inject constructor(
+class GetUserProfileUseCase(
     private val repository: UserRepository,
 ) {
     suspend operator fun invoke(username: String, forceRefresh: Boolean = false) =

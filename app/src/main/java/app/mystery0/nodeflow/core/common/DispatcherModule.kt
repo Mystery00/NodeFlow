@@ -1,20 +1,16 @@
 package app.mystery0.nodeflow.core.common
 
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import org.koin.core.qualifier.named
+import org.koin.dsl.module
 
-@Module
-@InstallIn(SingletonComponent::class)
-object DispatcherModule {
-    @Provides
-    @IoDispatcher
-    fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+val dispatcherModule = module {
+    single<CoroutineDispatcher>(named(IO_DISPATCHER)) {
+        Dispatchers.IO
+    }
 
-    @Provides
-    @DefaultDispatcher
-    fun provideDefaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
+    single<CoroutineDispatcher>(named(DEFAULT_DISPATCHER)) {
+        Dispatchers.Default
+    }
 }

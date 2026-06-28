@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -44,13 +43,12 @@ kapt {
     arguments {
         arg("room.schemaLocation", "$projectDir/schemas")
         arg("room.incremental", "true")
-        arg("dagger.hilt.android.internal.projectType", "APP")
-        arg("dagger.hilt.android.internal.disableAndroidSuperclassValidation", "true")
     }
 }
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
+    implementation(platform(libs.koin.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material.icons.extended)
@@ -60,8 +58,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.androidx.hilt.navigation.compose)
-    implementation(libs.androidx.hilt.work)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -73,17 +69,17 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
-    implementation(libs.dagger.hilt.android)
     implementation(libs.jsoup)
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.retrofit)
 
-    kapt(libs.androidx.hilt.compiler)
     kapt(libs.androidx.room.compiler)
-    kapt(libs.dagger.hilt.compiler)
+    kapt(libs.kotlin.metadata.jvm)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

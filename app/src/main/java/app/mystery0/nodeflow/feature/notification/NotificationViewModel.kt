@@ -3,16 +3,13 @@ package app.mystery0.nodeflow.feature.notification
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.domain.notification.NotificationRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class NotificationViewModel @Inject constructor(
+class NotificationViewModel(
     private val repository: NotificationRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(NotificationUiState())

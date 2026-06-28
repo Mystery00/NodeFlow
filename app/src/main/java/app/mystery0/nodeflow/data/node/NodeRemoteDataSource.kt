@@ -8,11 +8,10 @@ import app.mystery0.nodeflow.core.network.safeNetworkCall
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import app.mystery0.nodeflow.data.common.V2exNodeDto
 import app.mystery0.nodeflow.data.common.toNode
-import javax.inject.Inject
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
-class NodeRemoteDataSource @Inject constructor(
+class NodeRemoteDataSource(
     private val api: V2exRawApi,
     private val json: Json,
     private val parser: V2exHtmlParser,

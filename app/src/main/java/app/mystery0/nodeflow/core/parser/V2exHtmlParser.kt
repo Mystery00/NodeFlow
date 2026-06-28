@@ -3,11 +3,10 @@ package app.mystery0.nodeflow.core.parser
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.User
-import javax.inject.Inject
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 
-class V2exHtmlParser @Inject constructor() {
+class V2exHtmlParser {
     fun parseTopicList(html: String, sourceNodeName: String? = null): List<Topic> {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         return document.select("div.cell:has(a.topic-link)")

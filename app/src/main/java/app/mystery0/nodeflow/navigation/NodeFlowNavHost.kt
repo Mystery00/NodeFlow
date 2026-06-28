@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -36,6 +35,7 @@ import app.mystery0.nodeflow.feature.settings.SettingsScreen
 import app.mystery0.nodeflow.feature.settings.SettingsViewModel
 import app.mystery0.nodeflow.feature.topicdetail.TopicDetailScreen
 import app.mystery0.nodeflow.feature.topicdetail.TopicDetailViewModel
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun NodeFlowNavHost(
@@ -64,7 +64,7 @@ fun NodeFlowNavHost(
             startDestination = NodeFlowDestinations.Home,
         ) {
             composable(NodeFlowDestinations.Home) {
-                val viewModel: HomeViewModel = hiltViewModel()
+                val viewModel: HomeViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 HomeScreen(
                     state = state,
@@ -78,7 +78,7 @@ fun NodeFlowNavHost(
                 route = NodeFlowDestinations.NodeRoute,
                 arguments = listOf(navArgument("nodeName") { type = NavType.StringType }),
             ) {
-                val viewModel: NodeViewModel = hiltViewModel()
+                val viewModel: NodeViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 NodeScreen(
                     state = state,
@@ -92,7 +92,7 @@ fun NodeFlowNavHost(
                 route = NodeFlowDestinations.TopicRoute,
                 arguments = listOf(navArgument("topicId") { type = NavType.LongType }),
             ) {
-                val viewModel: TopicDetailViewModel = hiltViewModel()
+                val viewModel: TopicDetailViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 TopicDetailScreen(
                     state = state,
@@ -110,7 +110,7 @@ fun NodeFlowNavHost(
                 route = NodeFlowDestinations.ProfileRoute,
                 arguments = listOf(navArgument("username") { type = NavType.StringType }),
             ) {
-                val viewModel: ProfileViewModel = hiltViewModel()
+                val viewModel: ProfileViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 ProfileScreen(
                     state = state,
@@ -119,7 +119,7 @@ fun NodeFlowNavHost(
                 )
             }
             composable(NodeFlowDestinations.Settings) {
-                val viewModel: SettingsViewModel = hiltViewModel()
+                val viewModel: SettingsViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 SettingsScreen(
                     state = state,
@@ -127,12 +127,12 @@ fun NodeFlowNavHost(
                 )
             }
             composable(NodeFlowDestinations.Auth) {
-                val viewModel: AuthViewModel = hiltViewModel()
+                val viewModel: AuthViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 AuthScreen(state = state, onEvent = viewModel::onEvent)
             }
             composable(NodeFlowDestinations.Notification) {
-                val viewModel: NotificationViewModel = hiltViewModel()
+                val viewModel: NotificationViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 NotificationScreen(
                     state = state,
@@ -140,7 +140,7 @@ fun NodeFlowNavHost(
                 )
             }
             composable(NodeFlowDestinations.Editor) {
-                val viewModel: EditorViewModel = hiltViewModel()
+                val viewModel: EditorViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 EditorScreen(state = state, onEvent = viewModel::onEvent)
             }

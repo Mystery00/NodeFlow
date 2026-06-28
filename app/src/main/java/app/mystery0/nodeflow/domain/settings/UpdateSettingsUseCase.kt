@@ -1,9 +1,8 @@
 package app.mystery0.nodeflow.domain.settings
 
 import app.mystery0.nodeflow.core.model.ThemeMode
-import javax.inject.Inject
 
-class UpdateSettingsUseCase @Inject constructor(
+class UpdateSettingsUseCase(
     private val repository: SettingsRepository,
 ) {
     suspend fun setThemeMode(themeMode: ThemeMode) {

@@ -1,17 +1,15 @@
 package app.mystery0.nodeflow.data.topic
 
-import app.mystery0.nodeflow.core.common.IoDispatcher
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.domain.topic.TopicRepository
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
-class TopicRepositoryImpl @Inject constructor(
+class TopicRepositoryImpl(
     private val remoteDataSource: TopicRemoteDataSource,
     private val localDataSource: TopicLocalDataSource,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : TopicRepository {
     override suspend fun latestTopics(forceRefresh: Boolean): Result<List<Topic>> =
         withContext(ioDispatcher) {

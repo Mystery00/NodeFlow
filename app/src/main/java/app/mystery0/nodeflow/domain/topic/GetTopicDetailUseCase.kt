@@ -1,8 +1,6 @@
 package app.mystery0.nodeflow.domain.topic
 
-import javax.inject.Inject
-
-class GetTopicDetailUseCase @Inject constructor(
+class GetTopicDetailUseCase(
     private val repository: TopicRepository,
 ) {
     suspend operator fun invoke(topicId: Long, forceRefresh: Boolean = false) =

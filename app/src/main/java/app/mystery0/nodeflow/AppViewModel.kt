@@ -4,14 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 
-@HiltViewModel
-class AppViewModel @Inject constructor(
+class AppViewModel(
     observeSettings: ObserveSettingsUseCase,
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> = observeSettings()
