@@ -1,6 +1,7 @@
 package app.mystery0.nodeflow.core.parser
 
 import app.mystery0.nodeflow.core.model.Node
+import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.User
 import org.jsoup.Jsoup
@@ -11,6 +12,12 @@ class V2exHtmlParser {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         return document.select("div.cell:has(a.topic-link)")
             .mapNotNull { cell -> parseTopicCell(cell, sourceNodeName) }
+    }
+
+    fun parseNodePlanes(html: String): List<NodePlane> {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        return document.select("div.box:has(div.header):has(div.inner a.item_node)")
+            .mapNotNull { box -> parseNodePlane(box) }
     }
 
     fun extractImageUrls(html: String): List<String> {
@@ -54,6 +61,38 @@ class V2exHtmlParser {
             username = username,
             avatarUrl = avatar,
             bio = bio,
+        )
+    }
+
+    private fun parseNodePlane(box: Element): NodePlane? {
+        val header = box.selectFirst("div.header") ?: return null
+        val title = header.ownText().trim().takeIf { it.isNotBlank() } ?: return null
+        val metadataSpans = header.select("span.flex-one-row.gap5 > span")
+        val name = metadataSpans.firstOrNull()?.text()?.trim()?.takeIf { it.isNotBlank() } ?: title
+        val nodeCount = NODE_COUNT_REGEX
+            .find(header.selectFirst("span.small")?.text().orEmpty())
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+        val avatarUrl = header.selectFirst("img[src]")?.attr("src")?.normalizeV2exUrl()
+        val nodes = box.select("div.inner a.item_node[href^=/go/]")
+            .mapNotNull { link ->
+                val nodeName = link.attr("href").substringAfterLast("/").substringBefore("?").trim()
+                val nodeTitle = link.text().trim()
+                if (nodeName.isBlank() || nodeTitle.isBlank()) {
+                    null
+                } else {
+                    Node(name = nodeName, title = nodeTitle)
+                }
+            }
+            .distinctBy { it.name }
+        if (nodes.isEmpty()) return null
+        return NodePlane(
+            name = name,
+            title = title,
+            nodeCount = nodeCount,
+            avatarUrl = avatarUrl,
+            nodes = nodes,
         )
     }
 
@@ -126,5 +165,6 @@ class V2exHtmlParser {
         const val V2EX_BASE_URL = "https://www.v2ex.com"
         val TOPIC_ID_REGEX = Regex("""/t/(\d+)""")
         val REPLY_COUNT_REGEX = Regex("""#reply(\d+)""")
+        val NODE_COUNT_REGEX = Regex("""(\d+)""")
     }
 }

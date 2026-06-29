@@ -39,6 +39,14 @@ data class Node(
     val stars: Int? = null,
 )
 
+data class NodePlane(
+    val name: String,
+    val title: String,
+    val nodeCount: Int? = null,
+    val avatarUrl: String? = null,
+    val nodes: List<Node> = emptyList(),
+)
+
 data class Topic(
     val id: Long,
     val title: String,

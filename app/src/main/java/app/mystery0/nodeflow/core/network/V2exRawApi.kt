@@ -28,6 +28,9 @@ interface V2exRawApi {
         @Query("p") page: Int? = null,
     ): Response<ResponseBody>
 
+    @GET("planes")
+    suspend fun planesHtml(): Response<ResponseBody>
+
     @GET("t/{topicId}")
     suspend fun topicHtml(
         @Path("topicId") topicId: Long,

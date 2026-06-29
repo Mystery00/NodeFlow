@@ -4,6 +4,7 @@ import app.mystery0.nodeflow.AppViewModel
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
 import app.mystery0.nodeflow.feature.editor.EditorViewModel
 import app.mystery0.nodeflow.feature.home.HomeViewModel
+import app.mystery0.nodeflow.feature.node.NodeListViewModel
 import app.mystery0.nodeflow.feature.node.NodeViewModel
 import app.mystery0.nodeflow.feature.notification.NotificationViewModel
 import app.mystery0.nodeflow.feature.profile.ProfileViewModel
@@ -23,6 +24,10 @@ val featureModule = module {
 
     viewModel {
         NodeViewModel(get(), get(), get())
+    }
+
+    viewModel {
+        NodeListViewModel(get())
     }
 
     viewModel {

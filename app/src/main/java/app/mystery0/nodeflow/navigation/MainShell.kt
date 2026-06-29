@@ -24,6 +24,7 @@ import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.feature.home.HomeScreen
 import app.mystery0.nodeflow.feature.home.HomeViewModel
 import app.mystery0.nodeflow.feature.node.NodeListScreen
+import app.mystery0.nodeflow.feature.node.NodeListViewModel
 import app.mystery0.nodeflow.feature.settings.SettingsScreen
 import app.mystery0.nodeflow.feature.settings.SettingsViewModel
 import org.koin.androidx.compose.koinViewModel
@@ -72,7 +73,13 @@ fun MainShell(
                 )
             }
             composable(NodeFlowDestinations.NodeList) {
-                NodeListScreen(onNodeClick = onNodeClick)
+                val viewModel: NodeListViewModel = koinViewModel()
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+                NodeListScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onNodeClick = onNodeClick,
+                )
             }
             composable(NodeFlowDestinations.Settings) {
                 val viewModel: SettingsViewModel = koinViewModel()

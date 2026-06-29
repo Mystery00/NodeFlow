@@ -1,6 +1,7 @@
 package app.mystery0.nodeflow.data.node
 
 import app.mystery0.nodeflow.core.model.Node
+import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
@@ -25,5 +26,9 @@ class NodeRemoteDataSource(
             html = api.nodeTopicsHtml(name, page.takeIf { it > 1 }).bodyStringOrThrow(),
             sourceNodeName = name,
         )
+    }
+
+    suspend fun planes(): List<NodePlane> = safeNetworkCall {
+        parser.parseNodePlanes(api.planesHtml().bodyStringOrThrow())
     }
 }

@@ -13,6 +13,9 @@ interface NodeDao {
     @Upsert
     suspend fun upsertNode(node: NodeEntity)
 
+    @Upsert
+    suspend fun upsertNodes(nodes: List<NodeEntity>)
+
     @Query("DELETE FROM nodes")
     suspend fun clear()
 }

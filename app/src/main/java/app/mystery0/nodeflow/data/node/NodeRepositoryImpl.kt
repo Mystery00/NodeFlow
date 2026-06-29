@@ -1,6 +1,7 @@
 package app.mystery0.nodeflow.data.node
 
 import app.mystery0.nodeflow.core.model.Node
+import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.data.topic.TopicLocalDataSource
 import app.mystery0.nodeflow.domain.node.NodeRepository
@@ -13,6 +14,14 @@ class NodeRepositoryImpl(
     private val topicLocalDataSource: TopicLocalDataSource,
     private val ioDispatcher: CoroutineDispatcher,
 ) : NodeRepository {
+    override suspend fun nodePlanes(forceRefresh: Boolean): Result<List<NodePlane>> =
+        withContext(ioDispatcher) {
+            runCatching {
+                remoteDataSource.planes()
+                    .onEach { plane -> localDataSource.cacheNodes(plane.nodes) }
+            }
+        }
+
     override suspend fun node(name: String, forceRefresh: Boolean): Result<Node> =
         withContext(ioDispatcher) {
             runCatching {

@@ -14,6 +14,10 @@ class NodeLocalDataSource(
         nodeDao.upsertNode(node.toEntity())
     }
 
+    suspend fun cacheNodes(nodes: List<Node>) {
+        nodeDao.upsertNodes(nodes.map { it.toEntity() })
+    }
+
     suspend fun clear() {
         nodeDao.clear()
     }
