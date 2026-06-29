@@ -4,6 +4,7 @@ NodeFlow 是一个专注 Android 的现代 V2EX 第三方客户端，使用 Kotl
 
 本项目只做 Android 端，不使用 Flutter、Kotlin Multiplatform 或其他跨端方案。
 
+NodeFlow 是非官方第三方客户端，与 V2EX 官方没有从属关系。项目当前处于早期 MVP 阶段，优先保证架构清晰、可编译运行和后续可迭代。
 
 ## 技术栈
 
@@ -50,6 +51,12 @@ NodeFlow 是一个专注 Android 的现代 V2EX 第三方客户端，使用 Kotl
 - `/api/members/show.json`
 
 节点主题列表使用 `/go/{node}` HTML 页面并通过 Jsoup 解析。API 2.0 Beta 需要 Personal Access Token，本项目已预留 Token 注入能力，完整网页登录流程后续实现。
+
+## 隐私与安全
+
+- 项目不内置任何私有 Token、Cookie、密钥或服务端配置。
+- 登录态通过本地 DataStore 保存，并在 Android 系统备份和设备迁移规则中排除。
+- 当前版本不会上传用户数据到第三方服务，网络请求仅面向 V2EX 数据源。
 
 ## 架构
 

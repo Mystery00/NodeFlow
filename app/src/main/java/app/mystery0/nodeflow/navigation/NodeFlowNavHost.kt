@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.navigation
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Home
@@ -62,6 +63,7 @@ fun NodeFlowNavHost(
         NavHost(
             navController = navController,
             startDestination = NodeFlowDestinations.Home,
+            modifier = Modifier.padding(paddingValues),
         ) {
             composable(NodeFlowDestinations.Home) {
                 val viewModel: HomeViewModel = koinViewModel()
