@@ -4,6 +4,7 @@ import android.net.Uri
 
 object NodeFlowDestinations {
     const val Home = "home"
+    const val NodeList = "nodes"
     const val Settings = "settings"
     const val NodeRoute = "node/{nodeName}"
     const val TopicRoute = "topic/{topicId}"
@@ -15,4 +16,6 @@ object NodeFlowDestinations {
     fun node(nodeName: String = "python"): String = "node/${Uri.encode(nodeName)}"
     fun topic(topicId: Long): String = "topic/$topicId"
     fun profile(username: String): String = "profile/${Uri.encode(username)}"
+
+    fun isTopLevelRoute(route: String?): Boolean = route in setOf(Home, NodeList, Settings)
 }
