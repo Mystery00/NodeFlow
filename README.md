@@ -82,7 +82,7 @@ UI 遵循 UDF/MVI 思路：`Screen` 渲染 `UiState` 并发送 `UiEvent`，`View
 .\gradlew.bat :app:assembleDebug
 ```
 
-当前 AGP 9 模板启用了内置 Kotlin。为了让 Room 的 `kapt` 路径稳定工作，项目临时关闭 `android.builtInKotlin` 与新 DSL，并保留后续迁移到 AGP 9 内置 Kotlin / KSP 的 TODO。
+Room 编译器已迁移到 KSP。AGP 9 内置 Kotlin 与新 DSL 仍保留为后续单独迁移项，避免和业务功能迭代混在同一次改动中。
 
 ## 后续计划
 
