@@ -1,6 +1,8 @@
 package app.mystery0.nodeflow.navigation
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Home
@@ -45,6 +47,7 @@ fun NodeFlowNavHost(
     val navController = rememberNavController()
     Scaffold(
         modifier = modifier,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             NodeFlowBottomBar(
                 currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route,
@@ -63,7 +66,7 @@ fun NodeFlowNavHost(
         NavHost(
             navController = navController,
             startDestination = NodeFlowDestinations.Home,
-            modifier = Modifier.padding(paddingValues),
+            modifier = Modifier.padding(rootNavHostPadding(paddingValues)),
         ) {
             composable(NodeFlowDestinations.Home) {
                 val viewModel: HomeViewModel = koinViewModel()
@@ -155,6 +158,10 @@ fun NodeFlowNavHost(
         }
     }
 }
+
+fun rootNavHostPadding(scaffoldPadding: PaddingValues): PaddingValues = PaddingValues(
+    bottom = scaffoldPadding.calculateBottomPadding(),
+)
 
 @Composable
 private fun NodeFlowBottomBar(
