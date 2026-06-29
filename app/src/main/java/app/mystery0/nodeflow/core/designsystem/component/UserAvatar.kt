@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -23,10 +24,11 @@ fun UserAvatar(
     username: String,
     modifier: Modifier = Modifier,
     size: Dp = 40.dp,
+    shape: Shape = CircleShape,
 ) {
     val avatarModifier = modifier
         .size(size)
-        .clip(CircleShape)
+        .clip(shape)
     if (avatarUrl.isNullOrBlank()) {
         Box(
             modifier = avatarModifier.background(MaterialTheme.colorScheme.secondaryContainer),
