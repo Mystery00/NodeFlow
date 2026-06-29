@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
@@ -27,9 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
@@ -59,7 +57,7 @@ fun TopicDetailScreen(
                 title = { Text("主题详情") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Outlined.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
@@ -97,12 +95,10 @@ fun TopicDetailScreen(
 
 @Composable
 private fun TopicActions(detail: TopicDetail) {
-    val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     val url = detail.topic.url
     IconButton(
         onClick = {
-            clipboardManager.setText(AnnotatedString(url))
             val systemClipboard = context.getSystemService(android.content.ClipboardManager::class.java)
             systemClipboard?.setPrimaryClip(ClipData.newPlainText("NodeFlow topic", url))
         },
