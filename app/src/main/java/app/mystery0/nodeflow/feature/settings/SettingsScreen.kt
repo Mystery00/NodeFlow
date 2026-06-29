@@ -117,6 +117,7 @@ fun SettingsScreen(
                 )
                 Text("版本：${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
                 Text("现代 Android V2EX 第三方客户端。")
+                Text("开源说明：本项目从零实现，遵循 Apache License 2.0 发布。")
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = "License：Apache License 2.0。",

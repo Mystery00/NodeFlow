@@ -2,6 +2,8 @@
 
 NodeFlow 是一个专注 Android 的现代 V2EX 第三方客户端，使用 Kotlin、Jetpack Compose 和 Material 3 从零构建。
 
+本项目只做 Android 端，不使用 Flutter、Kotlin Multiplatform 或其他跨端方案。
+
 
 ## 技术栈
 
