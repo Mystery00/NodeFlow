@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.mystery0.nodeflow.core.designsystem.component.NodeChip
 import app.mystery0.nodeflow.core.designsystem.component.UserAvatar
 import app.mystery0.nodeflow.core.model.Topic
 
@@ -25,9 +26,11 @@ import app.mystery0.nodeflow.core.model.Topic
 fun TopicListItem(
     topic: Topic,
     onClick: () -> Unit,
+    onNodeClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.clickable(onClick = onClick)) {
+    val nodeChip = topicNodeChip(topic)
+    Column(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -37,6 +40,7 @@ fun TopicListItem(
             UserAvatar(
                 avatarUrl = topic.avatarUrl,
                 username = topic.author.username,
+                modifier = Modifier.clickable(onClick = onClick),
             )
             Spacer(Modifier.width(12.dp))
             Column(
@@ -45,33 +49,48 @@ fun TopicListItem(
             ) {
                 Text(
                     text = topic.title,
+                    modifier = Modifier.clickable(onClick = onClick),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    text = buildString {
-                        if (topic.node.title.isNotBlank()) append(topic.node.title)
-                        if (topic.author.username.isNotBlank()) {
-                            if (isNotEmpty()) append(" · ")
-                            append(topic.author.username)
-                        }
-                        val time = formatEpochSeconds(topic.lastTouchedAtEpochSeconds ?: topic.createdAtEpochSeconds)
-                        if (time.isNotBlank()) {
-                            if (isNotEmpty()) append(" · ")
-                            append(time)
-                        }
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    nodeChip?.let { chip ->
+                        NodeChip(
+                            title = chip.label,
+                            onClick = { onNodeClick(chip.nodeName) },
+                        )
+                    }
+                    Text(
+                        text = buildString {
+                            if (topic.author.username.isNotBlank()) {
+                                append(topic.author.username)
+                            }
+                            val time = formatEpochSeconds(topic.lastTouchedAtEpochSeconds ?: topic.createdAtEpochSeconds)
+                            if (time.isNotBlank()) {
+                                if (isNotEmpty()) append(" · ")
+                                append(time)
+                            }
+                        },
+                        modifier = Modifier.clickable(onClick = onClick),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             if (topic.replyCount > 0) {
                 Spacer(Modifier.width(8.dp))
-                Badge {
+                Badge(
+                    modifier = Modifier.clickable(onClick = onClick),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ) {
                     Text(topic.replyCount.toString())
                 }
             }

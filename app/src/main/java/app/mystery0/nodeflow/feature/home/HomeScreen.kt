@@ -30,6 +30,7 @@ fun HomeScreen(
     state: HomeUiState,
     onEvent: (HomeUiEvent) -> Unit,
     onTopicClick: (Topic) -> Unit,
+    onNodeClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -60,6 +61,7 @@ fun HomeScreen(
                 topics = state.topics,
                 isRefreshing = state.isRefreshing,
                 onTopicClick = onTopicClick,
+                onNodeClick = onNodeClick,
                 contentPadding = paddingValues,
             )
         }
@@ -71,6 +73,7 @@ private fun TopicList(
     topics: List<Topic>,
     isRefreshing: Boolean,
     onTopicClick: (Topic) -> Unit,
+    onNodeClick: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
     Box(Modifier.fillMaxSize()) {
@@ -85,6 +88,7 @@ private fun TopicList(
                 TopicListItem(
                     topic = topic,
                     onClick = { onTopicClick(topic) },
+                    onNodeClick = onNodeClick,
                 )
             }
         }

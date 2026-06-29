@@ -74,6 +74,9 @@ fun NodeFlowNavHost(
                     onTopicClick = { topic ->
                         navController.navigate(NodeFlowDestinations.topic(topic.id))
                     },
+                    onNodeClick = { nodeName ->
+                        navController.navigate(NodeFlowDestinations.node(nodeName))
+                    },
                 )
             }
             composable(
@@ -87,6 +90,9 @@ fun NodeFlowNavHost(
                     onEvent = viewModel::onEvent,
                     onTopicClick = { topic ->
                         navController.navigate(NodeFlowDestinations.topic(topic.id))
+                    },
+                    onNodeClick = { nodeName ->
+                        navController.navigate(NodeFlowDestinations.node(nodeName))
                     },
                 )
             }

@@ -34,6 +34,7 @@ fun NodeScreen(
     state: NodeUiState,
     onEvent: (NodeUiEvent) -> Unit,
     onTopicClick: (Topic) -> Unit,
+    onNodeClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -63,6 +64,7 @@ fun NodeScreen(
             else -> NodeTopicList(
                 state = state,
                 onTopicClick = onTopicClick,
+                onNodeClick = onNodeClick,
                 contentPadding = paddingValues,
             )
         }
@@ -73,6 +75,7 @@ fun NodeScreen(
 private fun NodeTopicList(
     state: NodeUiState,
     onTopicClick: (Topic) -> Unit,
+    onNodeClick: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -112,6 +115,7 @@ private fun NodeTopicList(
                 TopicListItem(
                     topic = topic,
                     onClick = { onTopicClick(topic) },
+                    onNodeClick = onNodeClick,
                 )
             }
         }
