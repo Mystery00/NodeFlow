@@ -10,18 +10,17 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.model.Topic
+import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 import app.mystery0.nodeflow.core.ui.TopicListItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,8 +91,10 @@ private fun TopicList(
                 )
             }
         }
-        if (isRefreshing) {
-            LinearProgressIndicator(Modifier.align(Alignment.TopCenter))
-        }
+        ListRefreshIndicator(
+            isRefreshing = isRefreshing,
+            itemCount = topics.size,
+            topPadding = contentPadding.calculateTopPadding(),
+        )
     }
 }

@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.feature.node
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +14,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -26,6 +26,7 @@ import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.model.Topic
+import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 import app.mystery0.nodeflow.core.ui.TopicListItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,10 +79,7 @@ private fun NodeTopicList(
     onNodeClick: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
-    Column(Modifier.fillMaxSize()) {
-        if (state.isRefreshing) {
-            LinearProgressIndicator(Modifier.fillMaxWidth())
-        }
+    Box(Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
@@ -119,5 +117,10 @@ private fun NodeTopicList(
                 )
             }
         }
+        ListRefreshIndicator(
+            isRefreshing = state.isRefreshing,
+            itemCount = state.topics.size,
+            topPadding = contentPadding.calculateTopPadding(),
+        )
     }
 }
