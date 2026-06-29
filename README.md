@@ -82,7 +82,7 @@ UI 遵循 UDF/MVI 思路：`Screen` 渲染 `UiState` 并发送 `UiEvent`，`View
 .\gradlew.bat :app:assembleDebug
 ```
 
-Room 编译器已迁移到 KSP。AGP 9 内置 Kotlin 与新 DSL 仍保留为后续单独迁移项，避免和业务功能迭代混在同一次改动中。
+项目使用 AGP 9 内置 Kotlin 与新 DSL，Room 编译器通过 KSP 运行。
 
 ## 后续计划
 
