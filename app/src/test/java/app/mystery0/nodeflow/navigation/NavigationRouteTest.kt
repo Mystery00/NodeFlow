@@ -25,6 +25,22 @@ class NavigationRouteTest {
     }
 
     @Test
+    fun rootStartDestination_usesMainShellRoute() {
+        assertThat(rootStartDestination()).isEqualTo(NodeFlowDestinations.Main)
+    }
+
+    @Test
+    fun isRootDetailRoute_matchesOnlyRootLevelDetailRoutes() {
+        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.TopicRoute)).isTrue()
+        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.NodeRoute)).isTrue()
+        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.ProfileRoute)).isTrue()
+        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.Home)).isFalse()
+        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.NodeList)).isFalse()
+        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.Settings)).isFalse()
+        assertThat(NodeFlowDestinations.isRootDetailRoute(null)).isFalse()
+    }
+
+    @Test
     fun nodeBottomBarRoute_targetsNodeListInsteadOfDefaultNodeDetail() {
         assertThat(nodeBottomBarRoute()).isEqualTo(NodeFlowDestinations.NodeList)
     }

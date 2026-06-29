@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.navigation
 import android.net.Uri
 
 object NodeFlowDestinations {
+    const val Main = "main"
     const val Home = "home"
     const val NodeList = "nodes"
     const val Settings = "settings"
@@ -18,4 +19,8 @@ object NodeFlowDestinations {
     fun profile(username: String): String = "profile/${Uri.encode(username)}"
 
     fun isTopLevelRoute(route: String?): Boolean = route in setOf(Home, NodeList, Settings)
+
+    fun isRootDetailRoute(route: String?): Boolean = route in setOf(NodeRoute, TopicRoute, ProfileRoute)
 }
+
+fun rootStartDestination(): String = NodeFlowDestinations.Main
