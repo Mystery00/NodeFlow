@@ -23,4 +23,16 @@ class NavigationRouteTest {
     fun nodeList_usesStableRouteName() {
         assertThat(NodeFlowDestinations.NodeList).isEqualTo("nodes")
     }
+
+    @Test
+    fun nodeBottomBarRoute_targetsNodeListInsteadOfDefaultNodeDetail() {
+        assertThat(nodeBottomBarRoute()).isEqualTo(NodeFlowDestinations.NodeList)
+    }
+
+    @Test
+    fun isNodeBottomBarSelected_matchesOnlyNodeListRoute() {
+        assertThat(isNodeBottomBarSelected(NodeFlowDestinations.NodeList)).isTrue()
+        assertThat(isNodeBottomBarSelected(NodeFlowDestinations.NodeRoute)).isFalse()
+        assertThat(isNodeBottomBarSelected("node/python")).isFalse()
+    }
 }

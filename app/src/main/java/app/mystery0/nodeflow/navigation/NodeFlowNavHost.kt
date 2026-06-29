@@ -28,6 +28,7 @@ import app.mystery0.nodeflow.feature.editor.EditorScreen
 import app.mystery0.nodeflow.feature.editor.EditorViewModel
 import app.mystery0.nodeflow.feature.home.HomeScreen
 import app.mystery0.nodeflow.feature.home.HomeViewModel
+import app.mystery0.nodeflow.feature.node.NodeListScreen
 import app.mystery0.nodeflow.feature.node.NodeScreen
 import app.mystery0.nodeflow.feature.node.NodeViewModel
 import app.mystery0.nodeflow.feature.notification.NotificationScreen
@@ -45,22 +46,26 @@ fun NodeFlowNavHost(
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            NodeFlowBottomBar(
-                currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route,
-                onHomeClick = {
-                    navController.navigateTopLevel(NodeFlowDestinations.Home)
-                },
-                onNodeClick = {
-                    navController.navigateTopLevel(NodeFlowDestinations.node())
-                },
-                onSettingsClick = {
-                    navController.navigateTopLevel(NodeFlowDestinations.Settings)
-                },
-            )
+            if (NodeFlowDestinations.isTopLevelRoute(currentRoute)) {
+                NodeFlowBottomBar(
+                    currentRoute = currentRoute,
+                    onHomeClick = {
+                        navController.navigateTopLevel(NodeFlowDestinations.Home)
+                    },
+                    onNodeClick = {
+                        navController.navigateTopLevel(nodeBottomBarRoute())
+                    },
+                    onSettingsClick = {
+                        navController.navigateTopLevel(NodeFlowDestinations.Settings)
+                    },
+                )
+            }
         },
     ) { paddingValues ->
         NavHost(
@@ -82,6 +87,13 @@ fun NodeFlowNavHost(
                     },
                 )
             }
+            composable(NodeFlowDestinations.NodeList) {
+                NodeListScreen(
+                    onNodeClick = { nodeName ->
+                        navController.navigate(NodeFlowDestinations.node(nodeName))
+                    },
+                )
+            }
             composable(
                 route = NodeFlowDestinations.NodeRoute,
                 arguments = listOf(navArgument("nodeName") { type = NavType.StringType }),
@@ -91,6 +103,7 @@ fun NodeFlowNavHost(
                 NodeScreen(
                     state = state,
                     onEvent = viewModel::onEvent,
+                    onBackClick = { navController.popBackStack() },
                     onTopicClick = { topic ->
                         navController.navigate(NodeFlowDestinations.topic(topic.id))
                     },
@@ -178,7 +191,7 @@ private fun NodeFlowBottomBar(
             label = { Text("首页") },
         )
         NavigationBarItem(
-            selected = currentRoute == NodeFlowDestinations.NodeRoute,
+            selected = isNodeBottomBarSelected(currentRoute),
             onClick = onNodeClick,
             icon = { Icon(Icons.Outlined.AccountTree, contentDescription = null) },
             label = { Text("节点") },
@@ -191,6 +204,10 @@ private fun NodeFlowBottomBar(
         )
     }
 }
+
+fun nodeBottomBarRoute(): String = NodeFlowDestinations.NodeList
+
+fun isNodeBottomBarSelected(currentRoute: String?): Boolean = currentRoute == NodeFlowDestinations.NodeList
 
 private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
     navigate(route) {

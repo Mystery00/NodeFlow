@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -34,6 +35,7 @@ import app.mystery0.nodeflow.core.ui.TopicListItem
 fun NodeScreen(
     state: NodeUiState,
     onEvent: (NodeUiEvent) -> Unit,
+    onBackClick: () -> Unit,
     onTopicClick: (Topic) -> Unit,
     onNodeClick: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -43,6 +45,11 @@ fun NodeScreen(
         topBar = {
             TopAppBar(
                 title = { Text(state.node?.title ?: state.nodeName) },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
+                    }
+                },
                 actions = {
                     IconButton(onClick = { onEvent(NodeUiEvent.Refresh) }) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
