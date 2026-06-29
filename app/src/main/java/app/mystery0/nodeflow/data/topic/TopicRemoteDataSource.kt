@@ -5,16 +5,18 @@ import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
+import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import app.mystery0.nodeflow.data.common.V2exReplyDto
 import app.mystery0.nodeflow.data.common.V2exTopicDto
 import app.mystery0.nodeflow.data.common.toReply
 import app.mystery0.nodeflow.data.common.toTopic
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 class TopicRemoteDataSource(
     private val api: V2exRawApi,
     private val json: Json,
+    private val parser: V2exHtmlParser,
 ) {
     suspend fun latestTopics(): List<Topic> = safeNetworkCall {
         json.decodeFromString<List<V2exTopicDto>>(api.latestTopics().bodyStringOrThrow())
@@ -26,11 +28,20 @@ class TopicRemoteDataSource(
             .first()
         val replies = json.decodeFromString<List<V2exReplyDto>>(api.replies(topicId).bodyStringOrThrow())
             .mapIndexed { index, dto -> dto.toReply(topicIdFallback = topicId, floor = index + 1) }
+        val supplemental = runCatching {
+            parser.parseTopicHtml(
+                topicId = topicId,
+                html = api.topicHtml(topicId).bodyStringOrThrow(),
+            )
+        }.getOrNull()
         TopicDetail(
             topic = topic.toTopic(),
             content = topic.content.orEmpty(),
             contentRendered = topic.contentRendered ?: topic.content.orEmpty(),
             replies = replies,
+            viewCount = supplemental?.viewCount,
+            hotReplyCount = supplemental?.hotReplyCount,
+            tags = supplemental?.tags.orEmpty(),
         )
     }
 }

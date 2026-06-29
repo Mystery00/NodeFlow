@@ -65,6 +65,9 @@ data class TopicDetail(
     val content: String,
     val contentRendered: String,
     val replies: List<Reply>,
+    val viewCount: Int? = null,
+    val hotReplyCount: Int? = null,
+    val tags: List<String> = emptyList(),
 )
 
 data class Reply(

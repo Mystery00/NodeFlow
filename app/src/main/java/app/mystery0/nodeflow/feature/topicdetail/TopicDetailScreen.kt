@@ -2,18 +2,25 @@ package app.mystery0.nodeflow.feature.topicdetail
 
 import android.content.ClipData
 import android.content.Intent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,21 +30,57 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.HtmlText
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
-import app.mystery0.nodeflow.core.designsystem.component.NodeChip
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.ui.ReplyItem
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
+
+private const val SecondsPerMinute = 60L
+private const val SecondsPerHour = 60L * SecondsPerMinute
+private const val SecondsPerDay = 24L * SecondsPerHour
+
+internal fun topicMetadataText(
+    username: String,
+    time: String,
+    viewCount: Int?,
+): String = buildList {
+    username.takeIf { it.isNotBlank() }?.let(::add)
+    time.takeIf { it.isNotBlank() }?.let(::add)
+    viewCount?.let { add("${it} 次点击") }
+}.joinToString(" · ")
+
+internal fun formatTopicMetadataTime(
+    epochSeconds: Long?,
+    nowEpochSeconds: Long = java.time.Instant.now().epochSecond,
+): String {
+    if (epochSeconds == null || epochSeconds <= 0) return ""
+    val elapsedSeconds = nowEpochSeconds - epochSeconds
+    if (elapsedSeconds < SecondsPerMinute) return "刚刚"
+    if (elapsedSeconds < SecondsPerHour) return "${elapsedSeconds / SecondsPerMinute} 分钟前"
+    if (elapsedSeconds < SecondsPerDay) {
+        val hours = elapsedSeconds / SecondsPerHour
+        val minutes = elapsedSeconds % SecondsPerHour / SecondsPerMinute
+        return if (minutes > 0) {
+            "${hours} 小时 ${minutes} 分钟前"
+        } else {
+            "${hours} 小时前"
+        }
+    }
+    return formatEpochSeconds(epochSeconds, nowEpochSeconds)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,37 +192,152 @@ private fun TopicDetailContent(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (detail.topic.node.name.isNotBlank()) {
-                            NodeChip(
-                                title = detail.topic.node.title.ifBlank { detail.topic.node.name },
-                                onClick = { onNodeClick(detail.topic.node.name) },
-                            )
-                        }
-                    }
-                    Text(
-                        text = buildString {
-                            append(detail.topic.author.username)
-                            val time = formatEpochSeconds(detail.topic.createdAtEpochSeconds)
-                            if (time.isNotBlank()) append(" · ").append(time)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    TopicMetadataRow(
+                        detail = detail,
+                        onUserClick = onUserClick,
                     )
                     HtmlText(html = detail.contentRendered)
                 }
                 HorizontalDivider()
-                Text(
-                    text = "回复 ${detail.replies.size}",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                ReplySummaryRow(detail = detail)
                 HorizontalDivider()
             }
             items(detail.replies, key = { it.id }) { reply ->
                 ReplyItem(reply = reply)
             }
+        }
+    }
+}
+
+@Composable
+private fun TopicMetadataRow(
+    detail: TopicDetail,
+    onUserClick: (String) -> Unit,
+) {
+    val username = detail.topic.author.username
+    val time = formatTopicMetadataTime(detail.topic.createdAtEpochSeconds)
+    val items = topicMetadataText(username, time, detail.viewCount).split(" · ")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items.forEachIndexed { index, text ->
+            if (index > 0) {
+                MetadataText(text = " · ")
+            }
+            if (index == 0 && username.isNotBlank()) {
+                Text(
+                    text = text,
+                    modifier = Modifier.clickable { onUserClick(username) },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                MetadataText(text = text)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReplySummaryRow(detail: TopicDetail) {
+    val replyCount = detail.topic.replyCount.takeIf { it > 0 } ?: detail.replies.size
+    val summaryText = buildString {
+        append(replyCount)
+        append(" 条回复")
+        detail.hotReplyCount?.takeIf { it > 0 }?.let { count ->
+            append(" · ")
+            append(count)
+            append(" 条热门回复")
+        }
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = summaryText,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (detail.tags.isNotEmpty()) {
+            Spacer(Modifier.width(12.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                detail.tags.forEach { tag ->
+                    TopicTagChip(tag = tag)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataText(
+    text: String,
+    onClick: (() -> Unit)? = null,
+) {
+    if (onClick == null) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    } else {
+        Surface(
+            onClick = onClick,
+            shape = MaterialTheme.shapes.extraSmall,
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ) {
+            Text(
+                text = text,
+                modifier = Modifier.padding(horizontal = 2.dp, vertical = 1.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TopicTagChip(tag: String) {
+    Surface(
+        shape = MaterialTheme.shapes.extraSmall,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.LocalOffer,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp),
+            )
+            Text(
+                text = tag,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

@@ -109,4 +109,128 @@ class V2exHtmlParserTest {
             "https://example.com/photo.jpg",
         ).inOrder()
     }
+
+    @Test
+    fun parseTopicHtml_readsSupplementalMetadataFromTopicPage() {
+        val html = """
+            <html>
+              <head>
+                <meta property="article:section" content="程序员" />
+                <script type="application/ld+json">
+                  {
+                    "comment": [
+                      {
+                        "@type": "Comment",
+                        "text": "普通回复"
+                      },
+                      {
+                        "@type": "Comment",
+                        "text": "热门回复 A",
+                        "interactionStatistic": {
+                          "@type": "InteractionCounter",
+                          "interactionType": "https://schema.org/LikeAction",
+                          "userInteractionCount": 1
+                        }
+                      },
+                      {
+                        "@type": "Comment",
+                        "text": "热门回复 B",
+                        "interactionStatistic": {
+                          "@type": "InteractionCounter",
+                          "interactionType": "https://schema.org/LikeAction",
+                          "userInteractionCount": 2
+                        }
+                      },
+                      {
+                        "@type": "Comment",
+                        "text": "热门回复 C",
+                        "interactionStatistic": {
+                          "@type": "InteractionCounter",
+                          "interactionType": "https://schema.org/LikeAction",
+                          "userInteractionCount": 1
+                        }
+                      }
+                    ],
+                    "interactionStatistic": [
+                      {
+                        "@type": "InteractionCounter",
+                        "interactionType": "https://schema.org/ViewAction",
+                        "userInteractionCount": 5662
+                      },
+                      {
+                        "@type": "InteractionCounter",
+                        "interactionType": "https://schema.org/ReplyAction",
+                        "userInteractionCount": 64
+                      }
+                    ]
+                  }
+                </script>
+              </head>
+              <body>
+                <h1>现在没什么好用的 coding plan 了吗？</h1>
+                <a href="/go/programmer">程序员</a>
+                <small class="gray">
+                  <a href="/member/hiboshi">hiboshi</a> ·
+                  <span title="2026-06-29 09:11:16 +08:00">13h 28m ago</span> ·
+                  5662 views
+                </small>
+                <div class="topic_content"><p>正文</p></div>
+                <div class="cell">
+                  <div class="fr">
+                    <a href="/tag/Coding" class="tag"><li class="fa fa-tag"></li> Coding</a>
+                    <a href="/tag/plan" class="tag"><li class="fa fa-tag"></li> plan</a>
+                    <a href="/tag/glm" class="tag"><li class="fa fa-tag"></li> glm</a>
+                  </div>
+                  <span class="gray">64 replies</span>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = parser.parseTopicHtml(topicId = 1223541, html = html)
+
+        assertThat(topic.viewCount).isEqualTo(5662)
+        assertThat(topic.hotReplyCount).isEqualTo(3)
+        assertThat(topic.tags).containsExactly("Coding", "plan", "glm").inOrder()
+    }
+
+    @Test
+    fun parseTopicHtml_omitsSupplementalMetadataWhenMarkupIsMissing() {
+        val html = """
+            <html>
+              <body>
+                <h1>没有补充信息的主题</h1>
+                <div class="topic_content"><p>正文</p></div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = parser.parseTopicHtml(topicId = 1, html = html)
+
+        assertThat(topic.viewCount).isNull()
+        assertThat(topic.hotReplyCount).isNull()
+        assertThat(topic.tags).isEmpty()
+    }
+
+    @Test
+    fun parseTopicHtml_countsOnlyHeartRowsAsHotRepliesWhenJsonLdIsMissing() {
+        val html = """
+            <html>
+              <body>
+                <h1>使用 DOM 兜底解析热门回复</h1>
+                <div class="topic_content"><p>正文</p></div>
+                <span class="small fade">
+                  <img src="/static/img/heart_20250818.png" alt="heart" /> 1
+                </span>
+                <span class="small fade">
+                  <img src="/static/img/badge.png" alt="badge" /> badge
+                </span>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = parser.parseTopicHtml(topicId = 1, html = html)
+
+        assertThat(topic.hotReplyCount).isEqualTo(1)
+    }
 }

@@ -4,7 +4,15 @@ import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.User
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 
 class V2exHtmlParser {
@@ -43,6 +51,7 @@ class V2exHtmlParser {
             ?: ""
         val nodeTitle = document.selectFirst("meta[property=article:section]")?.attr("content")
         val nodeName = document.selectFirst("a[href^=/go/]")?.attr("href")?.substringAfterLast("/")
+        val jsonLdElements = document.parseJsonLdElements()
         return ParsedTopicHtml(
             id = topicId,
             title = title,
@@ -50,6 +59,15 @@ class V2exHtmlParser {
             nodeName = nodeName.orEmpty(),
             nodeTitle = nodeTitle ?: nodeName.orEmpty(),
             contentRendered = contentElement?.html().orEmpty(),
+            viewCount = jsonLdElements.firstNotNullOfOrNull { it.interactionCount(VIEW_ACTION) }
+                ?: document.parseViewCountFromHeader(),
+            hotReplyCount = jsonLdElements
+                .mapNotNull { it.likedCommentCount() }
+                .firstOrNull { it > 0 }
+                ?: document.parseHotReplyCountFromReplyRows(),
+            tags = document.select("a.tag[href^=/tag/]")
+                .mapNotNull { it.ownText().trim().ifBlank { it.text().trim() }.takeIf(String::isNotBlank) }
+                .distinct(),
         )
     }
 
@@ -152,6 +170,74 @@ class V2exHtmlParser {
             path.endsWith(".avif")
     }
 
+    private fun Document.parseJsonLdElements(): List<JsonElement> =
+        select("script[type=application/ld+json]").mapNotNull { script ->
+            val content = script.data().ifBlank { script.html() }
+            runCatching { JsonLdParser.parseToJsonElement(content) }.getOrNull()
+        }
+
+    private fun Document.parseViewCountFromHeader(): Int? =
+        VIEW_COUNT_REGEX.find(select("small.gray").joinToString(" ") { it.text() })
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.replace(",", "")
+            ?.toIntOrNull()
+
+    private fun Document.parseHotReplyCountFromReplyRows(): Int? =
+        select("span.small.fade")
+            .count { span ->
+                span.select("img").any { image ->
+                    image.attr("src").contains("heart", ignoreCase = true) ||
+                        image.attr("alt").contains("heart", ignoreCase = true) ||
+                        image.attr("alt").contains("❤")
+                }
+            }
+            .takeIf { it > 0 }
+
+    private fun JsonElement.interactionCount(interactionType: String): Int? = when (this) {
+        is JsonArray -> firstNotNullOfOrNull { it.interactionCount(interactionType) }
+        is JsonObject -> get("interactionStatistic")
+            .asElementList()
+            .firstNotNullOfOrNull { statistic ->
+                val statisticObject = statistic as? JsonObject ?: return@firstNotNullOfOrNull null
+                val type = statisticObject.stringValue("interactionType")
+                statisticObject.intValue("userInteractionCount").takeIf { type == interactionType }
+            }
+        else -> null
+    }
+
+    private fun JsonElement.likedCommentCount(): Int? = when (this) {
+        is JsonArray -> mapNotNull { it.likedCommentCount() }.sum().takeIf { it > 0 }
+        is JsonObject -> {
+            val comments = get("comment").asElementList()
+            if (comments.isEmpty()) {
+                null
+            } else {
+                comments.count { comment ->
+                    val commentObject = comment as? JsonObject ?: return@count false
+                    commentObject.get("interactionStatistic").asElementList().any { statistic ->
+                        val statisticObject = statistic as? JsonObject ?: return@any false
+                        statisticObject.stringValue("interactionType") == LIKE_ACTION &&
+                            (statisticObject.intValue("userInteractionCount") ?: 0) > 0
+                    }
+                }.takeIf { it > 0 }
+            }
+        }
+        else -> null
+    }
+
+    private fun JsonElement?.asElementList(): List<JsonElement> = when (this) {
+        is JsonArray -> toList()
+        null -> emptyList()
+        else -> listOf(this)
+    }
+
+    private fun JsonObject.stringValue(key: String): String? =
+        (get(key) as? JsonPrimitive)?.contentOrNull
+
+    private fun JsonObject.intValue(key: String): Int? =
+        (get(key) as? JsonPrimitive)?.intOrNull
+
     data class ParsedTopicHtml(
         val id: Long,
         val title: String,
@@ -159,12 +245,19 @@ class V2exHtmlParser {
         val nodeName: String,
         val nodeTitle: String,
         val contentRendered: String,
+        val viewCount: Int? = null,
+        val hotReplyCount: Int? = null,
+        val tags: List<String> = emptyList(),
     )
 
     private companion object {
         const val V2EX_BASE_URL = "https://www.v2ex.com"
+        const val VIEW_ACTION = "https://schema.org/ViewAction"
+        const val LIKE_ACTION = "https://schema.org/LikeAction"
+        val JsonLdParser = Json { ignoreUnknownKeys = true }
         val TOPIC_ID_REGEX = Regex("""/t/(\d+)""")
         val REPLY_COUNT_REGEX = Regex("""#reply(\d+)""")
         val NODE_COUNT_REGEX = Regex("""(\d+)""")
+        val VIEW_COUNT_REGEX = Regex("""(\d[\d,]*)\s+views""")
     }
 }

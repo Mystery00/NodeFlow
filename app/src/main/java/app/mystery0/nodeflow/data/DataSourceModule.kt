@@ -10,7 +10,7 @@ import org.koin.dsl.module
 
 val dataSourceModule = module {
     single {
-        TopicRemoteDataSource(get(), get())
+        TopicRemoteDataSource(get(), get(), get())
     }
 
     single {

@@ -31,7 +31,12 @@ class TopicRepositoryImpl(
         runCatching {
             val cachedDetail = localDataSource.topicDetail(topicId)
             val cachedTopic = cachedDetail?.topic ?: localDataSource.topic(topicId)
-            if (!forceRefresh && cachedDetail != null && cachedDetail.contentRendered.isNotBlank()) {
+            if (
+                !forceRefresh &&
+                cachedDetail != null &&
+                cachedDetail.contentRendered.isNotBlank() &&
+                cachedDetail.replies.isNotEmpty()
+            ) {
                 return@runCatching cachedDetail
             }
             runCatching { remoteDataSource.topicDetail(topicId) }
