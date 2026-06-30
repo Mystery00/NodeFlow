@@ -45,8 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
-import app.mystery0.nodeflow.core.designsystem.component.HtmlText
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
+import app.mystery0.nodeflow.core.designsystem.component.RichHtmlText
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.ui.ReplyItem
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
@@ -201,7 +201,7 @@ private fun TopicDetailContent(
                         detail = detail,
                         onUserClick = onUserClick,
                     )
-                    HtmlText(html = detail.contentRendered)
+                    RichHtmlText(html = detail.contentRendered)
                 }
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
