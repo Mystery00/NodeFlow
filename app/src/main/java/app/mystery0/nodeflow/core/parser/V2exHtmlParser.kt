@@ -1,5 +1,7 @@
 package app.mystery0.nodeflow.core.parser
 
+import app.mystery0.nodeflow.core.model.AccountWealth
+import app.mystery0.nodeflow.core.model.DailyCheckIn
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.Topic
@@ -142,6 +144,97 @@ class V2exHtmlParser {
             title = title,
         )
     }
+
+    fun parseUnreadNotificationCount(html: String): Int? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val unreadText = document.select("input.super.special.button[value], input[value*=未读], input[value*=unread]")
+            .firstOrNull()
+            ?.attr("value")
+            ?.takeIf { it.isNotBlank() }
+        val unreadCount = unreadText?.firstInt()
+        if (unreadCount != null) return unreadCount
+        val loggedIn = document.select("a[href^=/signout]").isNotEmpty()
+        return if (loggedIn) 0 else null
+    }
+
+    fun hasSignInEntry(html: String): Boolean {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val hasSignOut = document.select("a[href^=/signout]").isNotEmpty()
+        val hasSignIn = document.select("a[href^=/signin], form[action=/signin]").isNotEmpty()
+        return hasSignIn && !hasSignOut
+    }
+
+    fun parseDailyCheckIn(html: String): DailyCheckIn? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val checkInButton = document
+            .select("input[type=button][onclick], input.button[onclick], button[onclick]")
+            .firstOrNull { element ->
+                val onclick = element.attr("onclick")
+                onclick.contains("/mission/daily", ignoreCase = true) ||
+                    onclick.contains("/balance", ignoreCase = true)
+            }
+            ?: return null
+        val onclick = checkInButton.attr("onclick")
+        val checkedIn = onclick.contains("/balance", ignoreCase = true)
+        val redeemOnce = if (checkedIn) {
+            null
+        } else {
+            ONCE_REGEX.find(onclick)?.groupValues?.getOrNull(1)
+        }
+        val continuousDays = document
+            .select("span:contains(已连续), div.cell:contains(已连续)")
+            .joinToString(" ") { it.text() }
+            .let { CONTINUOUS_DAYS_REGEX.find(it)?.groupValues?.getOrNull(1)?.toIntOrNull() }
+        return DailyCheckIn(
+            checkedIn = checkedIn,
+            continuousDays = continuousDays,
+            redeemOnce = redeemOnce,
+        )
+    }
+
+    fun parseAccountWealth(html: String): AccountWealth? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val wealth = AccountWealth(
+            gold = document.parseCurrencyCount(labels = listOf("金币", "gold"), htmlKeys = listOf("gold")),
+            silver = document.parseCurrencyCount(labels = listOf("银币", "silver"), htmlKeys = listOf("silver")),
+            bronze = document.parseCurrencyCount(labels = listOf("铜币", "bronze", "copper"), htmlKeys = listOf("bronze", "copper")),
+        )
+        return wealth.takeIf { it.gold != null || it.silver != null || it.bronze != null }
+    }
+
+    private fun Document.parseCurrencyCount(labels: List<String>, htmlKeys: List<String>): Int? {
+        val candidates = select("tr, div.cell, li, p")
+        candidates.firstNotNullOfOrNull { element ->
+            val text = element.text()
+            val html = element.html().lowercase()
+            val matchesText = labels.any { label -> text.contains(label, ignoreCase = true) }
+            val matchesHtml = htmlKeys.any { key -> html.contains(key.lowercase()) }
+            if (matchesText || matchesHtml) text.firstInt() else null
+        }?.let { return it }
+        val pageText = text()
+        return labels.firstNotNullOfOrNull { label -> pageText.numberNearLabel(label) }
+    }
+
+    private fun String.numberNearLabel(label: String): Int? {
+        val escapedLabel = Regex.escape(label)
+        val afterLabel = Regex("""$escapedLabel\s*[:：]?\s*(\d[\d,]*)""", RegexOption.IGNORE_CASE)
+            .find(this)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.parseFlexibleInt()
+        if (afterLabel != null) return afterLabel
+        return Regex("""(\d[\d,]*)\s*$escapedLabel""", RegexOption.IGNORE_CASE)
+            .find(this)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.parseFlexibleInt()
+    }
+
+    private fun String.firstInt(): Int? =
+        NUMBER_REGEX.find(this)?.value?.parseFlexibleInt()
+
+    private fun String.parseFlexibleInt(): Int? =
+        replace(",", "").toIntOrNull()
 
     fun parseCurrentUsername(html: String): String? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
@@ -413,5 +506,8 @@ class V2exHtmlParser {
         val REPLY_COUNT_REGEX = Regex("""#reply(\d+)""")
         val NODE_COUNT_REGEX = Regex("""(\d+)""")
         val VIEW_COUNT_REGEX = Regex("""(\d[\d,]*)\s+views""")
+        val CONTINUOUS_DAYS_REGEX = Regex("""(\d+)\s*天""")
+        val ONCE_REGEX = Regex("""once=(\d+)""")
+        val NUMBER_REGEX = Regex("""\d[\d,]*""")
     }
 }

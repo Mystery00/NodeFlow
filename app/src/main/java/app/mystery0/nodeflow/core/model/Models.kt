@@ -17,6 +17,24 @@ data class AuthSession(
     val username: String? = null,
 )
 
+data class AccountOverview(
+    val unreadNotificationCount: Int? = null,
+    val checkIn: DailyCheckIn? = null,
+    val wealth: AccountWealth? = null,
+)
+
+data class DailyCheckIn(
+    val checkedIn: Boolean,
+    val continuousDays: Int? = null,
+    val redeemOnce: String? = null,
+)
+
+data class AccountWealth(
+    val gold: Int? = null,
+    val silver: Int? = null,
+    val bronze: Int? = null,
+)
+
 data class LoginChallenge(
     val usernameField: String,
     val passwordField: String,

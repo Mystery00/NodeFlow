@@ -269,6 +269,10 @@ class WebAuthRemoteDataSourceTest {
             return htmlResponse(homeHtml)
         }
 
+        override suspend fun dailyMission(): Response<ResponseBody> = htmlResponse("")
+
+        override suspend fun balance(): Response<ResponseBody> = htmlResponse("")
+
         override suspend fun signInTwoFactor(
             next: String,
             fields: Map<String, String>,

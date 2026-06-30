@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.domain
 
+import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.auth.SaveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsUseCase
@@ -36,6 +37,10 @@ val domainModule = module {
 
     factory {
         GetUserProfileUseCase(get())
+    }
+
+    factory {
+        GetAccountOverviewUseCase(get())
     }
 
     factory {

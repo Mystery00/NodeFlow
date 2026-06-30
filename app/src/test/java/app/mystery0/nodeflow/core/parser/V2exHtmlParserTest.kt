@@ -107,6 +107,125 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseUnreadNotificationCount_readsHomeUnreadButton() {
+        val html = """
+            <html>
+              <body>
+                <a href="/signout?once=12345">Sign Out</a>
+                <input type="button" class="super special button" value="7 条未读提醒" />
+              </body>
+            </html>
+        """.trimIndent()
+
+        assertThat(parser.parseUnreadNotificationCount(html)).isEqualTo(7)
+    }
+
+    @Test
+    fun parseUnreadNotificationCount_returnsZeroWhenLoggedInHomeHasNoUnreadButton() {
+        val html = """
+            <html>
+              <body>
+                <div id="Rightbar">
+                  <a href="/member/currentUser">currentUser</a>
+                  <a href="/signout?once=12345">Sign Out</a>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        assertThat(parser.parseUnreadNotificationCount(html)).isEqualTo(0)
+    }
+
+    @Test
+    fun hasSignInEntry_returnsTrueForSignInLinkAndForm() {
+        val linkHtml = """<a href="/signin">Sign In</a>"""
+        val formHtml = """<form action="/signin"><input name="once" /></form>"""
+
+        assertThat(parser.hasSignInEntry(linkHtml)).isTrue()
+        assertThat(parser.hasSignInEntry(formHtml)).isTrue()
+    }
+
+    @Test
+    fun hasSignInEntry_returnsFalseWhenSignOutExists() {
+        val html = """
+            <html>
+              <body>
+                <a href="/signin">Sign In</a>
+                <a href="/signout?once=12345">Sign Out</a>
+              </body>
+            </html>
+        """.trimIndent()
+
+        assertThat(parser.hasSignInEntry(html)).isFalse()
+    }
+
+    @Test
+    fun parseDailyCheckIn_readsCheckedInStatusAndContinuousDays() {
+        val html = """
+            <html>
+              <body>
+                <div class="cell">
+                  <span>currentUser 已连续签到 12 天</span>
+                  <input type="button" onclick="location.href = '/balance';" value="已签到" />
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val status = parser.parseDailyCheckIn(html)
+
+        assertThat(status).isNotNull()
+        assertThat(status!!.checkedIn).isTrue()
+        assertThat(status.continuousDays).isEqualTo(12)
+        assertThat(status.redeemOnce).isNull()
+    }
+
+    @Test
+    fun parseDailyCheckIn_readsRedeemOnceWhenCheckInAvailable() {
+        val html = """
+            <html>
+              <body>
+                <div class="cell">
+                  <span>您已连续登录 8 天</span>
+                  <input type="button" onclick="location.href = '/mission/daily/redeem?once=84830';" value="领取每日登录奖励" />
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val status = parser.parseDailyCheckIn(html)
+
+        assertThat(status).isNotNull()
+        assertThat(status!!.checkedIn).isFalse()
+        assertThat(status.continuousDays).isEqualTo(8)
+        assertThat(status.redeemOnce).isEqualTo("84830")
+    }
+
+    @Test
+    fun parseAccountWealth_readsCurrencyCountsFromBalancePage() {
+        val html = """
+            <html>
+              <body>
+                <div class="box">
+                  <table>
+                    <tr><td>金币</td><td><strong>1</strong></td></tr>
+                    <tr><td>银币</td><td><strong>23</strong></td></tr>
+                    <tr><td>铜币</td><td><strong>4,567</strong></td></tr>
+                  </table>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val wealth = parser.parseAccountWealth(html)
+
+        assertThat(wealth).isNotNull()
+        assertThat(wealth!!.gold).isEqualTo(1)
+        assertThat(wealth.silver).isEqualTo(23)
+        assertThat(wealth.bronze).isEqualTo(4567)
+    }
+
+    @Test
     fun parseSignInChallenge_returnsNullWhenRequiredFieldsAreMissing() {
         val challenge = parser.parseSignInChallenge("<html><body>No login form</body></html>")
 

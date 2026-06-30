@@ -71,4 +71,10 @@ interface V2exRawApi {
 
     @GET(".")
     suspend fun home(): Response<ResponseBody>
+
+    @GET("mission/daily")
+    suspend fun dailyMission(): Response<ResponseBody>
+
+    @GET("balance")
+    suspend fun balance(): Response<ResponseBody>
 }

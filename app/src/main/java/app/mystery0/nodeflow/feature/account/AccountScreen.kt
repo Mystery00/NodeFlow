@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.feature.account
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +29,9 @@ import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.designsystem.component.UserAvatar
+import app.mystery0.nodeflow.core.model.AccountOverview
+import app.mystery0.nodeflow.core.model.AccountWealth
+import app.mystery0.nodeflow.core.model.DailyCheckIn
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
 
@@ -70,6 +75,7 @@ fun AccountScreen(
             )
             state.user != null -> AccountContent(
                 user = state.user,
+                overview = state.overview,
                 onLogoutClick = { onEvent(AccountUiEvent.Logout) },
                 modifier = Modifier
                     .fillMaxSize()
@@ -117,6 +123,7 @@ private fun SignedOutContent(
 @Composable
 private fun AccountContent(
     user: User,
+    overview: AccountOverview?,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -142,6 +149,14 @@ private fun AccountContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        overview?.let {
+            AccountOverviewContent(
+                overview = it,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+            )
+        }
         user.bio?.takeIf { it.isNotBlank() }?.let {
             Text(
                 text = it,
@@ -161,6 +176,69 @@ private fun AccountContent(
         }
     }
 }
+
+@Composable
+private fun AccountOverviewContent(
+    overview: AccountOverview,
+    modifier: Modifier = Modifier,
+) {
+    val unreadText = overview.unreadNotificationCount?.let { "${it.formatCount()} 条" }
+    val checkInText = overview.checkIn?.let(::formatCheckIn)
+    val wealthText = overview.wealth?.let(::formatWealth)
+    val rows = listOfNotNull(
+        unreadText?.let { "未读提醒" to it },
+        checkInText?.let { "签到" to it },
+        wealthText?.let { "财富" to it },
+    )
+    if (rows.isEmpty()) return
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+        rows.forEach { (label, value) ->
+            OverviewLine(label = label, value = value)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+    }
+}
+
+@Composable
+private fun OverviewLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+private fun formatCheckIn(checkIn: DailyCheckIn): String {
+    val status = if (checkIn.checkedIn) "已签到" else "待签到"
+    val days = checkIn.continuousDays?.let { " · 连续 ${it.formatCount()} 天" }.orEmpty()
+    return status + days
+}
+
+private fun formatWealth(wealth: AccountWealth): String? {
+    val parts = listOfNotNull(
+        wealth.gold?.let { "金币 ${it.formatCount()}" },
+        wealth.silver?.let { "银币 ${it.formatCount()}" },
+        wealth.bronze?.let { "铜币 ${it.formatCount()}" },
+    )
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+}
+
+private fun Int.formatCount(): String = "%,d".format(this)
 
 @Composable
 private fun AccountLine(label: String, value: String?) {
