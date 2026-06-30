@@ -45,3 +45,17 @@ fun Response<ResponseBody>.bodyStringOrThrow(): String {
             message = "服务器返回空内容",
         )
 }
+
+fun Response<ResponseBody>.bodyBytesOrThrow(): ByteArray {
+    if (!isSuccessful) {
+        throw NodeFlowException(
+            kind = NodeFlowException.Kind.Http,
+            message = "请求失败：HTTP ${code()}",
+        )
+    }
+    return body()?.bytes()
+        ?: throw NodeFlowException(
+            kind = NodeFlowException.Kind.EmptyBody,
+            message = "服务器返回空内容",
+        )
+}

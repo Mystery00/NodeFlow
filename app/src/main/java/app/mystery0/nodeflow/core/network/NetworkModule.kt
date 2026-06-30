@@ -20,6 +20,14 @@ val networkModule = module {
     }
 
     single {
+        V2exCookieJar()
+    }
+
+    single {
+        UserAgentInterceptor()
+    }
+
+    single {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BASIC
@@ -28,6 +36,8 @@ val networkModule = module {
             }
         }
         OkHttpClient.Builder()
+            .cookieJar(get<V2exCookieJar>())
+            .addInterceptor(get<UserAgentInterceptor>())
             .addInterceptor(get<AuthInterceptor>())
             .addInterceptor(loggingInterceptor)
             .build()

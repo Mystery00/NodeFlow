@@ -10,6 +10,7 @@ class NodeFlowException(
         Http,
         EmptyBody,
         Parse,
+        Auth,
         Unknown,
     }
 }

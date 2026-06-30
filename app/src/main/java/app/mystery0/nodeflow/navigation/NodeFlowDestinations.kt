@@ -6,6 +6,7 @@ object NodeFlowDestinations {
     const val Main = "main"
     const val Home = "home"
     const val NodeList = "nodes"
+    const val Account = "account"
     const val Settings = "settings"
     const val NodeRoute = "node/{nodeName}"
     const val TopicRoute = "topic/{topicId}"
@@ -18,9 +19,9 @@ object NodeFlowDestinations {
     fun topic(topicId: Long): String = "topic/$topicId"
     fun profile(username: String): String = "profile/${Uri.encode(username)}"
 
-    fun isTopLevelRoute(route: String?): Boolean = route in setOf(Home, NodeList, Settings)
+    fun isTopLevelRoute(route: String?): Boolean = route in setOf(Home, NodeList, Account)
 
-    fun isRootDetailRoute(route: String?): Boolean = route in setOf(NodeRoute, TopicRoute, ProfileRoute)
+    fun isRootDetailRoute(route: String?): Boolean = route in setOf(NodeRoute, TopicRoute, ProfileRoute, Settings, Auth)
 }
 
 fun rootStartDestination(): String = NodeFlowDestinations.Main

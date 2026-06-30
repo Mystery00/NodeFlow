@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -21,18 +21,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.mystery0.nodeflow.core.model.Topic
+import app.mystery0.nodeflow.feature.account.AccountScreen
+import app.mystery0.nodeflow.feature.account.AccountViewModel
 import app.mystery0.nodeflow.feature.home.HomeScreen
 import app.mystery0.nodeflow.feature.home.HomeViewModel
 import app.mystery0.nodeflow.feature.node.NodeListScreen
 import app.mystery0.nodeflow.feature.node.NodeListViewModel
-import app.mystery0.nodeflow.feature.settings.SettingsScreen
-import app.mystery0.nodeflow.feature.settings.SettingsViewModel
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun MainShell(
     onTopicClick: (Topic) -> Unit,
     onNodeClick: (String) -> Unit,
+    onSettingsClick: () -> Unit,
+    onLoginClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
@@ -51,8 +53,8 @@ fun MainShell(
                 onNodeClick = {
                     navController.navigateTopLevel(nodeBottomBarRoute())
                 },
-                onSettingsClick = {
-                    navController.navigateTopLevel(NodeFlowDestinations.Settings)
+                onAccountClick = {
+                    navController.navigateTopLevel(accountBottomBarRoute())
                 },
             )
         },
@@ -81,12 +83,14 @@ fun MainShell(
                     onNodeClick = onNodeClick,
                 )
             }
-            composable(NodeFlowDestinations.Settings) {
-                val viewModel: SettingsViewModel = koinViewModel()
+            composable(NodeFlowDestinations.Account) {
+                val viewModel: AccountViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
-                SettingsScreen(
+                AccountScreen(
                     state = state,
                     onEvent = viewModel::onEvent,
+                    onSettingsClick = onSettingsClick,
+                    onLoginClick = onLoginClick,
                 )
             }
         }
@@ -102,7 +106,7 @@ private fun NodeFlowBottomBar(
     currentRoute: String?,
     onHomeClick: () -> Unit,
     onNodeClick: () -> Unit,
-    onSettingsClick: () -> Unit,
+    onAccountClick: () -> Unit,
 ) {
     NavigationBar {
         NavigationBarItem(
@@ -118,10 +122,10 @@ private fun NodeFlowBottomBar(
             label = { Text("节点") },
         )
         NavigationBarItem(
-            selected = currentRoute == NodeFlowDestinations.Settings,
-            onClick = onSettingsClick,
-            icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
-            label = { Text("设置") },
+            selected = isAccountBottomBarSelected(currentRoute),
+            onClick = onAccountClick,
+            icon = { Icon(Icons.Outlined.Person, contentDescription = null) },
+            label = { Text("我的") },
         )
     }
 }
@@ -129,6 +133,10 @@ private fun NodeFlowBottomBar(
 fun nodeBottomBarRoute(): String = NodeFlowDestinations.NodeList
 
 fun isNodeBottomBarSelected(currentRoute: String?): Boolean = currentRoute == NodeFlowDestinations.NodeList
+
+fun accountBottomBarRoute(): String = NodeFlowDestinations.Account
+
+fun isAccountBottomBarSelected(currentRoute: String?): Boolean = currentRoute == NodeFlowDestinations.Account
 
 private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
     navigate(route) {

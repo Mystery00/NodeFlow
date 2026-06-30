@@ -1,6 +1,7 @@
 package app.mystery0.nodeflow.feature
 
 import app.mystery0.nodeflow.AppViewModel
+import app.mystery0.nodeflow.feature.account.AccountViewModel
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
 import app.mystery0.nodeflow.feature.editor.EditorViewModel
 import app.mystery0.nodeflow.feature.home.HomeViewModel
@@ -40,6 +41,10 @@ val featureModule = module {
 
     viewModel {
         SettingsViewModel(get(), get(), get())
+    }
+
+    viewModel {
+        AccountViewModel(get(), get(), get())
     }
 
     viewModel {

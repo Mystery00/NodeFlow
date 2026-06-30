@@ -17,6 +17,26 @@ data class AuthSession(
     val username: String? = null,
 )
 
+data class LoginChallenge(
+    val usernameField: String,
+    val passwordField: String,
+    val captchaField: String,
+    val once: String,
+    val next: String,
+    val captchaPath: String,
+    val captchaImageBytes: ByteArray,
+)
+
+data class TwoFactorChallenge(
+    val once: String,
+    val title: String,
+)
+
+sealed interface AuthLoginResult {
+    data class Completed(val session: AuthSession) : AuthLoginResult
+    data class TwoFactorRequired(val challenge: TwoFactorChallenge) : AuthLoginResult
+}
+
 data class User(
     val id: Long? = null,
     val username: String,

@@ -28,6 +28,141 @@ class V2exHtmlParser {
             .mapNotNull { box -> parseNodePlane(box) }
     }
 
+    fun parseSignInChallenge(html: String): ParsedSignInChallenge? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val form = document.selectFirst("form[action=/signin]")
+            ?: document.selectFirst("form:has(input[type=password][name]):has(input[name=once])")
+            ?: return null
+        val textInputs = form.select("input[type=text][name]")
+        val usernameInput = textInputs.firstOrNull { input ->
+            val placeholder = input.attr("placeholder")
+            placeholder.contains("username", ignoreCase = true) ||
+                placeholder.contains("email", ignoreCase = true) ||
+                placeholder.contains("用户名")
+        } ?: textInputs.firstOrNull()
+        val usernameField = usernameInput
+            ?.attr("name")
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val passwordField = form.selectFirst("input[type=password][name]")
+            ?.attr("name")
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val captchaInput = textInputs.lastOrNull { input ->
+            val placeholder = input.attr("placeholder")
+            placeholder.contains("captcha", ignoreCase = true) ||
+                placeholder.contains("code", ignoreCase = true) ||
+                placeholder.contains("验证码")
+        } ?: textInputs.lastOrNull { it.attr("name") != usernameField }
+        val captchaField = captchaInput?.attr("name")?.takeIf { it.isNotBlank() } ?: return null
+        val once = form.selectFirst("input[type=hidden][name=once]")
+            ?.attr("value")
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val captchaPath = form.selectFirst("img#captcha-image[src], img[src*=_captcha]")
+            ?.attr("src")
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val next = form.selectFirst("input[type=hidden][name=next]")
+            ?.attr("value")
+            ?.takeIf { it.isNotBlank() }
+            ?: "/"
+        return ParsedSignInChallenge(
+            usernameField = usernameField,
+            passwordField = passwordField,
+            captchaField = captchaField,
+            once = once,
+            next = next,
+            captchaPath = captchaPath,
+        )
+    }
+
+    fun parseLoginAccount(html: String): ParsedLoginAccount? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val accountLinks = document
+            .select("#Rightbar a[href^=/member/], #Top a[href^=/member/], #Header a[href^=/member/]")
+            .takeIf { it.isNotEmpty() }
+            ?: document.select("a[href^=/member/]")
+        val username = accountLinks
+            .mapNotNull { link ->
+                link.attr("href")
+                    .substringAfter("/member/", missingDelimiterValue = "")
+                    .substringBefore("?")
+                    .takeIf { it.isNotBlank() }
+            }
+            .firstOrNull()
+            ?: return null
+        val avatarUrl = document
+            .select("#Rightbar img[src*=avatar/], #Top img[src*=avatar/], #Header img[src*=avatar/], img.avatar[src], img[src*=avatar/]")
+            .firstOrNull()
+            ?.attr("src")
+            ?.normalizeV2exUrl()
+            ?.replace("normal.png", "large.png")
+        val hasLoggedInMarker = document.select("a[href^=/signout]").isNotEmpty() ||
+            document.select("input[onclick*=mission/daily], input[onclick*=balance]").isNotEmpty() ||
+            document.text().contains("已连续") ||
+            avatarUrl != null
+        if (!hasLoggedInMarker) return null
+        return ParsedLoginAccount(
+            username = username,
+            avatarUrl = avatarUrl,
+        )
+    }
+
+    fun parseLoginProblem(html: String): String? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        return document.select("div.problem, #problem, .message")
+            .mapNotNull { it.text().trim().takeIf(String::isNotBlank) }
+            .firstOrNull()
+    }
+
+    fun parseTwoFactorChallenge(html: String): ParsedTwoFactorChallenge? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val form = document.selectFirst("form[method=post]")
+            ?: document.selectFirst("form:has(input[type=hidden][name=once])")
+            ?: return null
+        val formText = form.text()
+        val isTwoFactorForm = formText.contains("两步验证") ||
+            formText.contains("two-factor", ignoreCase = true) ||
+            formText.contains("two factor", ignoreCase = true) ||
+            formText.contains("two-step", ignoreCase = true) ||
+            formText.contains("two step", ignoreCase = true)
+        if (!isTwoFactorForm) return null
+        val once = form.selectFirst("input[type=hidden][name=once]")
+            ?.attr("value")
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val title = form.selectFirst("tr:first-child, .header, h1")
+            ?.text()
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: "两步验证"
+        return ParsedTwoFactorChallenge(
+            once = once,
+            title = title,
+        )
+    }
+
+    fun parseCurrentUsername(html: String): String? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val hasSignOut = document.select("a[href^=/signout]").isNotEmpty()
+        if (!hasSignOut) return null
+        val accountLinks = document.select("#Rightbar a[href^=/member/], #Top a[href^=/member/], #Header a[href^=/member/]")
+            .takeIf { it.isNotEmpty() }
+            ?: document.select("a[href^=/member/]")
+        return accountLinks
+            .mapNotNull { link ->
+                link.attr("href")
+                    .substringAfter("/member/", missingDelimiterValue = "")
+                    .substringBefore("?")
+                    .takeIf { it.isNotBlank() }
+            }
+            .firstOrNull()
+    }
+
+    fun isLoggedInAs(html: String, username: String): Boolean =
+        parseCurrentUsername(html)?.equals(username, ignoreCase = true) == true
+
     fun extractImageUrls(html: String): List<String> {
         val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
         val imageSources = document.select("img[src]")
@@ -248,6 +383,25 @@ class V2exHtmlParser {
         val viewCount: Int? = null,
         val hotReplyCount: Int? = null,
         val tags: List<String> = emptyList(),
+    )
+
+    data class ParsedSignInChallenge(
+        val usernameField: String,
+        val passwordField: String,
+        val captchaField: String,
+        val once: String,
+        val next: String,
+        val captchaPath: String,
+    )
+
+    data class ParsedLoginAccount(
+        val username: String,
+        val avatarUrl: String?,
+    )
+
+    data class ParsedTwoFactorChallenge(
+        val once: String,
+        val title: String,
     )
 
     private companion object {

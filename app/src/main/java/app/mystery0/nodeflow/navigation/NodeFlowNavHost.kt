@@ -27,6 +27,8 @@ import app.mystery0.nodeflow.feature.notification.NotificationScreen
 import app.mystery0.nodeflow.feature.notification.NotificationViewModel
 import app.mystery0.nodeflow.feature.profile.ProfileScreen
 import app.mystery0.nodeflow.feature.profile.ProfileViewModel
+import app.mystery0.nodeflow.feature.settings.SettingsScreen
+import app.mystery0.nodeflow.feature.settings.SettingsViewModel
 import app.mystery0.nodeflow.feature.topicdetail.TopicDetailScreen
 import app.mystery0.nodeflow.feature.topicdetail.TopicDetailViewModel
 import org.koin.androidx.compose.koinViewModel
@@ -53,6 +55,21 @@ fun NodeFlowNavHost(
                 onNodeClick = { nodeName ->
                     navController.navigate(NodeFlowDestinations.node(nodeName))
                 },
+                onSettingsClick = {
+                    navController.navigate(NodeFlowDestinations.Settings)
+                },
+                onLoginClick = {
+                    navController.navigate(NodeFlowDestinations.Auth)
+                },
+            )
+        }
+        composable(NodeFlowDestinations.Settings) {
+            val viewModel: SettingsViewModel = koinViewModel()
+            val state by viewModel.uiState.collectAsStateWithLifecycle()
+            SettingsScreen(
+                state = state,
+                onEvent = viewModel::onEvent,
+                onBackClick = { navController.popBackStack() },
             )
         }
         composable(
@@ -106,7 +123,12 @@ fun NodeFlowNavHost(
         composable(NodeFlowDestinations.Auth) {
             val viewModel: AuthViewModel = koinViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
-            AuthScreen(state = state, onEvent = viewModel::onEvent)
+            AuthScreen(
+                state = state,
+                onEvent = viewModel::onEvent,
+                onBackClick = { navController.popBackStack() },
+                onLoginSuccess = { navController.popBackStack() },
+            )
         }
         composable(NodeFlowDestinations.Notification) {
             val viewModel: NotificationViewModel = koinViewModel()

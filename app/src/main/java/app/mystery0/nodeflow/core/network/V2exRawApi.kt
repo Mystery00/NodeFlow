@@ -2,8 +2,12 @@ package app.mystery0.nodeflow.core.network
 
 import okhttp3.ResponseBody
 import retrofit2.Response
+import retrofit2.http.FieldMap
+import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.Path
+import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface V2exRawApi {
@@ -39,4 +43,32 @@ interface V2exRawApi {
 
     @GET("member/{username}")
     suspend fun memberHtml(@Path("username") username: String): Response<ResponseBody>
+
+    @GET("signin")
+    suspend fun signInPage(@Query("next") next: String = "/mission/daily"): Response<ResponseBody>
+
+    @GET("_captcha")
+    suspend fun captcha(
+        @Query("_") cacheBust: Long,
+        @Header("Referer") referer: String = "https://www.v2ex.com/signin",
+    ): Response<ResponseBody>
+
+    @FormUrlEncoded
+    @POST("signin")
+    suspend fun signIn(
+        @FieldMap fields: Map<String, String>,
+        @Header("Origin") origin: String = "https://www.v2ex.com",
+        @Header("Referer") referer: String = "https://www.v2ex.com/signin?next=/mission/daily",
+    ): Response<ResponseBody>
+
+    @FormUrlEncoded
+    @POST("2fa")
+    suspend fun signInTwoFactor(
+        @Query("next") next: String = "/mission/daily",
+        @FieldMap fields: Map<String, String>,
+        @Header("Referer") referer: String = "https://www.v2ex.com/mission/daily",
+    ): Response<ResponseBody>
+
+    @GET(".")
+    suspend fun home(): Response<ResponseBody>
 }

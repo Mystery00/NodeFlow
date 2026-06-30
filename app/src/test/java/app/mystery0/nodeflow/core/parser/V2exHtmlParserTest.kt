@@ -7,6 +7,148 @@ class V2exHtmlParserTest {
     private val parser = V2exHtmlParser()
 
     @Test
+    fun parseSignInChallenge_readsDynamicFieldsAndCaptchaPath() {
+        val html = """
+            <html>
+              <body>
+                <form method="post" action="/signin">
+                  <input type="text" class="sl" name="user_field_hash" value="" placeholder="Username or Email" />
+                  <input type="password" class="sl" name="pass_field_hash" value="" />
+                  <img id="captcha-image" width="320" height="80" src="/_captcha" alt="CAPTCHA">
+                  <input type="text" class="sl" name="captcha_field_hash" value="" placeholder="Enter the code above, click to change">
+                  <input type="hidden" value="66994" name="once" />
+                  <input type="hidden" value="/" name="next" />
+                </form>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val challenge = parser.parseSignInChallenge(html)
+
+        assertThat(challenge).isNotNull()
+        assertThat(challenge!!.usernameField).isEqualTo("user_field_hash")
+        assertThat(challenge.passwordField).isEqualTo("pass_field_hash")
+        assertThat(challenge.captchaField).isEqualTo("captcha_field_hash")
+        assertThat(challenge.once).isEqualTo("66994")
+        assertThat(challenge.next).isEqualTo("/")
+        assertThat(challenge.captchaPath).isEqualTo("/_captcha")
+    }
+
+    @Test
+    fun parseSignInChallenge_readsCurrentChineseSignInForm() {
+        val html = """
+            <html>
+              <body>
+                <form method="post" action="/signin">
+                  <input type="hidden" name="next" value="/mission/daily" />
+                  <input type="text" class="sl" name="user_hash" value="" />
+                  <input type="hidden" value="91811" name="once" />
+                  <input type="password" class="sl" name="pass_hash" value="" />
+                  <img id="captcha-image" width="280" height="80" src="/_captcha" alt="CAPTCHA">
+                  <input type="text" class="sl" name="captcha_hash" value="" placeholder="请输入上图中的验证码" />
+                </form>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val challenge = parser.parseSignInChallenge(html)
+
+        assertThat(challenge).isNotNull()
+        assertThat(challenge!!.usernameField).isEqualTo("user_hash")
+        assertThat(challenge.passwordField).isEqualTo("pass_hash")
+        assertThat(challenge.captchaField).isEqualTo("captcha_hash")
+        assertThat(challenge.once).isEqualTo("91811")
+        assertThat(challenge.next).isEqualTo("/mission/daily")
+    }
+
+    @Test
+    fun parseLoginAccount_readsUserFromDailyPage() {
+        val html = """
+            <html>
+              <body>
+                <div id="Rightbar">
+                  <a href="/member/currentUser">currentUser</a>
+                  <img src="//cdn.v2ex.com/avatar/current_normal.png" />
+                </div>
+                <div class="cell">
+                  <input type="button" onclick="location.href = '/mission/daily/redeem?once=12345';" />
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val account = parser.parseLoginAccount(html)
+
+        assertThat(account).isNotNull()
+        assertThat(account!!.username).isEqualTo("currentUser")
+        assertThat(account.avatarUrl).isEqualTo("https://cdn.v2ex.com/avatar/current_large.png")
+    }
+
+    @Test
+    fun parseTwoFactorChallenge_readsOnceFromTwoFactorForm() {
+        val html = """
+            <html>
+              <body>
+                <form method="post" action="/2fa?next=/mission/daily">
+                  <table>
+                    <tr><td>两步验证</td></tr>
+                    <tr><td><input type="hidden" name="once" value="24680" /></td></tr>
+                  </table>
+                </form>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val challenge = parser.parseTwoFactorChallenge(html)
+
+        assertThat(challenge).isNotNull()
+        assertThat(challenge!!.once).isEqualTo("24680")
+        assertThat(challenge.title).contains("两步验证")
+    }
+
+    @Test
+    fun parseSignInChallenge_returnsNullWhenRequiredFieldsAreMissing() {
+        val challenge = parser.parseSignInChallenge("<html><body>No login form</body></html>")
+
+        assertThat(challenge).isNull()
+    }
+
+    @Test
+    fun parseCurrentUsername_readsLoggedInMemberLinkWhenSignOutExists() {
+        val html = """
+            <html>
+              <body>
+                <div id="Main">
+                  <a href="/member/topic-author">topic-author</a>
+                </div>
+                <div id="Rightbar">
+                  <a href="/member/currentUser">currentUser</a>
+                  <a href="/signout?once=12345">Sign Out</a>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        assertThat(parser.parseCurrentUsername(html)).isEqualTo("currentUser")
+        assertThat(parser.isLoggedInAs(html, "currentUser")).isTrue()
+    }
+
+    @Test
+    fun parseCurrentUsername_returnsNullWhenHomePageIsAnonymous() {
+        val html = """
+            <html>
+              <body>
+                <a href="/signin">Sign In</a>
+                <a href="/member/other">other</a>
+              </body>
+            </html>
+        """.trimIndent()
+
+        assertThat(parser.parseCurrentUsername(html)).isNull()
+        assertThat(parser.isLoggedInAs(html, "currentUser")).isFalse()
+    }
+
+    @Test
     fun parseNodePlanes_readsGroupedNodesFromPlanesPage() {
         val html = """
             <html>

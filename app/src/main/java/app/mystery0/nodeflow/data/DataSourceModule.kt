@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.data
 
+import app.mystery0.nodeflow.data.auth.WebAuthRemoteDataSource
 import app.mystery0.nodeflow.data.node.NodeLocalDataSource
 import app.mystery0.nodeflow.data.node.NodeRemoteDataSource
 import app.mystery0.nodeflow.data.topic.TopicLocalDataSource
@@ -31,5 +32,9 @@ val dataSourceModule = module {
 
     single {
         UserLocalDataSource(get())
+    }
+
+    single {
+        WebAuthRemoteDataSource(get(), get(), get())
     }
 }
