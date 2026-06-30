@@ -253,6 +253,33 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseAccountWealth_readsCurrencyCountsBeforeIcons() {
+        val html = """
+            <html>
+              <body>
+                <div class="box">
+                  <div class="cell">
+                    6 <img src="/static/img/gold.png" alt="gold" />
+                    28 <img src="/static/img/silver.png" alt="silver" />
+                    62 <img src="/static/img/bronze.png" alt="bronze" />
+                  </div>
+                  <div class="cell">
+                    2026-06-30 每日登录奖励 铜币 10
+                  </div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val wealth = parser.parseAccountWealth(html)
+
+        assertThat(wealth).isNotNull()
+        assertThat(wealth!!.gold).isEqualTo(6)
+        assertThat(wealth.silver).isEqualTo(28)
+        assertThat(wealth.bronze).isEqualTo(62)
+    }
+
+    @Test
     fun parseSignInChallenge_returnsNullWhenRequiredFieldsAreMissing() {
         val challenge = parser.parseSignInChallenge("<html><body>No login form</body></html>")
 

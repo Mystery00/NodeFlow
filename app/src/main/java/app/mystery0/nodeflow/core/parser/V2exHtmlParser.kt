@@ -203,7 +203,7 @@ class V2exHtmlParser {
     }
 
     private fun Document.parseCurrencyCount(labels: List<String>, htmlKeys: List<String>): Int? {
-        outerHtml().currencyCountAfterImage(htmlKeys)?.let { return it }
+        outerHtml().currencyCountNearImage(htmlKeys)?.let { return it }
         val candidates = select("tr, div.cell, li, p")
         candidates.firstNotNullOfOrNull { element ->
             val text = element.text()
@@ -213,22 +213,45 @@ class V2exHtmlParser {
         return labels.firstNotNullOfOrNull { label -> pageText.numberNearLabel(label) }
     }
 
-    private fun String.currencyCountAfterImage(htmlKeys: List<String>): Int? =
-        htmlKeys.firstNotNullOfOrNull { key ->
-            val imageRegex = Regex("""<img\b[^>]*${Regex.escape(key)}[^>]*>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    private fun String.currencyCountNearImage(htmlKeys: List<String>): Int? {
+        val readBeforeImage = CURRENCY_IMAGE_REGEX.find(this)
+            ?.let { match -> countBeforeImage(match) != null }
+            ?: false
+        return htmlKeys.firstNotNullOfOrNull { key ->
+            val imageRegex = Regex(
+                """<img\b[^>]*${Regex.escape(key)}[^>]*>""",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+            )
             imageRegex.findAll(this).firstNotNullOfOrNull { match ->
-                val afterImage = substring(match.range.last + 1)
-                val nextImageStart = Regex("""<img\b""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-                    .find(afterImage)
-                    ?.range
-                    ?.first
-                    ?: afterImage.length
-                afterImage
-                    .take(nextImageStart)
-                    .replace(Regex("""<[^>]+>"""), " ")
-                    .firstInt()
+                if (readBeforeImage) countBeforeImage(match) else countAfterImage(match)
             }
         }
+    }
+
+    private fun String.countBeforeImage(match: MatchResult): Int? {
+        val beforeImage = substring(0, match.range.first)
+        val previousTagEnd = beforeImage.lastIndexOf('>').takeIf { it >= 0 }?.plus(1) ?: 0
+        return beforeImage
+            .substring(previousTagEnd)
+            .replace(HTML_TAG_REGEX, " ")
+            .lastInt()
+    }
+
+    private fun String.countAfterImage(match: MatchResult): Int? {
+        val afterImage = substring(match.range.last + 1)
+        val nextImageStart = IMAGE_TAG_REGEX
+            .find(afterImage)
+            ?.range
+            ?.first
+            ?: afterImage.length
+        return afterImage
+            .take(nextImageStart)
+            .replace(HTML_TAG_REGEX, " ")
+            .firstInt()
+    }
+
+    private fun String.lastInt(): Int? =
+        NUMBER_REGEX.findAll(this).lastOrNull()?.value?.parseFlexibleInt()
 
     private fun String.numberNearLabel(label: String): Int? {
         val escapedLabel = Regex.escape(label)
@@ -547,5 +570,11 @@ class V2exHtmlParser {
         val CONTINUOUS_DAYS_REGEX = Regex("""(\d+)\s*天""")
         val ONCE_REGEX = Regex("""once=(\d+)""")
         val NUMBER_REGEX = Regex("""\d[\d,]*""")
+        val HTML_TAG_REGEX = Regex("""<[^>]+>""")
+        val IMAGE_TAG_REGEX = Regex("""<img\b""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+        val CURRENCY_IMAGE_REGEX = Regex(
+            """<img\b[^>]*(gold|silver|bronze|copper)[^>]*>""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+        )
     }
 }
