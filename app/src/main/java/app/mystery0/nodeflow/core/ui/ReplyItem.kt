@@ -56,6 +56,8 @@ fun ReplyItem(
             }
             HtmlText(html = reply.contentRendered)
         }
-        HorizontalDivider()
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
+        )
     }
 }

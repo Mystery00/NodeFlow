@@ -203,9 +203,13 @@ private fun TopicDetailContent(
                     )
                     HtmlText(html = detail.contentRendered)
                 }
-                HorizontalDivider()
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
+                )
                 ReplySummaryRow(detail = detail)
-                HorizontalDivider()
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
+                )
             }
             items(detail.replies, key = { it.id }) { reply ->
                 ReplyItem(reply = reply)
