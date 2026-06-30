@@ -5,6 +5,7 @@ import app.mystery0.nodeflow.core.model.AuthLoginResult
 import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.model.LoginChallenge
 import app.mystery0.nodeflow.core.model.TwoFactorChallenge
+import app.mystery0.nodeflow.core.network.V2exCookieJar
 import app.mystery0.nodeflow.domain.auth.AuthRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.withContext
 class AuthRepositoryImpl(
     private val sessionStore: SessionStore,
     private val webAuthRemoteDataSource: WebAuthRemoteDataSource,
+    private val cookieJar: V2exCookieJar,
     private val ioDispatcher: CoroutineDispatcher,
 ) : AuthRepository {
     override val session: Flow<AuthSession> = sessionStore.session
@@ -54,6 +56,7 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun clearSession() {
+        cookieJar.clear()
         sessionStore.clear()
     }
 }

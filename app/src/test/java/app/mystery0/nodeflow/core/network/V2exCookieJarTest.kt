@@ -29,4 +29,106 @@ class V2exCookieJarTest {
         assertThat(cookieJar.cookieHeader(v2exUrl)).isEqualTo("A2=auth; V2EX_LANG=zhcn")
         assertThat(cookieJar.cookieHeader(otherUrl)).isEmpty()
     }
+
+    @Test
+    fun loadForRequest_restoresCookiesFromStorage() {
+        val storage = FakeCookieStorage()
+        val v2exUrl = "https://www.v2ex.com/signin".toHttpUrl()
+        val firstJar = V2exCookieJar(storage = storage)
+        firstJar.saveFromResponse(
+            v2exUrl,
+            listOf(
+                Cookie.Builder()
+                    .domain("www.v2ex.com")
+                    .path("/")
+                    .name("A2")
+                    .value("auth")
+                    .build(),
+            ),
+        )
+
+        val restoredJar = V2exCookieJar(storage = storage)
+
+        assertThat(restoredJar.cookieHeader(v2exUrl)).isEqualTo("A2=auth")
+    }
+
+    @Test
+    fun saveFromResponse_removesExpiredCookiesFromStorage() {
+        val storage = FakeCookieStorage()
+        val v2exUrl = "https://www.v2ex.com/signin".toHttpUrl()
+        val cookieJar = V2exCookieJar(storage = storage)
+        cookieJar.saveFromResponse(
+            v2exUrl,
+            listOf(
+                Cookie.Builder()
+                    .domain("www.v2ex.com")
+                    .path("/")
+                    .name("A2")
+                    .value("auth")
+                    .build(),
+            ),
+        )
+
+        val expiredCookie = Cookie.parse(
+            v2exUrl,
+            "A2=deleted; Max-Age=0; Domain=www.v2ex.com; Path=/",
+        )!!
+        cookieJar.saveFromResponse(v2exUrl, listOf(expiredCookie))
+        val restoredJar = V2exCookieJar(storage = storage)
+
+        assertThat(restoredJar.cookieHeader(v2exUrl)).isEmpty()
+        assertThat(storage.cookies).isEmpty()
+    }
+
+    @Test
+    fun clear_removesMemoryAndStoredCookies() {
+        val storage = FakeCookieStorage()
+        val v2exUrl = "https://www.v2ex.com/signin".toHttpUrl()
+        val cookieJar = V2exCookieJar(storage = storage)
+        cookieJar.saveFromResponse(
+            v2exUrl,
+            listOf(
+                Cookie.Builder()
+                    .domain("www.v2ex.com")
+                    .path("/")
+                    .name("A2")
+                    .value("auth")
+                    .build(),
+            ),
+        )
+
+        cookieJar.clear()
+        val restoredJar = V2exCookieJar(storage = storage)
+
+        assertThat(cookieJar.cookieHeader(v2exUrl)).isEmpty()
+        assertThat(restoredJar.cookieHeader(v2exUrl)).isEmpty()
+        assertThat(storage.cookies).isEmpty()
+    }
+
+    @Test
+    fun restoreFromCookieHeader_persistsCookiesForLaterRequests() {
+        val storage = FakeCookieStorage()
+        val v2exUrl = "https://www.v2ex.com/signin".toHttpUrl()
+        val cookieJar = V2exCookieJar(storage = storage)
+
+        cookieJar.restoreFromCookieHeader(v2exUrl, "A2=auth; V2EX_LANG=zhcn")
+        val restoredJar = V2exCookieJar(storage = storage)
+
+        assertThat(restoredJar.cookieHeader(v2exUrl)).isEqualTo("A2=auth; V2EX_LANG=zhcn")
+    }
+
+    private class FakeCookieStorage : V2exCookieStorage {
+        var cookies: List<StoredCookie> = emptyList()
+            private set
+
+        override fun load(): List<StoredCookie> = cookies
+
+        override fun save(cookies: List<StoredCookie>) {
+            this.cookies = cookies
+        }
+
+        override fun clear() {
+            cookies = emptyList()
+        }
+    }
 }

@@ -36,7 +36,7 @@ val repositoryModule = module {
     }
 
     single<AuthRepository> {
-        AuthRepositoryImpl(get(), get(), get(named(IO_DISPATCHER)))
+        AuthRepositoryImpl(get(), get(), get(), get(named(IO_DISPATCHER)))
     }
 
     single<AccountOverviewRepository> {
