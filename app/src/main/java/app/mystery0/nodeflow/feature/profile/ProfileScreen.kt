@@ -104,9 +104,8 @@ private fun ProfileContent(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        ProfileLine(label = "位置", value = user.location)
-        ProfileLine(label = "网站", value = user.website)
-        ProfileLine(label = "GitHub", value = user.github)
+        ProfileLine(label = "会员", value = formatMemberNumber(user.memberNumber))
+        ProfileLine(label = "今日活跃度排名", value = formatDailyActivityRank(user.dailyActivityRank))
         ProfileLine(label = "加入时间", value = formatEpochSeconds(user.createdAtEpochSeconds))
         Text(
             text = "TODO：后续补充用户主题、收藏节点和更完整的网页登录资料解析。",
@@ -118,6 +117,16 @@ private fun ProfileContent(
         )
     }
 }
+
+private fun formatMemberNumber(memberNumber: Long?): String? =
+    memberNumber?.let { "V2EX 第 ${it.formatCount()} 号会员" }
+
+private fun formatDailyActivityRank(rank: Int?): String? =
+    rank?.let { "第 ${it.formatCount()} 名" }
+
+private fun Long.formatCount(): String = "%,d".format(this)
+
+private fun Int.formatCount(): String = "%,d".format(this)
 
 @Composable
 private fun ProfileLine(label: String, value: String?) {

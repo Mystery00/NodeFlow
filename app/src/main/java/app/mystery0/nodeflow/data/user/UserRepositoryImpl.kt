@@ -14,7 +14,7 @@ class UserRepositoryImpl(
         withContext(ioDispatcher) {
             runCatching {
                 val cached = localDataSource.user(username)
-                if (!forceRefresh && cached != null) return@runCatching cached
+                if (!forceRefresh && cached != null && cached.hasProfileMetadata()) return@runCatching cached
                 runCatching { remoteDataSource.user(username) }
                     .onSuccess { localDataSource.cacheUser(it) }
                     .getOrElse { error -> cached ?: throw error }
@@ -26,4 +26,7 @@ class UserRepositoryImpl(
             localDataSource.clear()
         }
     }
+
+    private fun User.hasProfileMetadata(): Boolean =
+        memberNumber != null && dailyActivityRank != null
 }

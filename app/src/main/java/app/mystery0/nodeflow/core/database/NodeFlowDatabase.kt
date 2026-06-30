@@ -15,7 +15,7 @@ import app.mystery0.nodeflow.core.database.entity.UserEntity
         NodeEntity::class,
         UserEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class NodeFlowDatabase : RoomDatabase() {

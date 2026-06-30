@@ -17,13 +17,14 @@ class UserRemoteDataSource(
 ) {
     suspend fun user(username: String): User = safeNetworkCall {
         val apiUser = json.decodeFromString<V2exMemberDto>(api.member(username).bodyStringOrThrow()).toUser()
-        if (apiUser.bio.isNullOrBlank()) {
-            val htmlUser = runCatching {
-                parser.parseUserProfile(username, api.memberHtml(username).bodyStringOrThrow())
-            }.getOrNull()
-            apiUser.copy(bio = htmlUser?.bio ?: apiUser.bio)
-        } else {
-            apiUser
-        }
+        val htmlUser = runCatching {
+            parser.parseUserProfile(username, api.memberHtml(username).bodyStringOrThrow())
+        }.getOrNull()
+        apiUser.copy(
+            avatarUrl = apiUser.avatarUrl ?: htmlUser?.avatarUrl,
+            bio = apiUser.bio?.takeIf { it.isNotBlank() } ?: htmlUser?.bio,
+            memberNumber = htmlUser?.memberNumber ?: apiUser.memberNumber ?: apiUser.id,
+            dailyActivityRank = htmlUser?.dailyActivityRank ?: apiUser.dailyActivityRank,
+        )
     }
 }

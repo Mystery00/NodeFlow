@@ -8,6 +8,8 @@ import app.mystery0.nodeflow.core.model.User
 data class UserEntity(
     @PrimaryKey val username: String,
     val id: Long?,
+    val memberNumber: Long?,
+    val dailyActivityRank: Int?,
     val avatarUrl: String?,
     val bio: String?,
     val tagline: String?,
@@ -20,6 +22,8 @@ data class UserEntity(
 
 fun UserEntity.toUser(): User = User(
     id = id,
+    memberNumber = memberNumber ?: id,
+    dailyActivityRank = dailyActivityRank,
     username = username,
     avatarUrl = avatarUrl,
     bio = bio,
@@ -33,6 +37,8 @@ fun UserEntity.toUser(): User = User(
 fun User.toEntity(cachedAtEpochMillis: Long = System.currentTimeMillis()): UserEntity = UserEntity(
     username = username,
     id = id,
+    memberNumber = memberNumber,
+    dailyActivityRank = dailyActivityRank,
     avatarUrl = avatarUrl,
     bio = bio,
     tagline = tagline,

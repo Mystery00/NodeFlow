@@ -164,9 +164,8 @@ private fun AccountContent(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        AccountLine(label = "位置", value = user.location)
-        AccountLine(label = "网站", value = user.website)
-        AccountLine(label = "GitHub", value = user.github)
+        AccountLine(label = "会员", value = formatMemberNumber(user.memberNumber))
+        AccountLine(label = "今日活跃度排名", value = formatDailyActivityRank(user.dailyActivityRank))
         AccountLine(label = "加入时间", value = formatEpochSeconds(user.createdAtEpochSeconds))
         OutlinedButton(
             onClick = onLogoutClick,
@@ -238,7 +237,15 @@ private fun formatWealth(wealth: AccountWealth): String? {
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
 
+private fun formatMemberNumber(memberNumber: Long?): String? =
+    memberNumber?.let { "V2EX 第 ${it.formatCount()} 号会员" }
+
+private fun formatDailyActivityRank(rank: Int?): String? =
+    rank?.let { "第 ${it.formatCount()} 名" }
+
 private fun Int.formatCount(): String = "%,d".format(this)
+
+private fun Long.formatCount(): String = "%,d".format(this)
 
 @Composable
 private fun AccountLine(label: String, value: String?) {

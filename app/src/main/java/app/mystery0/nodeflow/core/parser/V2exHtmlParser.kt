@@ -203,17 +203,32 @@ class V2exHtmlParser {
     }
 
     private fun Document.parseCurrencyCount(labels: List<String>, htmlKeys: List<String>): Int? {
+        outerHtml().currencyCountAfterImage(htmlKeys)?.let { return it }
         val candidates = select("tr, div.cell, li, p")
         candidates.firstNotNullOfOrNull { element ->
             val text = element.text()
-            val html = element.html().lowercase()
-            val matchesText = labels.any { label -> text.contains(label, ignoreCase = true) }
-            val matchesHtml = htmlKeys.any { key -> html.contains(key.lowercase()) }
-            if (matchesText || matchesHtml) text.firstInt() else null
+            labels.firstNotNullOfOrNull { label -> text.numberNearLabel(label) }
         }?.let { return it }
         val pageText = text()
         return labels.firstNotNullOfOrNull { label -> pageText.numberNearLabel(label) }
     }
+
+    private fun String.currencyCountAfterImage(htmlKeys: List<String>): Int? =
+        htmlKeys.firstNotNullOfOrNull { key ->
+            val imageRegex = Regex("""<img\b[^>]*${Regex.escape(key)}[^>]*>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            imageRegex.findAll(this).firstNotNullOfOrNull { match ->
+                val afterImage = substring(match.range.last + 1)
+                val nextImageStart = Regex("""<img\b""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+                    .find(afterImage)
+                    ?.range
+                    ?.first
+                    ?: afterImage.length
+                afterImage
+                    .take(nextImageStart)
+                    .replace(Regex("""<[^>]+>"""), " ")
+                    .firstInt()
+            }
+        }
 
     private fun String.numberNearLabel(label: String): Int? {
         val escapedLabel = Regex.escape(label)
@@ -235,6 +250,9 @@ class V2exHtmlParser {
 
     private fun String.parseFlexibleInt(): Int? =
         replace(",", "").toIntOrNull()
+
+    private fun String.parseFlexibleLong(): Long? =
+        replace(",", "").toLongOrNull()
 
     fun parseCurrentUsername(html: String): String? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
@@ -303,10 +321,22 @@ class V2exHtmlParser {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         val avatar = document.selectFirst("img.avatar")?.attr("src")?.normalizeV2exUrl()
         val bio = document.selectFirst("#Main .box .cell")?.text()?.takeIf { it.isNotBlank() }
+        val jsonLdElements = document.parseJsonLdElements()
+        val pageText = document.text()
+        val memberNumber = jsonLdElements.firstNotNullOfOrNull { element ->
+            element.profileIdentifier()?.parseFlexibleLong()
+        }
+            ?: document.selectFirst("img[data-uid]")?.attr("data-uid")?.parseFlexibleLong()
+            ?: MEMBER_NUMBER_REGEX.find(pageText)?.groupValues?.getOrNull(1)?.parseFlexibleLong()
+        val dailyActivityRank = document.select("a[href=/top/dau], a[href^=/top/dau]")
+            .firstNotNullOfOrNull { link -> link.text().firstInt() }
+            ?: DAILY_ACTIVITY_RANK_REGEX.find(pageText)?.groupValues?.getOrNull(1)?.parseFlexibleInt()
         return User(
             username = username,
             avatarUrl = avatar,
             bio = bio,
+            memberNumber = memberNumber,
+            dailyActivityRank = dailyActivityRank,
         )
     }
 
@@ -454,6 +484,12 @@ class V2exHtmlParser {
         else -> null
     }
 
+    private fun JsonElement.profileIdentifier(): String? = when (this) {
+        is JsonArray -> firstNotNullOfOrNull { element -> element.profileIdentifier() }
+        is JsonObject -> get("mainEntity")?.profileIdentifier() ?: stringValue("identifier")
+        else -> null
+    }
+
     private fun JsonElement?.asElementList(): List<JsonElement> = when (this) {
         is JsonArray -> toList()
         null -> emptyList()
@@ -506,6 +542,8 @@ class V2exHtmlParser {
         val REPLY_COUNT_REGEX = Regex("""#reply(\d+)""")
         val NODE_COUNT_REGEX = Regex("""(\d+)""")
         val VIEW_COUNT_REGEX = Regex("""(\d[\d,]*)\s+views""")
+        val MEMBER_NUMBER_REGEX = Regex("""V2EX\s+member\s+#(\d[\d,]*)""", RegexOption.IGNORE_CASE)
+        val DAILY_ACTIVITY_RANK_REGEX = Regex("""Today's activity rank\s+(\d[\d,]*)""", RegexOption.IGNORE_CASE)
         val CONTINUOUS_DAYS_REGEX = Regex("""(\d+)\s*天""")
         val ONCE_REGEX = Regex("""once=(\d+)""")
         val NUMBER_REGEX = Regex("""\d[\d,]*""")

@@ -65,6 +65,7 @@ data class V2exReplyDto(
 
 fun V2exMemberDto.toUser(): User = User(
     id = id,
+    memberNumber = id,
     username = username.orEmpty(),
     avatarUrl = avatarXLarge ?: avatarLarge ?: avatarNormal ?: avatarMini,
     bio = bio,

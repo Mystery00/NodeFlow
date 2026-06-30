@@ -57,6 +57,8 @@ sealed interface AuthLoginResult {
 
 data class User(
     val id: Long? = null,
+    val memberNumber: Long? = null,
+    val dailyActivityRank: Int? = null,
     val username: String,
     val avatarUrl: String? = null,
     val bio: String? = null,

@@ -226,6 +226,33 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseAccountWealth_readsCurrencyCountsFromCombinedIconRow() {
+        val html = """
+            <html>
+              <body>
+                <div class="box">
+                  <div class="cell">
+                    <img src="/static/img/gold.png" alt="gold" /> 1
+                    <img src="/static/img/silver.png" alt="silver" /> 23
+                    <img src="/static/img/bronze.png" alt="bronze" /> 4,567
+                  </div>
+                  <div class="cell">
+                    2026-06-30 每日登录奖励 铜币 10
+                  </div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val wealth = parser.parseAccountWealth(html)
+
+        assertThat(wealth).isNotNull()
+        assertThat(wealth!!.gold).isEqualTo(1)
+        assertThat(wealth.silver).isEqualTo(23)
+        assertThat(wealth.bronze).isEqualTo(4567)
+    }
+
+    @Test
     fun parseSignInChallenge_returnsNullWhenRequiredFieldsAreMissing() {
         val challenge = parser.parseSignInChallenge("<html><body>No login form</body></html>")
 
@@ -493,5 +520,45 @@ class V2exHtmlParserTest {
         val topic = parser.parseTopicHtml(topicId = 1, html = html)
 
         assertThat(topic.hotReplyCount).isEqualTo(1)
+    }
+
+    @Test
+    fun parseUserProfile_readsMemberNumberAndDailyActivityRank() {
+        val html = """
+            <html>
+              <head>
+                <script type="application/ld+json">
+                  {
+                    "@context": "https://schema.org",
+                    "@type": "ProfilePage",
+                    "mainEntity": {
+                      "@type": "Person",
+                      "name": "Mystery0",
+                      "identifier": "243339"
+                    }
+                  }
+                </script>
+              </head>
+              <body>
+                <div id="Main">
+                  <div class="box">
+                    <div class="cell">
+                      <img class="avatar" data-uid="243339" src="//cdn.v2ex.com/avatar/sample_large.png" />
+                      <span class="gray">
+                        V2EX member #243339, joined on 2017-07-20 22:43:23 +08:00
+                        <div class="sep5"></div>
+                        Today's activity rank <a href="/top/dau">6,695</a>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val user = parser.parseUserProfile("Mystery0", html)
+
+        assertThat(user.memberNumber).isEqualTo(243339)
+        assertThat(user.dailyActivityRank).isEqualTo(6695)
     }
 }
