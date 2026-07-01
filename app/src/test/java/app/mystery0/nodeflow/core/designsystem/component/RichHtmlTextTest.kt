@@ -9,4 +9,16 @@ class RichHtmlTextTest {
     fun webViewCssHeightToDp_keepsCssPixelHeightAsDp() {
         assertThat(webViewCssHeightToDp(392).value).isEqualTo(392.dp.value)
     }
+
+    @Test
+    fun contentHeightScript_measuresContentWrapperInsteadOfViewport() {
+        assertThat(CONTENT_HEIGHT_SCRIPT).contains(".nodeflow-content")
+        assertThat(CONTENT_HEIGHT_SCRIPT).doesNotContain("documentElement")
+        assertThat(CONTENT_HEIGHT_SCRIPT).doesNotContain("offsetHeight")
+    }
+
+    @Test
+    fun richHtmlWebViewVerticalScroll_isPinnedToTop() {
+        assertThat(richHtmlWebViewVerticalScrollY(requestedY = 480)).isEqualTo(0)
+    }
 }

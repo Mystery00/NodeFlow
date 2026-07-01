@@ -75,15 +75,15 @@ fun RichHtmlText(
             .fillMaxWidth()
             .height(contentHeight),
         factory = {
-            WebView(context).apply {
+            RichHtmlWebView(context).apply {
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
                 overScrollMode = WebView.OVER_SCROLL_NEVER
                 settings.javaScriptEnabled = true
                 settings.defaultTextEncodingName = "utf-8"
-                settings.loadWithOverviewMode = true
-                settings.useWideViewPort = true
+                settings.loadWithOverviewMode = false
+                settings.useWideViewPort = false
                 settings.builtInZoomControls = false
                 settings.displayZoomControls = false
                 webViewClient = object : WebViewClient() {
@@ -119,6 +119,36 @@ fun RichHtmlText(
     )
 }
 
+private class RichHtmlWebView(context: Context) : WebView(context) {
+    override fun scrollTo(x: Int, y: Int) {
+        super.scrollTo(x, richHtmlWebViewVerticalScrollY(y))
+    }
+
+    override fun onOverScrolled(
+        scrollX: Int,
+        scrollY: Int,
+        clampedX: Boolean,
+        clampedY: Boolean,
+    ) {
+        super.onOverScrolled(
+            scrollX,
+            richHtmlWebViewVerticalScrollY(scrollY),
+            clampedX,
+            true,
+        )
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        post {
+            scrollTo(scrollX, 0)
+            invalidate()
+        }
+    }
+}
+
+internal fun richHtmlWebViewVerticalScrollY(requestedY: Int): Int = 0
+
 private fun Color.toCssColor(): String {
     val argb = toArgb()
     val alpha = android.graphics.Color.alpha(argb) / 255f
@@ -136,5 +166,15 @@ private fun Context.openExternalUri(uri: Uri): Boolean {
     }.isSuccess
 }
 
-private const val CONTENT_HEIGHT_SCRIPT =
-    "Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.body.offsetHeight, document.documentElement.offsetHeight).toString();"
+internal const val CONTENT_HEIGHT_SCRIPT =
+    """
+        (function() {
+          var content = document.querySelector('.nodeflow-content');
+          if (!content) return '1';
+          var rect = content.getBoundingClientRect();
+          var style = window.getComputedStyle(content);
+          var marginTop = parseFloat(style.marginTop) || 0;
+          var marginBottom = parseFloat(style.marginBottom) || 0;
+          return Math.max(1, Math.ceil(rect.height + marginTop + marginBottom)).toString();
+        })();
+    """
