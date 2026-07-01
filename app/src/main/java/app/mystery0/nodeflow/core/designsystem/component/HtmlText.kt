@@ -5,24 +5,33 @@ import android.text.SpannableStringBuilder
 import android.text.style.URLSpan
 import android.view.View
 import android.widget.TextView
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
-import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import coil.compose.AsyncImage
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
+import kotlin.math.ceil
+import kotlin.math.min
 
 @Composable
 fun HtmlText(
@@ -33,8 +42,8 @@ fun HtmlText(
     val context = LocalContext.current
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val linkColor = MaterialTheme.colorScheme.primary.toArgb()
-    val parser = remember { V2exHtmlParser() }
-    val imageUrls = remember(html) { parser.extractImageUrls(html) }
+    val contentHtml = remember(html) { htmlWithoutImages(html) }
+    val images = remember(html) { extractHtmlImageSpecs(html) }
     Column(modifier = modifier) {
         AndroidView(
             modifier = Modifier.fillMaxWidth(),
@@ -49,21 +58,53 @@ fun HtmlText(
             update = { view ->
                 view.setTextColor(textColor)
                 view.setLinkTextColor(linkColor)
-                val spanned = HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_COMPACT)
+                val spanned = HtmlCompat.fromHtml(contentHtml, HtmlCompat.FROM_HTML_MODE_COMPACT)
                 view.text = spanned.withUrlClickHandler(onUrlClick)
             },
         )
-        imageUrls.forEach { imageUrl ->
+        images.forEach { image ->
             Spacer(Modifier.height(12.dp))
-            AsyncImage(
-                model = imageUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.FillWidth,
-            )
+            HtmlImage(image = image)
         }
+    }
+}
+
+@Composable
+private fun HtmlImage(
+    image: HtmlImageSpec,
+    modifier: Modifier = Modifier,
+) {
+    var sourceSize by remember(image.url) {
+        mutableStateOf(
+            image.widthPx?.let { width ->
+                image.heightPx?.let { height -> IntSize(width, height) }
+            },
+        )
+    }
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val layoutSize = calculateHtmlImageLayoutSize(
+            sourceWidthPx = sourceSize?.width,
+            sourceHeightPx = sourceSize?.height,
+            maxWidthDp = maxWidth.value,
+            compact = image.compact,
+        )
+        AsyncImage(
+            model = image.url,
+            contentDescription = image.alt,
+            modifier = Modifier
+                .width(layoutSize.widthDp.dp)
+                .height(layoutSize.heightDp.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Fit,
+            onSuccess = { state ->
+                val drawable = state.result.drawable
+                val width = drawable.intrinsicWidth
+                val height = drawable.intrinsicHeight
+                if (width > 0 && height > 0) {
+                    sourceSize = IntSize(width, height)
+                }
+            },
+        )
     }
 }
 
@@ -89,3 +130,137 @@ private fun CharSequence.withUrlClickHandler(onUrlClick: (String) -> Boolean): C
     }
     return spannable
 }
+
+internal data class HtmlImageSpec(
+    val url: String,
+    val alt: String?,
+    val widthPx: Int?,
+    val heightPx: Int?,
+    val compact: Boolean,
+)
+
+internal data class HtmlImageLayoutSize(
+    val widthDp: Float,
+    val heightDp: Float,
+)
+
+internal fun htmlWithoutImages(html: String): String {
+    val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
+    document.select("img").forEach { image ->
+        val parent = image.parent()
+        if (parent != null && parent.tagName().equals("a", ignoreCase = true) && parent.text().isBlank()) {
+            parent.remove()
+        } else {
+            image.remove()
+        }
+    }
+    document.select("p").forEach { paragraph ->
+        if (paragraph.text().isBlank() && paragraph.children().isEmpty()) {
+            paragraph.remove()
+        }
+    }
+    return document.body().html()
+}
+
+internal fun extractHtmlImageSpecs(html: String): List<HtmlImageSpec> {
+    val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
+    val imageSpecs = document.select("img[src]").mapNotNull { image ->
+        val url = image.absUrl("src").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val width = image.imageDimension("width")
+        val height = image.imageDimension("height")
+        HtmlImageSpec(
+            url = url,
+            alt = image.attr("alt").takeIf { it.isNotBlank() },
+            widthPx = width,
+            heightPx = height,
+            compact = image.isInlineImage() || image.isCompactImage(width, height),
+        )
+    }
+    val linkedImages = document.select("a[href]")
+        .filter { link -> link.select("img[src]").isEmpty() }
+        .mapNotNull { link ->
+            val url = link.absUrl("href").takeIf { it.isImageUrl() } ?: return@mapNotNull null
+            HtmlImageSpec(
+                url = url,
+                alt = link.text().takeIf { it.isNotBlank() },
+                widthPx = null,
+                heightPx = null,
+                compact = false,
+            )
+        }
+    return (imageSpecs + linkedImages).distinctBy { it.url }
+}
+
+internal fun calculateHtmlImageLayoutSize(
+    sourceWidthPx: Int?,
+    sourceHeightPx: Int?,
+    maxWidthDp: Float,
+    compact: Boolean,
+): HtmlImageLayoutSize {
+    val sourceWidth = sourceWidthPx?.takeIf { it > 0 }?.toFloat()
+    val sourceHeight = sourceHeightPx?.takeIf { it > 0 }?.toFloat()
+    val ratio = if (sourceWidth != null && sourceHeight != null) {
+        sourceWidth / sourceHeight
+    } else {
+        DefaultImageAspectRatio
+    }
+    val maxWidth = if (compact) {
+        min(maxWidthDp, CompactImageMaxDp)
+    } else {
+        maxWidthDp
+    }.coerceAtLeast(1f)
+    val maxHeight = if (compact) CompactImageMaxDp else ContentImageMaxHeightDp
+    var width = min(sourceWidth ?: maxWidth, maxWidth)
+    var height = width / ratio
+    if (height > maxHeight) {
+        height = maxHeight
+        width = height * ratio
+    }
+    return HtmlImageLayoutSize(
+        widthDp = ceil(width).coerceAtLeast(1f),
+        heightDp = ceil(height).coerceAtLeast(1f),
+    )
+}
+
+private fun Element.imageDimension(attributeName: String): Int? =
+    attr(attributeName).toCssPixels()
+        ?: CSS_DIMENSION_REGEX.findAll(attr("style"))
+            .firstOrNull { it.groupValues.getOrNull(1)?.equals(attributeName, ignoreCase = true) == true }
+            ?.groupValues
+            ?.getOrNull(2)
+            ?.toCssPixels()
+
+private fun Element.isInlineImage(): Boolean {
+    val block = generateSequence(this) { it.parent() }
+        .firstOrNull { element -> element.tagName() in BLOCK_TAGS }
+    return block?.text()?.trim()?.isNotEmpty() == true
+}
+
+private fun Element.isCompactImage(width: Int?, height: Int?): Boolean {
+    val className = className().lowercase()
+    val alt = attr("alt")
+    val compactByClass = COMPACT_IMAGE_CLASS_HINTS.any { hint -> className.contains(hint) }
+    val compactBySize = width != null && height != null && width <= CompactSourceMaxPx && height <= CompactSourceMaxPx
+    val compactByAlt = alt.codePointCount(0, alt.length) in 1..2 && alt.any { !it.isLetterOrDigit() }
+    return compactByClass || compactBySize || compactByAlt
+}
+
+private fun String.toCssPixels(): Int? =
+    trim()
+        .removeSuffix("px")
+        .toFloatOrNull()
+        ?.takeIf { it > 0f }
+        ?.let { ceil(it).toInt() }
+
+private fun String.isImageUrl(): Boolean =
+    IMAGE_URL_SUFFIXES.any { suffix -> substringBefore('?').lowercase().endsWith(suffix) }
+
+private const val V2EX_BASE_URL = "https://www.v2ex.com"
+private const val CompactImageMaxDp = 56f
+private const val ContentImageMaxHeightDp = 360f
+private const val CompactSourceMaxPx = 96
+private const val DefaultImageAspectRatio = 16f / 9f
+private val BLOCK_TAGS = setOf("body", "p", "div", "li", "td", "blockquote")
+private val COMPACT_IMAGE_CLASS_HINTS = listOf("emoji", "emoticon", "smilie", "smiley")
+private val IMAGE_URL_SUFFIXES = listOf(".jpg", ".jpeg", ".png", ".webp", ".gif")
+private val CSS_DIMENSION_REGEX = Regex("""(?i)(width|height)\s*:\s*([0-9.]+)px""")
