@@ -17,8 +17,13 @@ class NodeRepositoryImpl(
     override suspend fun nodePlanes(forceRefresh: Boolean): Result<List<NodePlane>> =
         withContext(ioDispatcher) {
             runCatching {
-                remoteDataSource.planes()
-                    .onEach { plane -> localDataSource.cacheNodes(plane.nodes) }
+                val cached = localDataSource.nodePlanes()
+                if (!forceRefresh && cached.isNotEmpty()) return@runCatching cached
+                runCatching { remoteDataSource.planes() }
+                    .onSuccess { planes -> localDataSource.cacheNodePlanes(planes) }
+                    .getOrElse { error ->
+                        if (cached.isNotEmpty()) cached else throw error
+                    }
             }
         }
 
