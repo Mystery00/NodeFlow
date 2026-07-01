@@ -21,4 +21,14 @@ class RichHtmlTextTest {
     fun richHtmlWebViewVerticalScroll_isPinnedToTop() {
         assertThat(richHtmlWebViewVerticalScrollY(requestedY = 480)).isEqualTo(0)
     }
+
+    @Test
+    fun richHtmlImageClickScript_filtersInlineImagesAndCallsBridge() {
+        val script = richHtmlImageClickScript()
+
+        assertThat(script).contains("NodeFlowImage.open")
+        assertThat(script).contains("naturalWidth")
+        assertThat(script).contains("innerText")
+        assertThat(script).contains("180")
+    }
 }

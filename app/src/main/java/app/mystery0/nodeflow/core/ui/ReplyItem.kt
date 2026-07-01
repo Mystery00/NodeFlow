@@ -32,6 +32,7 @@ fun ReplyItem(
     modifier: Modifier = Modifier,
     highlighted: Boolean = false,
     onReferenceClick: (ReplyReference) -> Unit = {},
+    onImageClick: (String) -> Unit = {},
 ) {
     val containerColor by animateColorAsState(
         targetValue = if (highlighted) {
@@ -84,6 +85,7 @@ fun ReplyItem(
             }
             HtmlText(
                 html = reply.contentRendered,
+                onImageClick = onImageClick,
                 onUrlClick = { url ->
                     val reference = reply.reference
                     val username = memberUsernameFromUrl(url)

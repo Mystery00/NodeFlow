@@ -32,6 +32,21 @@ class HtmlTextTest {
     }
 
     @Test
+    fun extractHtmlImageSpecs_keepsImageAfterLineBreakAsContentImage() {
+        val html = """
+            content before image<br>
+            <a href="https://i.imgur.com/content.png">
+                <img src="https://i.imgur.com/content.png" class="embedded_image" rel="noreferrer">
+            </a>
+        """.trimIndent()
+
+        val images = extractHtmlImageSpecs(html)
+
+        assertThat(images).hasSize(1)
+        assertThat(images.single().compact).isFalse()
+    }
+
+    @Test
     fun calculateHtmlImageLayoutSize_capsCompactImages() {
         val size = calculateHtmlImageLayoutSize(
             sourceWidthPx = 640,
@@ -55,5 +70,30 @@ class HtmlTextTest {
 
         assertThat(size.widthDp).isEqualTo(360f)
         assertThat(size.heightDp).isEqualTo(240f)
+    }
+
+    @Test
+    fun isZoomableHtmlImage_requiresLargeNonCompactImage() {
+        assertThat(
+            isZoomableHtmlImage(
+                sourceWidthPx = 180,
+                sourceHeightPx = 120,
+                compact = false,
+            ),
+        ).isTrue()
+        assertThat(
+            isZoomableHtmlImage(
+                sourceWidthPx = 120,
+                sourceHeightPx = 179,
+                compact = false,
+            ),
+        ).isFalse()
+        assertThat(
+            isZoomableHtmlImage(
+                sourceWidthPx = 640,
+                sourceHeightPx = 640,
+                compact = true,
+            ),
+        ).isFalse()
     }
 }

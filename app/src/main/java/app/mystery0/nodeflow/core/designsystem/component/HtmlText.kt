@@ -5,6 +5,7 @@ import android.text.SpannableStringBuilder
 import android.text.style.URLSpan
 import android.view.View
 import android.widget.TextView
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +31,8 @@ import androidx.core.text.HtmlCompat
 import coil.compose.AsyncImage
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
+import org.jsoup.nodes.Node
+import org.jsoup.nodes.TextNode
 import kotlin.math.ceil
 import kotlin.math.min
 
@@ -38,6 +41,7 @@ fun HtmlText(
     html: String,
     modifier: Modifier = Modifier,
     onUrlClick: (String) -> Boolean = { false },
+    onImageClick: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
@@ -64,7 +68,10 @@ fun HtmlText(
         )
         images.forEach { image ->
             Spacer(Modifier.height(12.dp))
-            HtmlImage(image = image)
+            HtmlImage(
+                image = image,
+                onImageClick = onImageClick,
+            )
         }
     }
 }
@@ -73,6 +80,7 @@ fun HtmlText(
 private fun HtmlImage(
     image: HtmlImageSpec,
     modifier: Modifier = Modifier,
+    onImageClick: (String) -> Unit = {},
 ) {
     var sourceSize by remember(image.url) {
         mutableStateOf(
@@ -88,13 +96,25 @@ private fun HtmlImage(
             maxWidthDp = maxWidth.value,
             compact = image.compact,
         )
+        val zoomable = isZoomableHtmlImage(
+            sourceWidthPx = sourceSize?.width,
+            sourceHeightPx = sourceSize?.height,
+            compact = image.compact,
+        )
         AsyncImage(
             model = image.url,
             contentDescription = image.alt,
             modifier = Modifier
                 .width(layoutSize.widthDp.dp)
                 .height(layoutSize.heightDp.dp)
-                .clip(RoundedCornerShape(8.dp)),
+                .clip(RoundedCornerShape(8.dp))
+                .then(
+                    if (zoomable) {
+                        Modifier.clickable { onImageClick(image.url) }
+                    } else {
+                        Modifier
+                    },
+                ),
             contentScale = ContentScale.Fit,
             onSuccess = { state ->
                 val drawable = state.result.drawable
@@ -222,6 +242,15 @@ internal fun calculateHtmlImageLayoutSize(
     )
 }
 
+internal fun isZoomableHtmlImage(
+    sourceWidthPx: Int?,
+    sourceHeightPx: Int?,
+    compact: Boolean,
+): Boolean {
+    if (compact) return false
+    return maxOf(sourceWidthPx ?: 0, sourceHeightPx ?: 0) >= ZoomableImageSourceThresholdPx
+}
+
 private fun Element.imageDimension(attributeName: String): Int? =
     attr(attributeName).toCssPixels()
         ?: CSS_DIMENSION_REGEX.findAll(attr("style"))
@@ -231,9 +260,8 @@ private fun Element.imageDimension(attributeName: String): Int? =
             ?.toCssPixels()
 
 private fun Element.isInlineImage(): Boolean {
-    val block = generateSequence(this) { it.parent() }
-        .firstOrNull { element -> element.tagName() in BLOCK_TAGS }
-    return block?.text()?.trim()?.isNotEmpty() == true
+    val root = imageInlineRoot()
+    return root.hasInlineTextSibling(previous = true) || root.hasInlineTextSibling(previous = false)
 }
 
 private fun Element.isCompactImage(width: Int?, height: Int?): Boolean {
@@ -255,12 +283,41 @@ private fun String.toCssPixels(): Int? =
 private fun String.isImageUrl(): Boolean =
     IMAGE_URL_SUFFIXES.any { suffix -> substringBefore('?').lowercase().endsWith(suffix) }
 
+private fun Element.imageInlineRoot(): Node {
+    val parent = parent()
+    return if (parent != null && parent.tagName().equals("a", ignoreCase = true)) {
+        parent
+    } else {
+        this
+    }
+}
+
+private fun Node.hasInlineTextSibling(previous: Boolean): Boolean {
+    var sibling = if (previous) previousSibling() else nextSibling()
+    while (sibling != null) {
+        if (sibling.isLineBreakOrBlockElement()) return false
+        if (sibling.hasVisibleText()) return true
+        sibling = if (previous) sibling.previousSibling() else sibling.nextSibling()
+    }
+    return false
+}
+
+private fun Node.hasVisibleText(): Boolean = when (this) {
+    is TextNode -> text().trim().isNotEmpty()
+    is Element -> text().trim().isNotEmpty()
+    else -> false
+}
+
+private fun Node.isLineBreakOrBlockElement(): Boolean =
+    this is Element && (tagName().equals("br", ignoreCase = true) || tagName() in BLOCK_TAGS)
+
 private const val V2EX_BASE_URL = "https://www.v2ex.com"
 private const val CompactImageMaxDp = 56f
 private const val ContentImageMaxHeightDp = 360f
 private const val CompactSourceMaxPx = 96
+internal const val ZoomableImageSourceThresholdPx = 180
 private const val DefaultImageAspectRatio = 16f / 9f
-private val BLOCK_TAGS = setOf("body", "p", "div", "li", "td", "blockquote")
+private val BLOCK_TAGS = setOf("p", "div", "li", "td", "blockquote")
 private val COMPACT_IMAGE_CLASS_HINTS = listOf("emoji", "emoticon", "smilie", "smiley")
 private val IMAGE_URL_SUFFIXES = listOf(".jpg", ".jpeg", ".png", ".webp", ".gif")
 private val CSS_DIMENSION_REGEX = Regex("""(?i)(width|height)\s*:\s*([0-9.]+)px""")

@@ -53,6 +53,7 @@ import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.designsystem.component.RichHtmlText
+import app.mystery0.nodeflow.core.designsystem.component.ZoomableImageViewer
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.ui.ReplyItem
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
@@ -104,6 +105,7 @@ fun TopicDetailScreen(
     modifier: Modifier = Modifier,
 ) {
     val detail = state.detail
+    var previewImageUrl by remember { mutableStateOf<String?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -143,9 +145,16 @@ fun TopicDetailScreen(
                 isRefreshing = state.isRefreshing,
                 onNodeClick = onNodeClick,
                 onUserClick = onUserClick,
+                onImageClick = { previewImageUrl = it },
                 contentPadding = paddingValues,
             )
         }
+    }
+    previewImageUrl?.let { imageUrl ->
+        ZoomableImageViewer(
+            imageUrl = imageUrl,
+            onDismiss = { previewImageUrl = null },
+        )
     }
 }
 
@@ -180,6 +189,7 @@ private fun TopicDetailContent(
     isRefreshing: Boolean,
     onNodeClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
+    onImageClick: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
     val listState = rememberLazyListState()
@@ -213,7 +223,10 @@ private fun TopicDetailContent(
                         detail = detail,
                         onUserClick = onUserClick,
                     )
-                    RichHtmlText(html = detail.contentRendered)
+                    RichHtmlText(
+                        html = detail.contentRendered,
+                        onImageClick = onImageClick,
+                    )
                 }
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
@@ -227,6 +240,7 @@ private fun TopicDetailContent(
                 ReplyItem(
                     reply = reply,
                     highlighted = highlightedReplyId == reply.id,
+                    onImageClick = onImageClick,
                     onReferenceClick = { reference ->
                         val targetIndex = detail.replies.indexOfFirst { it.id == reference.replyId }
                         if (targetIndex >= 0) {
