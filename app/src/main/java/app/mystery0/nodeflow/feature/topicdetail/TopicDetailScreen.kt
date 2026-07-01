@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -36,6 +37,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -50,6 +56,8 @@ import app.mystery0.nodeflow.core.designsystem.component.RichHtmlText
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.ui.ReplyItem
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val SecondsPerMinute = 60L
 private const val SecondsPerHour = 60L * SecondsPerMinute
@@ -174,12 +182,16 @@ private fun TopicDetailContent(
     onUserClick: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    var highlightedReplyId by remember(detail.topic.id) { mutableStateOf<Long?>(null) }
     Column(Modifier.fillMaxSize()) {
         if (isRefreshing) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(
                 top = contentPadding.calculateTopPadding(),
                 bottom = contentPadding.calculateBottomPadding() + 80.dp,
@@ -212,7 +224,23 @@ private fun TopicDetailContent(
                 )
             }
             items(detail.replies, key = { it.id }) { reply ->
-                ReplyItem(reply = reply)
+                ReplyItem(
+                    reply = reply,
+                    highlighted = highlightedReplyId == reply.id,
+                    onReferenceClick = { reference ->
+                        val targetIndex = detail.replies.indexOfFirst { it.id == reference.replyId }
+                        if (targetIndex >= 0) {
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(index = targetIndex + 1)
+                                highlightedReplyId = reference.replyId
+                                delay(1400)
+                                if (highlightedReplyId == reference.replyId) {
+                                    highlightedReplyId = null
+                                }
+                            }
+                        }
+                    },
+                )
             }
         }
     }

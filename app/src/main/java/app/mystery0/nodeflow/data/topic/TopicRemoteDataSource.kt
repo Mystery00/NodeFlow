@@ -28,6 +28,7 @@ class TopicRemoteDataSource(
             .first()
         val replies = json.decodeFromString<List<V2exReplyDto>>(api.replies(topicId).bodyStringOrThrow())
             .mapIndexed { index, dto -> dto.toReply(topicIdFallback = topicId, floor = index + 1) }
+            .withReferencePreviews()
         val supplemental = runCatching {
             parser.parseTopicHtml(
                 topicId = topicId,

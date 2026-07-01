@@ -119,6 +119,14 @@ data class Reply(
     val contentRendered: String,
     val createdAtEpochSeconds: Long? = null,
     val thanks: Int = 0,
+    val reference: ReplyReference? = null,
+)
+
+data class ReplyReference(
+    val replyId: Long,
+    val floor: Int,
+    val author: User,
+    val excerpt: String,
 )
 
 data class Notification(

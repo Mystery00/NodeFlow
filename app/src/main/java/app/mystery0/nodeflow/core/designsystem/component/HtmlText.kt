@@ -1,6 +1,9 @@
 package app.mystery0.nodeflow.core.designsystem.component
 
 import android.text.method.LinkMovementMethod
+import android.text.SpannableStringBuilder
+import android.text.style.URLSpan
+import android.view.View
 import android.widget.TextView
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +28,7 @@ import coil.compose.AsyncImage
 fun HtmlText(
     html: String,
     modifier: Modifier = Modifier,
+    onUrlClick: (String) -> Boolean = { false },
 ) {
     val context = LocalContext.current
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
@@ -45,7 +49,8 @@ fun HtmlText(
             update = { view ->
                 view.setTextColor(textColor)
                 view.setLinkTextColor(linkColor)
-                view.text = HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_COMPACT)
+                val spanned = HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_COMPACT)
+                view.text = spanned.withUrlClickHandler(onUrlClick)
             },
         )
         imageUrls.forEach { imageUrl ->
@@ -60,4 +65,27 @@ fun HtmlText(
             )
         }
     }
+}
+
+private fun CharSequence.withUrlClickHandler(onUrlClick: (String) -> Boolean): CharSequence {
+    val spannable = SpannableStringBuilder(this)
+    spannable.getSpans(0, spannable.length, URLSpan::class.java).forEach { span ->
+        val start = spannable.getSpanStart(span)
+        val end = spannable.getSpanEnd(span)
+        val flags = spannable.getSpanFlags(span)
+        spannable.removeSpan(span)
+        spannable.setSpan(
+            object : URLSpan(span.url) {
+                override fun onClick(widget: View) {
+                    if (!onUrlClick(url)) {
+                        super.onClick(widget)
+                    }
+                }
+            },
+            start,
+            end,
+            flags,
+        )
+    }
+    return spannable
 }
