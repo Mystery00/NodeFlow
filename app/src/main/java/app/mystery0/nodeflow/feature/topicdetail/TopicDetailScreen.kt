@@ -28,7 +28,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -55,6 +54,7 @@ import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.designsystem.component.RichHtmlText
 import app.mystery0.nodeflow.core.designsystem.component.ZoomableImageViewer
 import app.mystery0.nodeflow.core.model.TopicDetail
+import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.ReplyItem
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
 import kotlinx.coroutines.delay
@@ -197,7 +197,7 @@ private fun TopicDetailContent(
     var highlightedReplyId by remember(detail.topic.id) { mutableStateOf<Long?>(null) }
     Column(Modifier.fillMaxSize()) {
         if (isRefreshing) {
-            LinearProgressIndicator(Modifier.fillMaxWidth())
+            NodeFlowHorizontalRefreshIndicator(Modifier.fillMaxWidth())
         }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),

@@ -5,6 +5,12 @@ import org.junit.Test
 
 class ListRefreshIndicatorTest {
     @Test
+    fun refreshIndicators_useMaterialExpressiveStyle() {
+        assertThat(listRefreshIndicatorStyle()).isEqualTo(NodeFlowProgressIndicatorStyle.MaterialExpressive)
+        assertThat(horizontalRefreshIndicatorStyle()).isEqualTo(NodeFlowProgressIndicatorStyle.MaterialExpressive)
+    }
+
+    @Test
     fun shouldShowListRefreshIndicator_showsOnlyWhenRefreshingWithItems() {
         assertThat(shouldShowListRefreshIndicator(isRefreshing = true, itemCount = 1)).isTrue()
     }
