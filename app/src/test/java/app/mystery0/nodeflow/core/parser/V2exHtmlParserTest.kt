@@ -409,6 +409,92 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseTopicList_readsNodeFromRecentPageItem() {
+        val html = """
+            <html>
+              <body>
+                <div class="cell item">
+                  <table>
+                    <tr>
+                      <td>
+                        <a href="/member/jimmyczm">
+                          <img src="//cdn.v2ex.com/avatar/recent_normal.png" class="avatar" alt="jimmyczm" />
+                        </a>
+                      </td>
+                      <td>
+                        <span class="item_title">
+                          <a href="/t/1224500#reply18" class="topic-link" id="topic-link-1224500">Recent topic</a>
+                        </span>
+                        <div class="sep5"></div>
+                        <span class="topic_info">
+                          <div class="votes"></div>
+                          <a class="node" href="/go/bb">Broadband</a>
+                          &nbsp;•&nbsp;
+                          <strong><a href="/member/jimmyczm">jimmyczm</a></strong>
+                          &nbsp;•&nbsp;
+                          <span title="2026-07-02 20:38:20 +08:00">1h 28m ago</span>
+                        </span>
+                      </td>
+                      <td><a href="/t/1224500#reply18" class="count_livid">18</a></td>
+                    </tr>
+                  </table>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics).hasSize(1)
+        assertThat(topics.first().node.name).isEqualTo("bb")
+        assertThat(topics.first().node.title).isEqualTo("Broadband")
+        assertThat(topics.first().author.username).isEqualTo("jimmyczm")
+        assertThat(topics.first().lastTouchedAtEpochSeconds).isEqualTo(1782995900)
+    }
+
+    @Test
+    fun parseTopicList_readsNodeAndAuthorFromMobileRecentPageItem() {
+        val html = """
+            <html>
+              <body>
+                <div class="cell item">
+                  <table>
+                    <tr>
+                      <td>
+                        <a href="/member/geniushui">
+                          <img src="//cdn.v2ex.com/avatar/mobile_normal.png" class="avatar" alt="geniushui" />
+                        </a>
+                      </td>
+                      <td>
+                        <span class="small fade">
+                          <a class="node" href="/go/create">Create</a>
+                          &nbsp;•&nbsp;
+                          <strong><a href="/member/geniushui">geniushui</a></strong>
+                        </span>
+                        <div class="sep5"></div>
+                        <span class="item_title">
+                          <a href="/t/1224603#reply0" class="topic-link" id="topic-link-1224603">Mobile recent topic</a>
+                        </span>
+                        <div class="sep5"></div>
+                        <span class="small fade">1h 54m ago</span>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics).hasSize(1)
+        assertThat(topics.first().node.name).isEqualTo("create")
+        assertThat(topics.first().node.title).isEqualTo("Create")
+        assertThat(topics.first().author.username).isEqualTo("geniushui")
+        assertThat(topics.first().avatarUrl).isEqualTo("https://cdn.v2ex.com/avatar/mobile_normal.png")
+    }
+
+    @Test
     fun extractImageUrls_readsImagesAndLinkedImageUrls() {
         val html = """
             <p>正文</p>

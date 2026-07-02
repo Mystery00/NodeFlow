@@ -2,60 +2,33 @@ package app.mystery0.nodeflow.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.mystery0.nodeflow.core.common.toUserMessage
-import app.mystery0.nodeflow.domain.topic.GetLatestTopicsUseCase
+import androidx.paging.cachedIn
+import app.mystery0.nodeflow.domain.topic.GetLatestTopicsPagingUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 class HomeViewModel(
-    private val getLatestTopics: GetLatestTopicsUseCase,
+    private val getLatestTopicsPaging: GetLatestTopicsPagingUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    init {
-        load(forceRefresh = false)
-    }
+    private val refreshRequests = MutableStateFlow(0)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val topics = refreshRequests
+        .flatMapLatest { getLatestTopicsPaging() }
+        .cachedIn(viewModelScope)
 
     fun onEvent(event: HomeUiEvent) {
         when (event) {
-            HomeUiEvent.Refresh -> load(forceRefresh = true)
-            HomeUiEvent.Retry -> load(forceRefresh = true)
-        }
-    }
-
-    private fun load(forceRefresh: Boolean) {
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoading = it.topics.isEmpty(),
-                    isRefreshing = forceRefresh && it.topics.isNotEmpty(),
-                    errorMessage = null,
-                )
-            }
-            val result = getLatestTopics(forceRefresh)
-            _uiState.update { current ->
-                result.fold(
-                    onSuccess = { topics ->
-                        current.copy(
-                            isLoading = false,
-                            isRefreshing = false,
-                            topics = topics,
-                            errorMessage = null,
-                        )
-                    },
-                    onFailure = { error ->
-                        current.copy(
-                            isLoading = false,
-                            isRefreshing = false,
-                            errorMessage = error.toUserMessage(),
-                        )
-                    },
-                )
-            }
+            HomeUiEvent.Refresh,
+            HomeUiEvent.Retry,
+            -> refreshRequests.update { it + 1 }
         }
     }
 }

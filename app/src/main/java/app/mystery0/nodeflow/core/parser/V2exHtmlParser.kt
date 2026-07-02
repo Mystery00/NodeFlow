@@ -16,6 +16,9 @@ import kotlinx.serialization.json.intOrNull
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 class V2exHtmlParser {
     fun parseTopicList(html: String, sourceNodeName: String? = null): List<Topic> {
@@ -400,20 +403,27 @@ class V2exHtmlParser {
         val topicId = TOPIC_ID_REGEX.find(topicLink.attr("href"))?.groupValues?.getOrNull(1)?.toLongOrNull()
             ?: return null
         val title = topicLink.text().trim().takeIf { it.isNotBlank() } ?: return null
-        val authorLink = cell.selectFirst(".topic_info strong a[href^=/member/]")
-            ?: cell.selectFirst("a[href^=/member/]")
-        val username = authorLink?.text()?.trim().orEmpty()
+        val memberNames = cell.select("strong a[href^=/member/]")
+            .mapNotNull { link -> link.text().trim().takeIf { it.isNotBlank() } }
+        val username = memberNames.firstOrNull()
+            ?: cell.select("a[href^=/member/]")
+                .mapNotNull { link -> link.text().trim().takeIf { it.isNotBlank() } }
+                .firstOrNull()
+            ?: cell.selectFirst("img.avatar[alt]")?.attr("alt")?.trim().orEmpty()
         val avatarUrl = cell.selectFirst("img.avatar")?.attr("src")?.normalizeV2exUrl()
         val replyCount = cell.selectFirst("a.count_livid, a.count_orange")?.text()?.trim()?.toIntOrNull()
             ?: REPLY_COUNT_REGEX.find(topicLink.attr("href"))?.groupValues?.getOrNull(1)?.toIntOrNull()
             ?: 0
-        val lastReplyBy = cell.select(".topic_info strong a[href^=/member/]").drop(1).firstOrNull()?.text()
-        val createdText = cell.selectFirst(".topic_info span[title]")?.attr("title")
+        val lastReplyBy = memberNames.drop(1).firstOrNull()
+        val touchedAtEpochSeconds = cell.selectFirst(".topic_info span[title]")
+            ?.attr("title")
+            ?.parseV2exDateTime()
 
+        val nodeLink = cell.selectFirst(".topic_info a.node[href^=/go/], .topic_info a[href^=/go/], a.node[href^=/go/]")
         val nodeName = sourceNodeName
-            ?: cell.selectFirst(".topic_info a[href^=/go/]")?.attr("href")?.substringAfterLast("/")
+            ?: nodeLink?.attr("href")?.substringAfterLast("/")
             ?: ""
-        val nodeTitle = cell.selectFirst(".topic_info a[href^=/go/]")?.text()?.takeIf { it.isNotBlank() }
+        val nodeTitle = nodeLink?.text()?.takeIf { it.isNotBlank() }
             ?: nodeName
 
         return Topic(
@@ -426,9 +436,16 @@ class V2exHtmlParser {
             replyCount = replyCount,
             lastReplyBy = lastReplyBy,
             createdAtEpochSeconds = null,
-            lastTouchedAtEpochSeconds = null,
+            lastTouchedAtEpochSeconds = touchedAtEpochSeconds,
         )
     }
+
+    private fun String.parseV2exDateTime(): Long? =
+        try {
+            OffsetDateTime.parse(trim(), V2EX_DATE_TIME_FORMATTER).toEpochSecond()
+        } catch (_: DateTimeParseException) {
+            null
+        }
 
     private fun String.normalizeV2exUrl(): String? {
         val raw = trim()
@@ -576,5 +593,6 @@ class V2exHtmlParser {
             """<img\b[^>]*(gold|silver|bronze|copper)[^>]*>""",
             setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
         )
+        val V2EX_DATE_TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss xxx")
     }
 }

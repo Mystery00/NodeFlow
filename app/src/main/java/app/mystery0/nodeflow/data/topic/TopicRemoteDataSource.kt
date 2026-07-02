@@ -18,9 +18,12 @@ class TopicRemoteDataSource(
     private val json: Json,
     private val parser: V2exHtmlParser,
 ) {
-    suspend fun latestTopics(): List<Topic> = safeNetworkCall {
-        json.decodeFromString<List<V2exTopicDto>>(api.latestTopics().bodyStringOrThrow())
-            .map { it.toTopic() }
+    suspend fun latestTopics(): List<Topic> = homeTopics(HOME_TOPICS_PAGE)
+
+    suspend fun homeTopics(page: Int): List<Topic> = safeNetworkCall {
+        parser.parseTopicList(
+            html = api.recentTopicsHtml(page).bodyStringOrThrow(),
+        )
     }
 
     suspend fun topicDetail(topicId: Long): TopicDetail = safeNetworkCall {
@@ -44,5 +47,9 @@ class TopicRemoteDataSource(
             hotReplyCount = supplemental?.hotReplyCount,
             tags = supplemental?.tags.orEmpty(),
         )
+    }
+
+    private companion object {
+        const val HOME_TOPICS_PAGE = 1
     }
 }

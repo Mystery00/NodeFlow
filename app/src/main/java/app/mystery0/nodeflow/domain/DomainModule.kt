@@ -10,6 +10,7 @@ import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.domain.topic.GetLatestTopicsUseCase
+import app.mystery0.nodeflow.domain.topic.GetLatestTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
 import org.koin.dsl.module
@@ -17,6 +18,10 @@ import org.koin.dsl.module
 val domainModule = module {
     factory {
         GetLatestTopicsUseCase(get())
+    }
+
+    factory {
+        GetLatestTopicsPagingUseCase(get())
     }
 
     factory {

@@ -20,6 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.paging.compose.collectAsLazyPagingItems
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.feature.account.AccountScreen
 import app.mystery0.nodeflow.feature.account.AccountViewModel
@@ -67,8 +68,10 @@ fun MainShell(
             composable(NodeFlowDestinations.Home) {
                 val viewModel: HomeViewModel = koinViewModel()
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
+                val topics = viewModel.topics.collectAsLazyPagingItems()
                 HomeScreen(
                     state = state,
+                    topics = topics,
                     onEvent = viewModel::onEvent,
                     onTopicClick = onTopicClick,
                     onNodeClick = onNodeClick,

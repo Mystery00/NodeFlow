@@ -32,6 +32,9 @@ interface V2exRawApi {
         @Query("p") page: Int? = null,
     ): Response<ResponseBody>
 
+    @GET("recent")
+    suspend fun recentTopicsHtml(@Query("p") page: Int? = null): Response<ResponseBody>
+
     @GET("planes")
     suspend fun planesHtml(): Response<ResponseBody>
 

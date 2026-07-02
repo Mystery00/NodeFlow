@@ -1,9 +1,13 @@
 package app.mystery0.nodeflow.data.topic
 
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.domain.topic.TopicRepository
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
 class TopicRepositoryImpl(
@@ -20,9 +24,33 @@ class TopicRepositoryImpl(
                     .onSuccess { localDataSource.cacheTopics(it) }
                     .getOrElse { error ->
                         if (cached.isNotEmpty()) cached else throw error
-                    }
+                }
             }
         }
+
+    override fun latestTopicsPaging(): Flow<PagingData<Topic>> =
+        Pager(
+            config = PagingConfig(
+                pageSize = HOME_TOPICS_PAGE_SIZE,
+                initialLoadSize = HOME_TOPICS_PAGE_SIZE,
+                prefetchDistance = HOME_TOPICS_PREFETCH_DISTANCE,
+                enablePlaceholders = false,
+            ),
+            pagingSourceFactory = {
+                HomeTopicsPagingSource(
+                    loadTopics = { page ->
+                        withContext(ioDispatcher) {
+                            remoteDataSource.homeTopics(page)
+                        }
+                    },
+                    cacheTopics = { topics ->
+                        withContext(ioDispatcher) {
+                            localDataSource.cacheTopics(topics)
+                        }
+                    },
+                )
+            },
+        ).flow
 
     override suspend fun topicDetail(
         topicId: Long,
@@ -60,5 +88,10 @@ class TopicRepositoryImpl(
         withContext(ioDispatcher) {
             localDataSource.clear()
         }
+    }
+
+    private companion object {
+        const val HOME_TOPICS_PAGE_SIZE = 20
+        const val HOME_TOPICS_PREFETCH_DISTANCE = 6
     }
 }

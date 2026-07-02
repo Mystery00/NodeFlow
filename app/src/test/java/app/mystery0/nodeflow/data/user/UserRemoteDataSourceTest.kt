@@ -78,6 +78,8 @@ class UserRemoteDataSourceTest {
 
         override suspend fun nodeTopicsHtml(nodeName: String, page: Int?): Response<ResponseBody> = htmlResponse("")
 
+        override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> = htmlResponse("")
+
         override suspend fun planesHtml(): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> = htmlResponse("")
