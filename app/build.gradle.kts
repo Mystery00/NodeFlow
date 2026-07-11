@@ -79,6 +79,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.koin.test)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.truth)
 
     debugImplementation(libs.androidx.compose.ui.tooling)

@@ -18,7 +18,6 @@ class UserAgentInterceptor : Interceptor {
 
     private companion object {
         const val USER_AGENT_HEADER = "User-Agent"
-        const val USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 15; NodeFlow) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+        const val USER_AGENT = V2exUserAgents.MOBILE
     }
 }
