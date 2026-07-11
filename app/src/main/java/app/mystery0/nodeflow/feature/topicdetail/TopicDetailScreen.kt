@@ -2,7 +2,6 @@ package app.mystery0.nodeflow.feature.topicdetail
 
 import android.content.ClipData
 import android.content.Intent
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,8 +44,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
@@ -282,31 +286,47 @@ private fun TopicMetadataRow(
 ) {
     val username = detail.topic.author.username
     val time = formatTopicMetadataTime(detail.topic.createdAtEpochSeconds)
-    val items = topicMetadataText(username, time, detail.viewCount).split(" · ")
-    Row(
+    val primaryColor = MaterialTheme.colorScheme.primary
+    // 整行用单个 Text 渲染，保证发帖人、时间、点击数共享同一基线并垂直居中，
+    // 仅发帖人作为可点击链接
+    val metadata = buildAnnotatedString {
+        var isFirst = true
+        fun appendSeparator() {
+            if (!isFirst) append(" · ")
+            isFirst = false
+        }
+        if (username.isNotBlank()) {
+            appendSeparator()
+            withLink(
+                LinkAnnotation.Clickable(
+                    tag = "author",
+                    linkInteractionListener = { onUserClick(username) },
+                ),
+            ) {
+                withStyle(SpanStyle(color = primaryColor)) {
+                    append(username)
+                }
+            }
+        }
+        if (time.isNotBlank()) {
+            appendSeparator()
+            append(time)
+        }
+        detail.viewCount?.let { viewCount ->
+            appendSeparator()
+            append("$viewCount 次点击")
+        }
+    }
+    Text(
+        text = metadata,
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        items.forEachIndexed { index, text ->
-            if (index > 0) {
-                MetadataText(text = " · ")
-            }
-            if (index == 0 && username.isNotBlank()) {
-                Text(
-                    text = text,
-                    modifier = Modifier.clickable { onUserClick(username) },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            } else {
-                MetadataText(text = text)
-            }
-        }
-    }
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        softWrap = false,
+    )
 }
 
 @Composable
@@ -346,37 +366,6 @@ private fun ReplySummaryRow(detail: TopicDetail) {
                     TopicTagChip(tag = tag)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun MetadataText(
-    text: String,
-    onClick: (() -> Unit)? = null,
-) {
-    if (onClick == null) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    } else {
-        Surface(
-            onClick = onClick,
-            shape = MaterialTheme.shapes.extraSmall,
-            color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ) {
-            Text(
-                text = text,
-                modifier = Modifier.padding(horizontal = 2.dp, vertical = 1.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
     }
 }
