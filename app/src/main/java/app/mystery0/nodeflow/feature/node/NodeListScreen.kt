@@ -6,12 +6,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Refresh
@@ -28,6 +27,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -38,6 +38,7 @@ import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.designsystem.component.NodeChip
+import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 
@@ -112,7 +113,9 @@ private fun NodePlaneList(
     onNodeClick: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
-    val visiblePlanes = filterNodePlanes(state.planes, state.query)
+    val visiblePlanes = remember(state.planes, state.query) {
+        filterNodePlanes(state.planes, state.query)
+    }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -121,7 +124,7 @@ private fun NodePlaneList(
                 bottom = contentPadding.calculateBottomPadding() + 80.dp,
             ),
         ) {
-            item {
+            item(key = "node-search") {
                 NodeSearchField(
                     query = state.query,
                     onQueryChange = { onEvent(NodeListUiEvent.QueryChanged(it)) },
@@ -131,15 +134,29 @@ private fun NodePlaneList(
                 )
             }
             if (visiblePlanes.isEmpty()) {
-                item {
+                item(key = "node-empty-search") {
                     EmptySearchResult(query = state.query)
                 }
             } else {
-                items(visiblePlanes, key = { it.name }) { plane ->
-                    NodePlaneSection(
-                        plane = plane,
-                        onNodeClick = onNodeClick,
-                    )
+                visiblePlanes.forEach { plane ->
+                    item(key = "plane-header-${plane.name}") {
+                        NodePlaneHeader(plane = plane)
+                    }
+                    // 把节点切成小块，每块一行 FlowRow 作为独立的 lazy item，
+                    // 让 LazyColumn 只组合可见的 chip 行，避免单个分区一次性铺开数百个 chip
+                    val chunks = plane.nodes.chunked(NODE_CHIP_CHUNK_SIZE)
+                    itemsIndexed(
+                        items = chunks,
+                        key = { index, _ -> "plane-chips-${plane.name}-$index" },
+                    ) { _, chunk ->
+                        NodeChipRow(nodes = chunk, onNodeClick = onNodeClick)
+                    }
+                    item(key = "plane-divider-${plane.name}") {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
+                        )
+                    }
                 }
             }
         }
@@ -150,6 +167,8 @@ private fun NodePlaneList(
         )
     }
 }
+
+private const val NODE_CHIP_CHUNK_SIZE = 30
 
 @Composable
 private fun NodeSearchField(
@@ -176,58 +195,53 @@ private fun NodeSearchField(
     )
 }
 
+@Composable
+private fun NodePlaneHeader(
+    plane: NodePlane,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+    ) {
+        Text(
+            text = plane.title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = nodePlaneSubtitle(plane),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun NodePlaneSection(
-    plane: NodePlane,
+private fun NodeChipRow(
+    nodes: List<Node>,
     onNodeClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = plane.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = nodePlaneSubtitle(plane),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                plane.nodes.forEach { node ->
-                    NodeChip(
-                        title = node.title,
-                        onClick = { onNodeClick(node.name) },
-                    )
-                }
-            }
+    FlowRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        nodes.forEach { node ->
+            NodeChip(
+                title = node.title,
+                onClick = { onNodeClick(node.name) },
+            )
         }
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
-        )
     }
 }
 
