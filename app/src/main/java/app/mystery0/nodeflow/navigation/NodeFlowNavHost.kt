@@ -17,6 +17,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.paging.compose.collectAsLazyPagingItems
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.feature.auth.AuthScreen
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
@@ -81,8 +82,10 @@ fun NodeFlowNavHost(
         ) {
             val viewModel: NodeViewModel = koinViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val topics = viewModel.topics.collectAsLazyPagingItems()
             NodeScreen(
                 state = state,
+                topics = topics,
                 onEvent = viewModel::onEvent,
                 onBackClick = { navController.popBackStack() },
                 onTopicClick = { topic ->

@@ -3,19 +3,20 @@ package app.mystery0.nodeflow.feature.node
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.mystery0.nodeflow.core.common.toUserMessage
+import androidx.paging.cachedIn
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
-import app.mystery0.nodeflow.domain.node.GetNodeTopicsUseCase
+import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -23,13 +24,20 @@ import kotlinx.coroutines.launch
 class NodeViewModel(
     savedStateHandle: SavedStateHandle,
     private val getNode: GetNodeUseCase,
-    private val getNodeTopics: GetNodeTopicsUseCase,
+    private val getNodeTopicsPaging: GetNodeTopicsPagingUseCase,
     observeSettings: ObserveSettingsUseCase,
     private val updateSettings: UpdateSettingsUseCase,
 ) : ViewModel() {
     private val nodeName: String = savedStateHandle["nodeName"] ?: "python"
     private val _uiState = MutableStateFlow(NodeUiState(nodeName = nodeName))
     val uiState: StateFlow<NodeUiState> = _uiState.asStateFlow()
+
+    private val refreshRequests = MutableStateFlow(0)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val topics = refreshRequests
+        .flatMapLatest { getNodeTopicsPaging(nodeName) }
+        .cachedIn(viewModelScope)
 
     init {
         observeSettings()
@@ -39,50 +47,26 @@ class NodeViewModel(
                 _uiState.update { it.copy(isPinnedHomeNode = isPinned) }
             }
             .launchIn(viewModelScope)
-        load(forceRefresh = false)
+        loadNodeInfo(forceRefresh = false)
     }
 
     fun onEvent(event: NodeUiEvent) {
         when (event) {
-            NodeUiEvent.Refresh -> load(forceRefresh = true)
-            NodeUiEvent.Retry -> load(forceRefresh = true)
+            NodeUiEvent.Refresh,
+            NodeUiEvent.Retry,
+            -> {
+                loadNodeInfo(forceRefresh = true)
+                refreshRequests.update { it + 1 }
+            }
             NodeUiEvent.TogglePinnedHomeNode -> togglePinnedHomeNode()
         }
     }
 
-    private fun load(forceRefresh: Boolean) {
+    private fun loadNodeInfo(forceRefresh: Boolean) {
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoading = it.topics.isEmpty(),
-                    isRefreshing = forceRefresh && it.topics.isNotEmpty(),
-                    errorMessage = null,
-                )
-            }
-            val nodeResult = async { getNode(nodeName, forceRefresh) }
-            val topicsResult = async { getNodeTopics(nodeName, forceRefresh = forceRefresh) }
-            val node = nodeResult.await().getOrNull()
-            val topics = topicsResult.await()
-            _uiState.update { current ->
-                topics.fold(
-                    onSuccess = { list ->
-                        current.copy(
-                            isLoading = false,
-                            isRefreshing = false,
-                            node = node ?: current.node,
-                            topics = list,
-                            errorMessage = null,
-                        )
-                    },
-                    onFailure = { error ->
-                        current.copy(
-                            isLoading = false,
-                            isRefreshing = false,
-                            node = node ?: current.node,
-                            errorMessage = error.toUserMessage(),
-                        )
-                    },
-                )
+            val node = getNode(nodeName, forceRefresh).getOrNull()
+            if (node != null) {
+                _uiState.update { it.copy(node = node) }
             }
         }
     }
