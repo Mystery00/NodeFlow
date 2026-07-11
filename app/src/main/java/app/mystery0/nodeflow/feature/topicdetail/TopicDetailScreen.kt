@@ -143,6 +143,7 @@ fun TopicDetailScreen(
             else -> TopicDetailContent(
                 detail = detail,
                 isRefreshing = state.isRefreshing,
+                errorMessage = state.errorMessage,
                 onNodeClick = onNodeClick,
                 onUserClick = onUserClick,
                 onImageClick = { previewImageUrl = it },
@@ -187,6 +188,7 @@ private fun TopicActions(detail: TopicDetail) {
 private fun TopicDetailContent(
     detail: TopicDetail,
     isRefreshing: Boolean,
+    errorMessage: String?,
     onNodeClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     onImageClick: (String) -> Unit,
@@ -198,6 +200,19 @@ private fun TopicDetailContent(
     Column(Modifier.fillMaxSize()) {
         if (isRefreshing) {
             NodeFlowHorizontalRefreshIndicator(Modifier.fillMaxWidth())
+        }
+        if (errorMessage != null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            ) {
+                Text(
+                    text = errorMessage,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),

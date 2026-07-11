@@ -18,15 +18,17 @@ class TopicLocalDataSource(
     suspend fun topic(topicId: Long): Topic? =
         topicDao.topic(topicId)?.toTopic()
 
-    suspend fun topicDetail(topicId: Long): TopicDetail? =
-        topicDao.topic(topicId)?.let { entity ->
-            TopicDetail(
-                topic = entity.toTopic(),
-                content = entity.content.orEmpty(),
-                contentRendered = entity.contentRendered.orEmpty(),
-                replies = emptyList(),
-            )
-        }
+    suspend fun topicDetail(topicId: Long): TopicDetail? {
+        val entity = topicDao.topic(topicId) ?: return null
+        // contentRendered 为 null 表示只缓存过列表行，从未成功抓取过详情
+        val contentRendered = entity.contentRendered ?: return null
+        return TopicDetail(
+            topic = entity.toTopic(),
+            content = entity.content.orEmpty(),
+            contentRendered = contentRendered,
+            replies = emptyList(),
+        )
+    }
 
     suspend fun cacheTopics(topics: List<Topic>) {
         topicDao.upsertTopics(topics.map { it.toEntity() })

@@ -57,30 +57,16 @@ class TopicRepositoryImpl(
         forceRefresh: Boolean,
     ): Result<TopicDetail> = withContext(ioDispatcher) {
         runCatching {
-            val cachedDetail = localDataSource.topicDetail(topicId)
-            val cachedTopic = cachedDetail?.topic ?: localDataSource.topic(topicId)
-            if (
-                !forceRefresh &&
-                cachedDetail != null &&
-                cachedDetail.contentRendered.isNotBlank() &&
-                cachedDetail.replies.isNotEmpty()
-            ) {
-                return@runCatching cachedDetail
+            // 本地不缓存回复，缓存详情只对没有回复的主题是完整的；
+            // 不完整的缓存不能当作成功结果，否则会出现“正文正常、回复丢失”的降级被静默吞掉
+            val usableCachedDetail = localDataSource.topicDetail(topicId)
+                ?.takeIf { it.replies.isNotEmpty() || it.topic.replyCount == 0 }
+            if (!forceRefresh && usableCachedDetail != null) {
+                return@runCatching usableCachedDetail
             }
             runCatching { remoteDataSource.topicDetail(topicId) }
                 .onSuccess { localDataSource.cacheTopicDetail(it) }
-                .getOrElse { error ->
-                    when {
-                        cachedDetail != null -> cachedDetail
-                        cachedTopic != null -> TopicDetail(
-                            topic = cachedTopic,
-                            content = "",
-                            contentRendered = "",
-                            replies = emptyList(),
-                        )
-                        else -> throw error
-                    }
-                }
+                .getOrElse { error -> usableCachedDetail ?: throw error }
         }
     }
 
