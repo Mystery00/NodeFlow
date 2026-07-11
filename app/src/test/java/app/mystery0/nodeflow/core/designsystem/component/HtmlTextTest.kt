@@ -73,27 +73,9 @@ class HtmlTextTest {
     }
 
     @Test
-    fun isZoomableHtmlImage_requiresLargeNonCompactImage() {
-        assertThat(
-            isZoomableHtmlImage(
-                sourceWidthPx = 180,
-                sourceHeightPx = 120,
-                compact = false,
-            ),
-        ).isTrue()
-        assertThat(
-            isZoomableHtmlImage(
-                sourceWidthPx = 120,
-                sourceHeightPx = 179,
-                compact = false,
-            ),
-        ).isFalse()
-        assertThat(
-            isZoomableHtmlImage(
-                sourceWidthPx = 640,
-                sourceHeightPx = 640,
-                compact = true,
-            ),
-        ).isFalse()
+    fun isZoomableHtmlImage_allowsAnyNonCompactImage() {
+        // 非表情/内联的普通图片一律可点击查看，不再看尺寸
+        assertThat(isZoomableHtmlImage(compact = false)).isTrue()
+        assertThat(isZoomableHtmlImage(compact = true)).isFalse()
     }
 }

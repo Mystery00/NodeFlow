@@ -28,7 +28,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
-import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import coil.request.ImageRequest
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
@@ -82,6 +85,7 @@ private fun HtmlImage(
     modifier: Modifier = Modifier,
     onImageClick: (String) -> Unit = {},
 ) {
+    val context = LocalContext.current
     var sourceSize by remember(image.url) {
         mutableStateOf(
             image.widthPx?.let { width ->
@@ -89,6 +93,7 @@ private fun HtmlImage(
             },
         )
     }
+    var retryKey by remember(image.url) { mutableStateOf(0) }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val layoutSize = calculateHtmlImageLayoutSize(
             sourceWidthPx = sourceSize?.width,
@@ -96,35 +101,49 @@ private fun HtmlImage(
             maxWidthDp = maxWidth.value,
             compact = image.compact,
         )
-        val zoomable = isZoomableHtmlImage(
-            sourceWidthPx = sourceSize?.width,
-            sourceHeightPx = sourceSize?.height,
-            compact = image.compact,
-        )
-        AsyncImage(
-            model = image.url,
+        val zoomable = isZoomableHtmlImage(compact = image.compact)
+        val request = remember(image.url, retryKey) {
+            ImageRequest.Builder(context)
+                .data(image.url)
+                .setParameter("nodeflowRetry", retryKey)
+                .build()
+        }
+        SubcomposeAsyncImage(
+            model = request,
             contentDescription = image.alt,
             modifier = Modifier
                 .width(layoutSize.widthDp.dp)
                 .height(layoutSize.heightDp.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .then(
-                    if (zoomable) {
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Fit,
+            onState = { state ->
+                if (state is AsyncImagePainter.State.Success) {
+                    val drawable = state.result.drawable
+                    val width = drawable.intrinsicWidth
+                    val height = drawable.intrinsicHeight
+                    if (width > 0 && height > 0) {
+                        sourceSize = IntSize(width, height)
+                    }
+                }
+            },
+        ) {
+            when (painter.state) {
+                is AsyncImagePainter.State.Loading ->
+                    ContentImageLoadingPlaceholder(modifier = Modifier.matchParentSize())
+                is AsyncImagePainter.State.Error ->
+                    ContentImageErrorPlaceholder(
+                        onRetry = { retryKey += 1 },
+                        modifier = Modifier.matchParentSize(),
+                    )
+                else -> SubcomposeAsyncImageContent(
+                    modifier = if (zoomable) {
                         Modifier.clickable { onImageClick(image.url) }
                     } else {
                         Modifier
                     },
-                ),
-            contentScale = ContentScale.Fit,
-            onSuccess = { state ->
-                val drawable = state.result.drawable
-                val width = drawable.intrinsicWidth
-                val height = drawable.intrinsicHeight
-                if (width > 0 && height > 0) {
-                    sourceSize = IntSize(width, height)
-                }
-            },
-        )
+                )
+            }
+        }
     }
 }
 
@@ -242,14 +261,8 @@ internal fun calculateHtmlImageLayoutSize(
     )
 }
 
-internal fun isZoomableHtmlImage(
-    sourceWidthPx: Int?,
-    sourceHeightPx: Int?,
-    compact: Boolean,
-): Boolean {
-    if (compact) return false
-    return maxOf(sourceWidthPx ?: 0, sourceHeightPx ?: 0) >= ZoomableImageSourceThresholdPx
-}
+// 只要不是表情/内联小图这类装饰性图片，加载成功后都可以点击查看大图
+internal fun isZoomableHtmlImage(compact: Boolean): Boolean = !compact
 
 private fun Element.imageDimension(attributeName: String): Int? =
     attr(attributeName).toCssPixels()
@@ -315,7 +328,6 @@ private const val V2EX_BASE_URL = "https://www.v2ex.com"
 private const val CompactImageMaxDp = 56f
 private const val ContentImageMaxHeightDp = 360f
 private const val CompactSourceMaxPx = 96
-internal const val ZoomableImageSourceThresholdPx = 180
 private const val DefaultImageAspectRatio = 16f / 9f
 private val BLOCK_TAGS = setOf("p", "div", "li", "td", "blockquote")
 private val COMPACT_IMAGE_CLASS_HINTS = listOf("emoji", "emoticon", "smilie", "smiley")

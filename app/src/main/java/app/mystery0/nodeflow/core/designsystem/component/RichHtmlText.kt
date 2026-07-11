@@ -74,8 +74,8 @@ fun RichHtmlText(
         }
     }
 
-    fun installImageClickHandler(view: WebView) {
-        view.evaluateJavascript(richHtmlImageClickScript(), null)
+    fun installImageManager(view: WebView) {
+        view.evaluateJavascript(richHtmlImageScript(), null)
     }
 
     AndroidView(
@@ -83,41 +83,42 @@ fun RichHtmlText(
             .fillMaxWidth()
             .height(contentHeight),
         factory = {
-            RichHtmlWebView(context).apply {
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                isVerticalScrollBarEnabled = false
-                isHorizontalScrollBarEnabled = false
-                overScrollMode = WebView.OVER_SCROLL_NEVER
-                settings.javaScriptEnabled = true
-                settings.defaultTextEncodingName = "utf-8"
-                settings.loadWithOverviewMode = false
-                settings.useWideViewPort = false
-                settings.builtInZoomControls = false
-                settings.displayZoomControls = false
-                addJavascriptInterface(
-                    RichHtmlImageBridge { url ->
-                        post { currentOnImageClick.value(url) }
-                    },
-                    NODEFLOW_IMAGE_BRIDGE,
-                )
-                webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                        context.openExternalUri(request.url)
+            val webView = RichHtmlWebView(context)
+            webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            webView.isVerticalScrollBarEnabled = false
+            webView.isHorizontalScrollBarEnabled = false
+            webView.overScrollMode = WebView.OVER_SCROLL_NEVER
+            webView.settings.javaScriptEnabled = true
+            webView.settings.defaultTextEncodingName = "utf-8"
+            webView.settings.loadWithOverviewMode = false
+            webView.settings.useWideViewPort = false
+            webView.settings.builtInZoomControls = false
+            webView.settings.displayZoomControls = false
+            webView.addJavascriptInterface(
+                RichHtmlImageBridge(
+                    onImageClick = { url -> webView.post { currentOnImageClick.value(url) } },
+                    onContentChanged = { webView.post { updateContentHeight(webView) } },
+                ),
+                NODEFLOW_IMAGE_BRIDGE,
+            )
+            webView.webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                    context.openExternalUri(request.url)
 
-                    override fun onPageFinished(view: WebView, url: String?) {
-                        installImageClickHandler(view)
+                override fun onPageFinished(view: WebView, url: String?) {
+                    installImageManager(view)
+                    scheduleHeightUpdates(view)
+                }
+            }
+            webView.webChromeClient = object : WebChromeClient() {
+                override fun onProgressChanged(view: WebView, newProgress: Int) {
+                    if (newProgress == 100) {
+                        installImageManager(view)
                         scheduleHeightUpdates(view)
                     }
                 }
-                webChromeClient = object : WebChromeClient() {
-                    override fun onProgressChanged(view: WebView, newProgress: Int) {
-                        if (newProgress == 100) {
-                            installImageClickHandler(view)
-                            scheduleHeightUpdates(view)
-                        }
-                    }
-                }
             }
+            webView
         },
         update = { view ->
             if (view.tag != htmlDocument) {
@@ -129,7 +130,7 @@ fun RichHtmlText(
                     "utf-8",
                     null,
                 )
-                installImageClickHandler(view)
+                installImageManager(view)
                 scheduleHeightUpdates(view)
             }
         },
@@ -166,10 +167,16 @@ private class RichHtmlWebView(context: Context) : WebView(context) {
 
 private class RichHtmlImageBridge(
     private val onImageClick: (String) -> Unit,
+    private val onContentChanged: () -> Unit,
 ) {
     @JavascriptInterface
     fun open(url: String) {
         onImageClick(url)
+    }
+
+    @JavascriptInterface
+    fun contentChanged() {
+        onContentChanged()
     }
 }
 
@@ -205,13 +212,24 @@ internal const val CONTENT_HEIGHT_SCRIPT =
         })();
     """
 
-internal fun richHtmlImageClickScript(
-    thresholdPx: Int = ZoomableImageSourceThresholdPx,
+internal fun richHtmlImageScript(
+    bridgeName: String = NODEFLOW_IMAGE_BRIDGE,
 ): String =
     """
         (function() {
-          if (window.__nodeflowImageClickBound) return;
-          window.__nodeflowImageClickBound = true;
+          if (window.__nodeflowImageManaged) return;
+          window.__nodeflowImageManaged = true;
+          var content = document.querySelector('.nodeflow-content');
+          if (!content) return;
+
+          var ERROR_HTML = '<span class="nf-error-box">' +
+            '<svg viewBox="0 0 100 78" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+            '<rect x="6" y="8" width="88" height="62" rx="8" stroke="currentColor" stroke-width="5" stroke-linejoin="round" opacity="0.55"/>' +
+            '<circle cx="30" cy="27" r="7" fill="currentColor" opacity="0.55"/>' +
+            '<path d="M12 62 L38 37 L52 51" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>' +
+            '<path d="M46 59 L66 36 L90 58" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>' +
+            '<path d="M64 10 L57 32 L67 36 L59 62" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>' +
+            '</svg><span class="nf-error-text">图片加载失败，点击重试</span></span>';
 
           function isCompactImage(img) {
             var className = (img.className || '').toString().toLowerCase();
@@ -221,61 +239,72 @@ internal fun richHtmlImageClickScript(
               className.indexOf('smiley') >= 0;
           }
 
-          function isBlockElement(node) {
-            if (!node || node.nodeType !== 1) return false;
-            var tag = node.tagName.toLowerCase();
-            return tag === 'br' || tag === 'p' || tag === 'div' ||
-              tag === 'li' || tag === 'td' || tag === 'blockquote';
-          }
-
-          function hasVisibleText(node) {
-            if (!node) return false;
-            return ((node.innerText || node.textContent || '').trim().length > 0);
-          }
-
-          function hasInlineTextSibling(root, previous) {
-            var node = previous ? root.previousSibling : root.nextSibling;
-            while (node) {
-              if (isBlockElement(node)) return false;
-              if (hasVisibleText(node)) return true;
-              node = previous ? node.previousSibling : node.nextSibling;
+          function notifyResize() {
+            if (window.$bridgeName && window.$bridgeName.contentChanged) {
+              window.$bridgeName.contentChanged();
             }
-            return false;
           }
 
-          function clickableRoot(img) {
-            var parent = img.parentElement;
-            if (parent && parent.tagName && parent.tagName.toLowerCase() === 'a') {
-              return parent;
-            }
-            return img;
+          function originalSrc(img) {
+            return img.getAttribute('data-nf-src') || img.getAttribute('src') || '';
           }
 
-          document.addEventListener('click', function(event) {
-            var target = event.target;
-            if (!target) return;
-            var img = target.tagName && target.tagName.toLowerCase() === 'img'
-              ? target
-              : null;
-            if (!img && target.closest) {
-              var link = target.closest('a');
-              img = link ? link.querySelector('img') : null;
+          function bust(src) {
+            var clean = src.split('#')[0];
+            var sep = clean.indexOf('?') >= 0 ? '&' : '?';
+            return clean + sep + 'nfretry=' + Date.now();
+          }
+
+          function manage(img) {
+            if (img.__nfManaged || isCompactImage(img)) return;
+            img.__nfManaged = true;
+            img.setAttribute('data-nf-src', (img.getAttribute('src') || '').split('#')[0]);
+            var wrap = document.createElement('span');
+            wrap.className = 'nf-img nf-loading';
+            img.parentNode.insertBefore(wrap, img);
+            wrap.appendChild(img);
+
+            function markLoaded() { wrap.className = 'nf-img nf-loaded'; notifyResize(); }
+            function markError() {
+              wrap.className = 'nf-img nf-error';
+              if (!wrap.querySelector('.nf-error-box')) {
+                wrap.insertAdjacentHTML('beforeend', ERROR_HTML);
+              }
+              notifyResize();
             }
-            if (!img || isCompactImage(img)) return;
+            function retry() {
+              var box = wrap.querySelector('.nf-error-box');
+              if (box) box.parentNode.removeChild(box);
+              wrap.className = 'nf-img nf-loading';
+              img.setAttribute('src', bust(originalSrc(img)));
+              notifyResize();
+            }
 
-            var width = img.naturalWidth || parseInt(img.getAttribute('width') || '0', 10) || img.clientWidth || 0;
-            var height = img.naturalHeight || parseInt(img.getAttribute('height') || '0', 10) || img.clientHeight || 0;
-            if (Math.max(width, height) < $thresholdPx) return;
+            img.addEventListener('load', markLoaded);
+            img.addEventListener('error', markError);
+            wrap.addEventListener('click', function(event) {
+              if (wrap.classList.contains('nf-error')) {
+                event.preventDefault();
+                event.stopPropagation();
+                retry();
+                return;
+              }
+              if (wrap.classList.contains('nf-loaded')) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (window.$bridgeName && window.$bridgeName.open) {
+                  window.$bridgeName.open(originalSrc(img));
+                }
+              }
+            }, true);
 
-            var root = clickableRoot(img);
-            if (hasInlineTextSibling(root, true) || hasInlineTextSibling(root, false)) return;
+            if (img.complete) {
+              if (img.naturalWidth > 0) markLoaded(); else markError();
+            }
+          }
 
-            var src = img.currentSrc || img.src || img.getAttribute('src');
-            if (!src || !window.$NODEFLOW_IMAGE_BRIDGE) return;
-            event.preventDefault();
-            event.stopPropagation();
-            window.$NODEFLOW_IMAGE_BRIDGE.open(src);
-          }, true);
+          content.querySelectorAll('img').forEach(manage);
+          notifyResize();
         })();
     """.trimIndent()
 

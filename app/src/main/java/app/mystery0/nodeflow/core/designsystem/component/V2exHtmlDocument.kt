@@ -28,7 +28,8 @@ internal fun buildV2exHtmlDocument(
             link.attr("rel", "noopener noreferrer")
         }
         select("img[src]").forEach { image ->
-            image.attr("loading", "lazy")
+            // 立即加载以便可靠触发加载完成/失败回调，配合占位与失败重试
+            image.attr("loading", "eager")
             image.attr("decoding", "async")
         }
     }.body().html()
@@ -120,6 +121,55 @@ internal fun buildV2exHtmlDocument(
               margin: 12px 0;
               border-radius: 8px;
             }
+            .nf-img {
+              position: relative;
+              display: block;
+              margin: 12px 0;
+            }
+            .nf-img > img {
+              margin: 0;
+            }
+            .nf-img.nf-loading {
+              min-height: 120px;
+              border-radius: 8px;
+              background: ${colors.codeBackground};
+            }
+            .nf-img.nf-loading > img { visibility: hidden; }
+            .nf-img.nf-loading::after {
+              content: "";
+              position: absolute;
+              left: 50%;
+              top: 50%;
+              width: 26px;
+              height: 26px;
+              margin: -13px 0 0 -13px;
+              border-radius: 50%;
+              border: 3px solid ${colors.border};
+              border-top-color: ${colors.link};
+              animation: nf-spin 0.8s linear infinite;
+            }
+            @keyframes nf-spin { to { transform: rotate(360deg); } }
+            .nf-img.nf-error {
+              min-height: 140px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              border-radius: 8px;
+              background: ${colors.codeBackground};
+              cursor: pointer;
+            }
+            .nf-img.nf-error > img { display: none; }
+            .nf-error-box {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 8px;
+              padding: 16px;
+              text-align: center;
+              color: ${colors.secondaryText};
+            }
+            .nf-error-box svg { width: 56px; height: 44px; }
+            .nf-error-text { font-size: 13px; }
             table {
               display: block;
               width: 100%;

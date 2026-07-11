@@ -23,12 +23,18 @@ class RichHtmlTextTest {
     }
 
     @Test
-    fun richHtmlImageClickScript_filtersInlineImagesAndCallsBridge() {
-        val script = richHtmlImageClickScript()
+    fun richHtmlImageScript_managesLoadingErrorAndClickWithoutSizeThreshold() {
+        val script = richHtmlImageScript()
 
+        // 加载成功才可点击查看大图，并通过桥接打开
         assertThat(script).contains("NodeFlowImage.open")
-        assertThat(script).contains("naturalWidth")
-        assertThat(script).contains("innerText")
-        assertThat(script).contains("180")
+        assertThat(script).contains("nf-loaded")
+        // 加载/失败占位与失败重试
+        assertThat(script).contains("nf-loading")
+        assertThat(script).contains("nf-error")
+        assertThat(script).contains("nfretry")
+        // 不再按尺寸或相邻文字过滤可点击图片
+        assertThat(script).doesNotContain("180")
+        assertThat(script).doesNotContain("hasInlineTextSibling")
     }
 }
