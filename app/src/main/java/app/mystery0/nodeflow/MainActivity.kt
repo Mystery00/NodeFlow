@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
             val appViewModel: AppViewModel = koinViewModel()
             val settings = appViewModel.settings.collectAsStateWithLifecycle()
             NodeFlowTheme(settings = settings.value) {
-                NodeFlowNavHost()
+                NodeFlowNavHost(settings = settings.value)
             }
         }
     }

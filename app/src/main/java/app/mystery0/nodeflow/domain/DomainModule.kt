@@ -4,6 +4,7 @@ import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.auth.SaveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsUseCase
+import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeUseCase
 import app.mystery0.nodeflow.domain.node.GetNodePlanesUseCase
 import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
@@ -38,6 +39,10 @@ val domainModule = module {
 
     factory {
         GetNodeTopicsUseCase(get())
+    }
+
+    factory {
+        GetNodeTopicsPagingUseCase(get())
     }
 
     factory {

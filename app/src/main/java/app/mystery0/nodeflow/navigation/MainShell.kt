@@ -3,6 +3,8 @@ package app.mystery0.nodeflow.navigation
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Home
@@ -15,12 +17,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.paging.compose.collectAsLazyPagingItems
+import app.mystery0.nodeflow.core.model.AppSettings
+import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.feature.account.AccountScreen
 import app.mystery0.nodeflow.feature.account.AccountViewModel
@@ -28,10 +36,12 @@ import app.mystery0.nodeflow.feature.home.HomeScreen
 import app.mystery0.nodeflow.feature.home.HomeViewModel
 import app.mystery0.nodeflow.feature.node.NodeListScreen
 import app.mystery0.nodeflow.feature.node.NodeListViewModel
+import coil.compose.AsyncImage
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun MainShell(
+    settings: AppSettings,
     onTopicClick: (Topic) -> Unit,
     onNodeClick: (String) -> Unit,
     onSettingsClick: () -> Unit,
@@ -48,6 +58,7 @@ fun MainShell(
         bottomBar = {
             NodeFlowBottomBar(
                 currentRoute = currentRoute,
+                pinnedHomeNode = settings.pinnedHomeNode,
                 onHomeClick = {
                     navController.navigateTopLevel(NodeFlowDestinations.Home)
                 },
@@ -107,6 +118,7 @@ fun rootNavHostPadding(scaffoldPadding: PaddingValues): PaddingValues = PaddingV
 @Composable
 private fun NodeFlowBottomBar(
     currentRoute: String?,
+    pinnedHomeNode: PinnedHomeNode?,
     onHomeClick: () -> Unit,
     onNodeClick: () -> Unit,
     onAccountClick: () -> Unit,
@@ -115,8 +127,14 @@ private fun NodeFlowBottomBar(
         NavigationBarItem(
             selected = currentRoute == NodeFlowDestinations.Home,
             onClick = onHomeClick,
-            icon = { Icon(Icons.Outlined.Home, contentDescription = null) },
-            label = { Text("首页") },
+            icon = { HomeBottomBarIcon(pinnedHomeNode = pinnedHomeNode) },
+            label = {
+                Text(
+                    text = homeBottomBarLabel(pinnedHomeNode),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
         )
         NavigationBarItem(
             selected = isNodeBottomBarSelected(currentRoute),
@@ -132,6 +150,31 @@ private fun NodeFlowBottomBar(
         )
     }
 }
+
+@Composable
+private fun HomeBottomBarIcon(pinnedHomeNode: PinnedHomeNode?) {
+    val avatarUrl = pinnedHomeNode?.avatarUrl?.takeIf { it.isNotBlank() }
+    if (avatarUrl == null) {
+        Icon(
+            imageVector = if (pinnedHomeNode == null) Icons.Outlined.Home else Icons.Outlined.AccountTree,
+            contentDescription = null,
+        )
+    } else {
+        AsyncImage(
+            model = avatarUrl,
+            contentDescription = null,
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop,
+        )
+    }
+}
+
+fun homeBottomBarLabel(pinnedHomeNode: PinnedHomeNode?): String =
+    pinnedHomeNode?.title?.takeIf { it.isNotBlank() }
+        ?: pinnedHomeNode?.name?.takeIf { it.isNotBlank() }
+        ?: "首页"
 
 fun nodeBottomBarRoute(): String = NodeFlowDestinations.NodeList
 

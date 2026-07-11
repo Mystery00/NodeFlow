@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.navigation
 
+import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
@@ -71,5 +72,21 @@ class NavigationRouteTest {
         assertThat(isAccountBottomBarSelected(NodeFlowDestinations.Account)).isTrue()
         assertThat(isAccountBottomBarSelected(NodeFlowDestinations.Settings)).isFalse()
         assertThat(isAccountBottomBarSelected(NodeFlowDestinations.Auth)).isFalse()
+    }
+
+    @Test
+    fun homeBottomBarLabel_usesPinnedNodeTitleWhenAvailable() {
+        val pinned = PinnedHomeNode(
+            name = "android",
+            title = "Android",
+            avatarUrl = "https://cdn.v2ex.com/navatar/android_large.png",
+        )
+
+        assertThat(homeBottomBarLabel(pinned)).isEqualTo("Android")
+    }
+
+    @Test
+    fun homeBottomBarLabel_usesDefaultTextWhenNoPinnedNode() {
+        assertThat(homeBottomBarLabel(null)).isEqualTo("首页")
     }
 }

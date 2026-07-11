@@ -10,4 +10,5 @@ data class NodeUiState(
     val node: Node? = null,
     val topics: List<Topic> = emptyList(),
     val errorMessage: String? = null,
+    val isPinnedHomeNode: Boolean = false,
 )

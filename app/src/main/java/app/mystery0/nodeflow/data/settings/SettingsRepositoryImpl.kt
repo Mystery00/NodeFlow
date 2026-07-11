@@ -2,6 +2,7 @@ package app.mystery0.nodeflow.data.settings
 
 import app.mystery0.nodeflow.core.datastore.SettingsStore
 import app.mystery0.nodeflow.core.model.AppSettings
+import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.ThemeMode
 import app.mystery0.nodeflow.domain.node.NodeRepository
 import app.mystery0.nodeflow.domain.settings.SettingsRepository
@@ -23,6 +24,10 @@ class SettingsRepositoryImpl(
 
     override suspend fun setDynamicColor(enabled: Boolean) {
         settingsStore.setDynamicColor(enabled)
+    }
+
+    override suspend fun setPinnedHomeNode(node: PinnedHomeNode?) {
+        settingsStore.setPinnedHomeNode(node)
     }
 
     override suspend fun clearCache() {

@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.mystery0.nodeflow.core.model.AppSettings
+import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -19,6 +20,18 @@ class SettingsStore(
         AppSettings(
             themeMode = themeMode,
             dynamicColor = preferences[Keys.dynamicColor] ?: true,
+            pinnedHomeNode = preferences[Keys.pinnedHomeNodeName]
+                ?.takeIf { it.isNotBlank() }
+                ?.let { name ->
+                    PinnedHomeNode(
+                        name = name,
+                        title = preferences[Keys.pinnedHomeNodeTitle]
+                            ?.takeIf { it.isNotBlank() }
+                            ?: name,
+                        avatarUrl = preferences[Keys.pinnedHomeNodeAvatarUrl]
+                            ?.takeIf { it.isNotBlank() },
+                    )
+                },
         )
     }
 
@@ -34,8 +47,28 @@ class SettingsStore(
         }
     }
 
+    suspend fun setPinnedHomeNode(node: PinnedHomeNode?) {
+        context.nodeFlowDataStore.edit { preferences ->
+            if (node == null) {
+                preferences.remove(Keys.pinnedHomeNodeName)
+                preferences.remove(Keys.pinnedHomeNodeTitle)
+                preferences.remove(Keys.pinnedHomeNodeAvatarUrl)
+            } else {
+                preferences[Keys.pinnedHomeNodeName] = node.name
+                preferences[Keys.pinnedHomeNodeTitle] = node.title
+                node.avatarUrl
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { preferences[Keys.pinnedHomeNodeAvatarUrl] = it }
+                    ?: preferences.remove(Keys.pinnedHomeNodeAvatarUrl)
+            }
+        }
+    }
+
     private object Keys {
         val themeMode = stringPreferencesKey("theme_mode")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
+        val pinnedHomeNodeName = stringPreferencesKey("pinned_home_node_name")
+        val pinnedHomeNodeTitle = stringPreferencesKey("pinned_home_node_title")
+        val pinnedHomeNodeAvatarUrl = stringPreferencesKey("pinned_home_node_avatar_url")
     }
 }

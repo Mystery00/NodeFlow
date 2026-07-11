@@ -377,6 +377,48 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseNodeDetail_readsNodeIconFromJsonLd() {
+        val html = """
+            <html>
+              <head>
+                <script type="application/ld+json">
+                  {
+                    "@context": "https://schema.org",
+                    "@type": "CollectionPage",
+                    "name": "Android",
+                    "description": "来自 <a href=\"/go/google\">Google</a> 的开放源代码智能手机平台。",
+                    "image": "https://cdn.v2ex.com/navatar/d67d/8ab4/39_xxxlarge.png?m=1754172750",
+                    "mainEntity": {
+                      "@type": "ItemList",
+                      "numberOfItems": 12887
+                    }
+                  }
+                </script>
+              </head>
+              <body>
+                <h1>Android</h1>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val node = parser.parseNodeDetail("android", html)
+
+        assertThat(node).isNotNull()
+        assertThat(node!!.name).isEqualTo("android")
+        assertThat(node.title).isEqualTo("Android")
+        assertThat(node.header).isEqualTo("来自 Google 的开放源代码智能手机平台。")
+        assertThat(node.avatarUrl).isEqualTo("https://cdn.v2ex.com/navatar/d67d/8ab4/39_xxxlarge.png?m=1754172750")
+        assertThat(node.topics).isEqualTo(12887)
+    }
+
+    @Test
+    fun parseNodeDetail_returnsNullWhenNodeMarkupIsMissing() {
+        val node = parser.parseNodeDetail("android", "<html><body>empty</body></html>")
+
+        assertThat(node).isNull()
+    }
+
+    @Test
     fun parseTopicList_readsTopicCellsFromNodePage() {
         val html = """
             <html>

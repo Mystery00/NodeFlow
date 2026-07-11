@@ -20,11 +20,11 @@ val featureModule = module {
     }
 
     viewModel {
-        HomeViewModel(get())
+        HomeViewModel(get(), get(), get())
     }
 
     viewModel {
-        NodeViewModel(get(), get(), get())
+        NodeViewModel(get(), get(), get(), get(), get())
     }
 
     viewModel {

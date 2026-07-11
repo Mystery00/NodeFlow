@@ -17,6 +17,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.feature.auth.AuthScreen
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
 import app.mystery0.nodeflow.feature.editor.EditorScreen
@@ -35,6 +36,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun NodeFlowNavHost(
+    settings: AppSettings,
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
@@ -49,6 +51,7 @@ fun NodeFlowNavHost(
     ) {
         composable(NodeFlowDestinations.Main) {
             MainShell(
+                settings = settings,
                 onTopicClick = { topic ->
                     navController.navigate(NodeFlowDestinations.topic(topic.id))
                 },

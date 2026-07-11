@@ -9,6 +9,13 @@ enum class ThemeMode {
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.System,
     val dynamicColor: Boolean = true,
+    val pinnedHomeNode: PinnedHomeNode? = null,
+)
+
+data class PinnedHomeNode(
+    val name: String,
+    val title: String,
+    val avatarUrl: String? = null,
 )
 
 data class AuthSession(

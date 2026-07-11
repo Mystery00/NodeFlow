@@ -33,6 +33,36 @@ class V2exHtmlParser {
             .mapNotNull { box -> parseNodePlane(box) }
     }
 
+    fun parseNodeDetail(name: String, html: String): Node? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val jsonLdElements = document.parseJsonLdElements()
+        val parsedTitle = jsonLdElements.firstNotNullOfOrNull { it.nodePageName() }
+            ?: document.selectFirst("meta[property=og:title], meta[name=twitter:title]")?.attr("content")
+            ?: document.selectFirst("h1")?.text()
+        val header = jsonLdElements.firstNotNullOfOrNull { it.nodePageDescription() }
+            ?: document.selectFirst("meta[name=description], meta[property=og:description]")
+                ?.attr("content")
+                ?.htmlToPlainText()
+        val avatarUrl = jsonLdElements.firstNotNullOfOrNull { it.nodePageImage() }
+            ?: document.selectFirst("meta[property=og:image], meta[name=twitter:image]")
+                ?.attr("content")
+                ?.normalizeV2exUrl()
+            ?: document.selectFirst("img[src*=navatar]")
+                ?.attr("src")
+                ?.normalizeV2exUrl()
+        val topics = jsonLdElements.firstNotNullOfOrNull { it.nodePageTopicCount() }
+        if (parsedTitle.isNullOrBlank() && header.isNullOrBlank() && avatarUrl.isNullOrBlank() && topics == null) {
+            return null
+        }
+        return Node(
+            name = name,
+            title = parsedTitle?.trim()?.ifBlank { name } ?: name,
+            header = header,
+            avatarUrl = avatarUrl,
+            topics = topics,
+        )
+    }
+
     fun parseSignInChallenge(html: String): ParsedSignInChallenge? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         val form = document.selectFirst("form[action=/signin]")
@@ -530,6 +560,48 @@ class V2exHtmlParser {
         else -> null
     }
 
+    private fun JsonElement.nodePageName(): String? = when (this) {
+        is JsonArray -> firstNotNullOfOrNull { element -> element.nodePageName() }
+        is JsonObject -> stringValue("name")
+            ?: get("@graph")?.nodePageName()
+        else -> null
+    }?.takeIf { it.isNotBlank() }
+
+    private fun JsonElement.nodePageDescription(): String? = when (this) {
+        is JsonArray -> firstNotNullOfOrNull { element -> element.nodePageDescription() }
+        is JsonObject -> stringValue("description")
+            ?.htmlToPlainText()
+            ?: get("@graph")?.nodePageDescription()
+        else -> null
+    }?.takeIf { it.isNotBlank() }
+
+    private fun JsonElement.nodePageImage(): String? = when (this) {
+        is JsonArray -> firstNotNullOfOrNull { element -> element.nodePageImage() }
+        is JsonObject -> get("image").imageUrl()
+            ?: get("@graph")?.nodePageImage()
+        else -> null
+    }?.normalizeV2exUrl()
+
+    private fun JsonElement.nodePageTopicCount(): Int? = when (this) {
+        is JsonArray -> firstNotNullOfOrNull { element -> element.nodePageTopicCount() }
+        is JsonObject -> get("mainEntity").itemListNumberOfItems()
+            ?: get("@graph")?.nodePageTopicCount()
+        else -> null
+    }
+
+    private fun JsonElement?.imageUrl(): String? = when (this) {
+        is JsonArray -> firstNotNullOfOrNull { element -> element.imageUrl() }
+        is JsonObject -> stringValue("url") ?: stringValue("contentUrl")
+        is JsonPrimitive -> contentOrNull
+        null -> null
+    }?.takeIf { it.isNotBlank() }
+
+    private fun JsonElement?.itemListNumberOfItems(): Int? = when (this) {
+        is JsonArray -> firstNotNullOfOrNull { element -> element.itemListNumberOfItems() }
+        is JsonObject -> flexibleIntValue("numberOfItems")
+        else -> null
+    }
+
     private fun JsonElement?.asElementList(): List<JsonElement> = when (this) {
         is JsonArray -> toList()
         null -> emptyList()
@@ -540,7 +612,15 @@ class V2exHtmlParser {
         (get(key) as? JsonPrimitive)?.contentOrNull
 
     private fun JsonObject.intValue(key: String): Int? =
-        (get(key) as? JsonPrimitive)?.intOrNull
+        flexibleIntValue(key)
+
+    private fun JsonObject.flexibleIntValue(key: String): Int? {
+        val value = get(key) as? JsonPrimitive ?: return null
+        return value.intOrNull ?: value.contentOrNull?.parseFlexibleInt()
+    }
+
+    private fun String.htmlToPlainText(): String =
+        Jsoup.parseBodyFragment(this, V2EX_BASE_URL).text().trim()
 
     data class ParsedTopicHtml(
         val id: Long,

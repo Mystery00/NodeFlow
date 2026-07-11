@@ -18,7 +18,25 @@ class NodeRemoteDataSource(
     private val parser: V2exHtmlParser,
 ) {
     suspend fun node(name: String): Node = safeNetworkCall {
-        json.decodeFromString<V2exNodeDto>(api.node(name).bodyStringOrThrow()).toNode()
+        val apiResult = runCatching {
+            json.decodeFromString<V2exNodeDto>(api.node(name).bodyStringOrThrow()).toNode()
+        }
+        val apiNode = apiResult.getOrNull()
+        if (apiNode != null && !apiNode.avatarUrl.isNullOrBlank()) {
+            apiNode
+        } else {
+            val htmlNode = runCatching {
+                parser.parseNodeDetail(
+                    name = name,
+                    html = api.nodeTopicsHtml(name, page = null).bodyStringOrThrow(),
+                )
+            }.getOrNull()
+            when {
+                apiNode != null -> apiNode.mergeSupplementalNode(htmlNode)
+                htmlNode != null -> htmlNode
+                else -> apiResult.getOrThrow()
+            }
+        }
     }
 
     suspend fun topics(name: String, page: Int): List<Topic> = safeNetworkCall {
@@ -31,4 +49,17 @@ class NodeRemoteDataSource(
     suspend fun planes(): List<NodePlane> = safeNetworkCall {
         parser.parseNodePlanes(api.planesHtml().bodyStringOrThrow())
     }
+}
+
+private fun Node.mergeSupplementalNode(supplemental: Node?): Node {
+    if (supplemental == null) return this
+    return copy(
+        id = id ?: supplemental.id,
+        name = name.ifBlank { supplemental.name },
+        title = title.ifBlank { supplemental.title },
+        header = header ?: supplemental.header,
+        avatarUrl = avatarUrl ?: supplemental.avatarUrl,
+        topics = topics ?: supplemental.topics,
+        stars = stars ?: supplemental.stars,
+    )
 }
