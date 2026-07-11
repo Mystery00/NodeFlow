@@ -129,6 +129,21 @@ data class Reply(
     val reference: ReplyReference? = null,
 )
 
+data class ProfileReply(
+    val topicId: Long,
+    val topicTitle: String,
+    val nodeName: String = "",
+    val nodeTitle: String = "",
+    val content: String,
+    val contentRendered: String,
+    val createdAtEpochSeconds: Long? = null,
+)
+
+data class UserRecentActivity(
+    val topics: List<Topic> = emptyList(),
+    val replies: List<ProfileReply> = emptyList(),
+)
+
 data class ReplyReference(
     val replyId: Long,
     val floor: Int,

@@ -7,6 +7,7 @@ import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.model.LoginChallenge
 import app.mystery0.nodeflow.core.model.TwoFactorChallenge
 import app.mystery0.nodeflow.core.model.User
+import app.mystery0.nodeflow.core.model.UserRecentActivity
 import app.mystery0.nodeflow.domain.account.AccountOverviewRepository
 import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.auth.AuthRepository
@@ -101,6 +102,9 @@ class AccountViewModelTest {
     private class FakeUserRepository : UserRepository {
         override suspend fun user(username: String, forceRefresh: Boolean): Result<User> =
             Result.success(User(username = username))
+
+        override suspend fun recentActivity(username: String): Result<UserRecentActivity> =
+            Result.success(UserRecentActivity())
 
         override suspend fun clearCache() = Unit
     }

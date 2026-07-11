@@ -124,6 +124,12 @@ fun NodeFlowNavHost(
                 state = state,
                 onEvent = viewModel::onEvent,
                 onBackClick = { navController.popBackStack() },
+                onTopicClick = { topicId ->
+                    navController.navigate(NodeFlowDestinations.topic(topicId))
+                },
+                onNodeClick = { nodeName ->
+                    navController.navigate(NodeFlowDestinations.node(nodeName))
+                },
             )
         }
         composable(NodeFlowDestinations.Auth) {

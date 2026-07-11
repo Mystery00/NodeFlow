@@ -4,6 +4,7 @@ import app.mystery0.nodeflow.core.model.AccountWealth
 import app.mystery0.nodeflow.core.model.DailyCheckIn
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
+import app.mystery0.nodeflow.core.model.ProfileReply
 import app.mystery0.nodeflow.core.model.Reply
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.User
@@ -451,6 +452,46 @@ class V2exHtmlParser {
             memberNumber = memberNumber,
             dailyActivityRank = dailyActivityRank,
         )
+    }
+
+    fun parseUserRecentTopics(html: String): List<Topic> {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        // 会员页「最近主题」区块的每条主题是带 topic-link 的 div.cell.item
+        return document.select("div.cell.item:has(a.topic-link)")
+            .mapNotNull { cell -> parseTopicCell(cell, sourceNodeName = null) }
+    }
+
+    fun parseUserRecentReplies(html: String): List<ProfileReply> {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        // 会员页「最近回复」区块：每条回复是 div.dock_area（元信息）+ 紧随的 div.inner .reply_content
+        return document.select("div.dock_area").mapNotNull { dock ->
+            val topicLink = dock.select("a[href*=/t/]").lastOrNull() ?: return@mapNotNull null
+            val topicId = TOPIC_ID_REGEX.find(topicLink.attr("href"))
+                ?.groupValues?.getOrNull(1)?.toLongOrNull()
+                ?: return@mapNotNull null
+            val topicTitle = topicLink.text().trim().takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val contentElement = dock.nextElementSibling()
+                ?.takeIf { it.hasClass("inner") }
+                ?.selectFirst(".reply_content")
+                ?: return@mapNotNull null
+            val nodeLink = dock.selectFirst("a[href^=/go/]")
+            val nodeName = nodeLink?.attr("href")?.substringAfterLast("/").orEmpty()
+            val nodeTitle = nodeLink?.text()?.trim()?.takeIf { it.isNotBlank() } ?: nodeName
+            val createdAt = dock.selectFirst("span.fade[title], span[title]")
+                ?.attr("title")
+                ?.parseV2exDateTime()
+            val contentRendered = contentElement.html()
+            val contentText = contentElement.text()
+            ProfileReply(
+                topicId = topicId,
+                topicTitle = topicTitle,
+                nodeName = nodeName,
+                nodeTitle = nodeTitle,
+                content = contentText,
+                contentRendered = contentRendered.ifBlank { contentText },
+                createdAtEpochSeconds = createdAt,
+            )
+        }
     }
 
     private fun parseNodePlane(box: Element): NodePlane? {

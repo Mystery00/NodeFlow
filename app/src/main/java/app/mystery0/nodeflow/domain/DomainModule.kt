@@ -14,6 +14,7 @@ import app.mystery0.nodeflow.domain.topic.GetLatestTopicsUseCase
 import app.mystery0.nodeflow.domain.topic.GetLatestTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
+import app.mystery0.nodeflow.domain.user.GetUserRecentActivityUseCase
 import org.koin.dsl.module
 
 val domainModule = module {
@@ -47,6 +48,10 @@ val domainModule = module {
 
     factory {
         GetUserProfileUseCase(get())
+    }
+
+    factory {
+        GetUserRecentActivityUseCase(get())
     }
 
     factory {

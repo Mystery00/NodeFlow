@@ -7,6 +7,69 @@ class V2exHtmlParserTest {
     private val parser = V2exHtmlParser()
 
     @Test
+    fun parseUserRecentTopics_readsTopicCellsFromMemberPage() {
+        val html = """
+            <html>
+              <body>
+                <div class="box">
+                  <div class="cell"><span class="gray">Livid's recent topics</span></div>
+                  <div class="cell item">
+                    <table><tr>
+                      <td width="auto">
+                        <span class="item_title"><a href="/t/1219772#reply5" class="topic-link" id="topic-link-1219772">测试主题标题</a></span>
+                        <span class="topic_info"><a class="node" href="/go/wunder">Wunder</a> &nbsp;•&nbsp; <strong><a href="/member/Livid">Livid</a></strong> &nbsp;•&nbsp; <span title="2026-06-14 11:04:13 +08:00">Jun 14</span></span>
+                      </td>
+                      <td><a href="/t/1219772#reply5" class="count_livid">5</a></td>
+                    </tr></table>
+                  </div>
+                  <div class="inner"><a href="/member/Livid/topics">More topics by Livid</a></div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topics = parser.parseUserRecentTopics(html)
+
+        assertThat(topics).hasSize(1)
+        assertThat(topics.single().id).isEqualTo(1219772)
+        assertThat(topics.single().title).isEqualTo("测试主题标题")
+        assertThat(topics.single().node.name).isEqualTo("wunder")
+        assertThat(topics.single().replyCount).isEqualTo(5)
+    }
+
+    @Test
+    fun parseUserRecentReplies_readsReplyRowsWithTargetTopic() {
+        val html = """
+            <html>
+              <body>
+                <div class="box">
+                  <div class="cell"><span class="gray">Livid's recent replies</span></div>
+                  <div class="dock_area">
+                    <table><tr>
+                      <td><div class="fr"><span class="fade" title="2026-07-11 19:04:44 +08:00">36 mins ago</span></div>
+                      <span class="gray">Replied to a topic by <a href="/member/Livid">Livid</a> <span class="chevron">›</span> <a href="/go/wunder">Wunder</a> <span class="chevron">›</span> <a href="/t/1226562#reply4">目标主题标题</a></span></td>
+                    </tr></table>
+                  </div>
+                  <div class="inner">
+                    <div class="reply_content">这是一条回复内容</div>
+                  </div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val replies = parser.parseUserRecentReplies(html)
+
+        assertThat(replies).hasSize(1)
+        assertThat(replies.single().topicId).isEqualTo(1226562)
+        assertThat(replies.single().topicTitle).isEqualTo("目标主题标题")
+        assertThat(replies.single().nodeName).isEqualTo("wunder")
+        assertThat(replies.single().content).isEqualTo("这是一条回复内容")
+        assertThat(replies.single().createdAtEpochSeconds)
+            .isEqualTo(java.time.OffsetDateTime.parse("2026-07-11T19:04:44+08:00").toEpochSecond())
+    }
+
+    @Test
     fun parseSignInChallenge_readsDynamicFieldsAndCaptchaPath() {
         val html = """
             <html>

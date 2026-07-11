@@ -1,6 +1,7 @@
 package app.mystery0.nodeflow.data.user
 
 import app.mystery0.nodeflow.core.model.User
+import app.mystery0.nodeflow.core.model.UserRecentActivity
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
@@ -25,6 +26,14 @@ class UserRemoteDataSource(
             bio = apiUser.bio?.takeIf { it.isNotBlank() } ?: htmlUser?.bio,
             memberNumber = htmlUser?.memberNumber ?: apiUser.memberNumber ?: apiUser.id,
             dailyActivityRank = htmlUser?.dailyActivityRank ?: apiUser.dailyActivityRank,
+        )
+    }
+
+    suspend fun recentActivity(username: String): UserRecentActivity = safeNetworkCall {
+        val html = api.memberHtml(username).bodyStringOrThrow()
+        UserRecentActivity(
+            topics = parser.parseUserRecentTopics(html),
+            replies = parser.parseUserRecentReplies(html),
         )
     }
 }

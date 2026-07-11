@@ -1,6 +1,7 @@
 package app.mystery0.nodeflow.data.user
 
 import app.mystery0.nodeflow.core.model.User
+import app.mystery0.nodeflow.core.model.UserRecentActivity
 import app.mystery0.nodeflow.domain.user.UserRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -19,6 +20,11 @@ class UserRepositoryImpl(
                     .onSuccess { localDataSource.cacheUser(it) }
                     .getOrElse { error -> cached ?: throw error }
             }
+        }
+
+    override suspend fun recentActivity(username: String): Result<UserRecentActivity> =
+        withContext(ioDispatcher) {
+            runCatching { remoteDataSource.recentActivity(username) }
         }
 
     override suspend fun clearCache() {
