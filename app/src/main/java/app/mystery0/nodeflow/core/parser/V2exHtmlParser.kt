@@ -4,6 +4,7 @@ import app.mystery0.nodeflow.core.model.AccountWealth
 import app.mystery0.nodeflow.core.model.DailyCheckIn
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
+import app.mystery0.nodeflow.core.model.Reply
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.User
 import kotlinx.serialization.json.Json
@@ -340,27 +341,42 @@ class V2exHtmlParser {
         return (imageSources + linkedImages).distinct()
     }
 
-    fun parseTopicHtml(topicId: Long, html: String): ParsedTopicHtml {
+    fun parseTopicHtml(topicId: Long, html: String): ParsedTopicHtml? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val contentElement = document.selectFirst(".topic_content")
+        val replyElements = document.select("div[id]").filter { REPLY_ROW_ID_REGEX.matches(it.id()) }
+        // 登录页、404 等非主题页面既没有正文块也没有回复行，直接返回 null 交给 JSON 兜底
+        if (contentElement == null && replyElements.isEmpty()) return null
         val title = document.selectFirst("h1")?.text()
             ?: document.selectFirst("meta[property=og:title]")?.attr("content")
             ?: "未命名主题"
-        val contentElement = document.selectFirst(".topic_content")
-        val authorName = document.selectFirst("meta[name=twitter:creator]")?.attr("content")
-            ?.removePrefix("@")
+        // 注意：meta[name=twitter:creator] 是 V2EX 站点账号（@V2EX），不是发帖人，不能用
+        val authorName = document.selectFirst("small.gray a[href^=/member/]")?.text()?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?: document.selectFirst("a[href^=/member/]")?.text()
+            ?: document.select("a[href^=/member/]").firstOrNull { it.text().isNotBlank() }?.text()?.trim()
             ?: ""
+        val authorAvatarUrl = document.selectFirst(".header img.avatar")?.attr("src")?.normalizeV2exUrl()
         val nodeTitle = document.selectFirst("meta[property=article:section]")?.attr("content")
         val nodeName = document.selectFirst("a[href^=/go/]")?.attr("href")?.substringAfterLast("/")
+        val createdAt = document.selectFirst(".header small.gray span[title]")
+            ?.attr("title")
+            ?.parseV2exDateTime()
         val jsonLdElements = document.parseJsonLdElements()
+        val replies = replyElements.parseTopicReplies(topicId)
+        val pageCount = document.selectFirst("input.page_input")
+            ?.attr("max")
+            ?.toIntOrNull()
+            ?.coerceAtLeast(1)
+            ?: 1
         return ParsedTopicHtml(
             id = topicId,
             title = title,
             authorName = authorName,
+            authorAvatarUrl = authorAvatarUrl,
             nodeName = nodeName.orEmpty(),
             nodeTitle = nodeTitle ?: nodeName.orEmpty(),
             contentRendered = contentElement?.html().orEmpty(),
+            createdAtEpochSeconds = createdAt,
             viewCount = jsonLdElements.firstNotNullOfOrNull { it.interactionCount(VIEW_ACTION) }
                 ?: document.parseViewCountFromHeader(),
             hotReplyCount = jsonLdElements
@@ -370,8 +386,49 @@ class V2exHtmlParser {
             tags = document.select("a.tag[href^=/tag/]")
                 .mapNotNull { it.ownText().trim().ifBlank { it.text().trim() }.takeIf(String::isNotBlank) }
                 .distinct(),
+            pageCount = pageCount,
+            replies = replies,
         )
     }
+
+    private fun List<Element>.parseTopicReplies(topicId: Long): List<Reply> =
+        mapIndexedNotNull { index, element ->
+            val id = element.id().removePrefix("r_").toLongOrNull() ?: return@mapIndexedNotNull null
+            val contentElement = element.selectFirst(".reply_content")
+            val contentRendered = contentElement?.html().orEmpty()
+            val contentText = contentElement?.text().orEmpty()
+            val floor = element.selectFirst("span.no")?.text()?.firstInt() ?: (index + 1)
+            val username = element.selectFirst("strong a[href^=/member/]")?.text()?.trim()
+                ?: element.selectFirst("a[href^=/member/]")?.text()?.trim()
+                ?: ""
+            val avatarUrl = element.selectFirst("img.avatar")?.attr("src")?.normalizeV2exUrl()
+            val createdAt = element.selectFirst("span.ago[title], span[title]")
+                ?.attr("title")
+                ?.parseV2exDateTime()
+            Reply(
+                id = id,
+                topicId = topicId,
+                floor = floor,
+                author = User(username = username, avatarUrl = avatarUrl),
+                content = contentText,
+                contentRendered = contentRendered.ifBlank { contentText },
+                createdAtEpochSeconds = createdAt,
+                thanks = element.parseReplyThanks(),
+            )
+        }
+
+    private fun Element.parseReplyThanks(): Int =
+        select("span.small.fade")
+            .firstOrNull { span ->
+                span.select("img").any { image ->
+                    image.attr("src").contains("heart", ignoreCase = true) ||
+                        image.attr("alt").contains("heart", ignoreCase = true) ||
+                        image.attr("alt").contains("❤")
+                }
+            }
+            ?.ownText()
+            ?.firstInt()
+            ?: 0
 
     fun parseUserProfile(username: String, html: String): User {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
@@ -626,12 +683,16 @@ class V2exHtmlParser {
         val id: Long,
         val title: String,
         val authorName: String,
+        val authorAvatarUrl: String? = null,
         val nodeName: String,
         val nodeTitle: String,
         val contentRendered: String,
+        val createdAtEpochSeconds: Long? = null,
         val viewCount: Int? = null,
         val hotReplyCount: Int? = null,
         val tags: List<String> = emptyList(),
+        val pageCount: Int = 1,
+        val replies: List<Reply> = emptyList(),
     )
 
     data class ParsedSignInChallenge(
@@ -660,6 +721,7 @@ class V2exHtmlParser {
         val JsonLdParser = Json { ignoreUnknownKeys = true }
         val TOPIC_ID_REGEX = Regex("""/t/(\d+)""")
         val REPLY_COUNT_REGEX = Regex("""#reply(\d+)""")
+        val REPLY_ROW_ID_REGEX = Regex("""r_\d+""")
         val NODE_COUNT_REGEX = Regex("""(\d+)""")
         val VIEW_COUNT_REGEX = Regex("""(\d[\d,]*)\s+views""")
         val MEMBER_NUMBER_REGEX = Regex("""V2EX\s+member\s+#(\d[\d,]*)""", RegexOption.IGNORE_CASE)

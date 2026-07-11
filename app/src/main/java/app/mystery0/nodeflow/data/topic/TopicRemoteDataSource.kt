@@ -1,7 +1,9 @@
 package app.mystery0.nodeflow.data.topic
 
+import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
+import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
@@ -27,6 +29,46 @@ class TopicRemoteDataSource(
     }
 
     suspend fun topicDetail(topicId: Long): TopicDetail = safeNetworkCall {
+        // 主线路：网页 HTML，不消耗旧 JSON API 的 IP 限流配额，并支持登录可见内容
+        val htmlDetail = runCatching { htmlTopicDetail(topicId) }.getOrNull()
+        if (htmlDetail != null && htmlDetail.contentRendered.isNotBlank()) {
+            htmlDetail
+        } else {
+            // 兜底线路：网页解析失败（结构变更 / 非预期页面）时回退到旧 JSON API
+            jsonTopicDetail(topicId)
+        }
+    }
+
+    private suspend fun htmlTopicDetail(topicId: Long): TopicDetail? {
+        val firstPage = parser.parseTopicHtml(
+            topicId = topicId,
+            html = api.topicHtml(topicId).bodyStringOrThrow(),
+        ) ?: return null
+        val replies = firstPage.replies.toMutableList()
+        // 回复超过一页时按页顺序拉取剩余页并拼接
+        if (firstPage.pageCount > 1) {
+            for (page in 2..firstPage.pageCount) {
+                val nextPage = runCatching {
+                    parser.parseTopicHtml(
+                        topicId = topicId,
+                        html = api.topicHtml(topicId, page = page).bodyStringOrThrow(),
+                    )
+                }.getOrNull() ?: continue
+                replies += nextPage.replies
+            }
+        }
+        return TopicDetail(
+            topic = firstPage.toTopic(replyCount = replies.size),
+            content = "",
+            contentRendered = firstPage.contentRendered,
+            replies = replies.withReferencePreviews(),
+            viewCount = firstPage.viewCount,
+            hotReplyCount = firstPage.hotReplyCount,
+            tags = firstPage.tags,
+        )
+    }
+
+    private suspend fun jsonTopicDetail(topicId: Long): TopicDetail {
         val topic = json.decodeFromString<List<V2exTopicDto>>(api.topic(topicId).bodyStringOrThrow())
             .first()
         val replies = json.decodeFromString<List<V2exReplyDto>>(api.replies(topicId).bodyStringOrThrow())
@@ -38,7 +80,7 @@ class TopicRemoteDataSource(
                 html = api.topicHtml(topicId).bodyStringOrThrow(),
             )
         }.getOrNull()
-        TopicDetail(
+        return TopicDetail(
             topic = topic.toTopic(),
             content = topic.content.orEmpty(),
             contentRendered = topic.contentRendered ?: topic.content.orEmpty(),
@@ -48,6 +90,17 @@ class TopicRemoteDataSource(
             tags = supplemental?.tags.orEmpty(),
         )
     }
+
+    private fun V2exHtmlParser.ParsedTopicHtml.toTopic(replyCount: Int): Topic = Topic(
+        id = id,
+        title = title,
+        url = "https://www.v2ex.com/t/$id",
+        node = Node(name = nodeName, title = nodeTitle),
+        author = User(username = authorName, avatarUrl = authorAvatarUrl),
+        avatarUrl = authorAvatarUrl,
+        replyCount = replyCount,
+        createdAtEpochSeconds = createdAtEpochSeconds,
+    )
 
     private companion object {
         const val HOME_TOPICS_PAGE = 1

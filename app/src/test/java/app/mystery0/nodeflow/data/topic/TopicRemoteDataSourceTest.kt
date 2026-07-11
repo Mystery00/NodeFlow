@@ -90,6 +90,85 @@ class TopicRemoteDataSourceTest {
         assertThat(topics.map { it.id }).containsExactly(1224599L)
     }
 
+    @Test
+    fun topicDetail_parsesRepliesFromHtmlAndMergesPagesWithoutJsonApi() = runTest {
+        val api = FakeV2exRawApi(
+            topicHtmlPages = mapOf(
+                null to """
+                    <html><body>
+                      <div class="header">
+                        <div><a href="/go/python">Python</a></div>
+                        <h1>测试主题</h1>
+                        <small class="gray"><a href="/member/alice">alice</a> · <span title="2026-07-01 10:00:00 +08:00">now</span> · 100 views</small>
+                      </div>
+                      <div class="topic_content"><p>正文内容</p></div>
+                      <div id="r_1" class="cell"><table><tr><td>
+                        <div class="fr"><span class="no">1</span></div>
+                        <strong><a href="/member/bob" class="dark">bob</a></strong>
+                        <span class="ago" title="2026-07-01 11:00:00 +08:00">now</span>
+                        <div class="reply_content">第一层</div>
+                      </td></tr></table></div>
+                      <input class="page_input" type="number" max="2" />
+                    </body></html>
+                """.trimIndent(),
+                2 to """
+                    <html><body>
+                      <div class="topic_content"><p>正文内容</p></div>
+                      <div id="r_2" class="cell"><table><tr><td>
+                        <div class="fr"><span class="no">2</span></div>
+                        <strong><a href="/member/carol" class="dark">carol</a></strong>
+                        <span class="ago" title="2026-07-01 12:00:00 +08:00">now</span>
+                        <div class="reply_content">第二层</div>
+                      </td></tr></table></div>
+                    </body></html>
+                """.trimIndent(),
+            ),
+        )
+        val dataSource = TopicRemoteDataSource(api, json, parser)
+
+        val detail = dataSource.topicDetail(topicId = 1000)
+
+        assertThat(api.topicJsonCalls).isEqualTo(0)
+        assertThat(api.repliesJsonCalls).isEqualTo(0)
+        assertThat(api.topicHtmlRequests).containsExactly(null, 2).inOrder()
+        assertThat(detail.contentRendered).contains("正文内容")
+        assertThat(detail.topic.node.name).isEqualTo("python")
+        assertThat(detail.topic.author.username).isEqualTo("alice")
+        assertThat(detail.topic.replyCount).isEqualTo(2)
+        assertThat(detail.replies.map { it.author.username }).containsExactly("bob", "carol").inOrder()
+        assertThat(detail.replies.map { it.floor }).containsExactly(1, 2).inOrder()
+    }
+
+    @Test
+    fun topicDetail_fallsBackToJsonWhenHtmlIsNotTopicPage() = runTest {
+        val api = FakeV2exRawApi(
+            topicHtmlPages = mapOf(
+                null to """
+                    <html><body>
+                      <div class="box">
+                        <div class="header">登录 V2EX</div>
+                        <form action="/signin" method="post"><input type="text" name="u" /></form>
+                      </div>
+                    </body></html>
+                """.trimIndent(),
+            ),
+            topicJson = """
+                [{"id": 2000, "title": "JSON 主题", "content": "raw", "content_rendered": "<p>渲染正文</p>", "replies": 1}]
+            """.trimIndent(),
+            repliesJson = """
+                [{"id": 9, "topic_id": 2000, "content_rendered": "<p>JSON 回复</p>", "member": {"username": "dave"}}]
+            """.trimIndent(),
+        )
+        val dataSource = TopicRemoteDataSource(api, json, parser)
+
+        val detail = dataSource.topicDetail(topicId = 2000)
+
+        assertThat(api.topicJsonCalls).isEqualTo(1)
+        assertThat(api.repliesJsonCalls).isEqualTo(1)
+        assertThat(detail.contentRendered).isEqualTo("<p>渲染正文</p>")
+        assertThat(detail.replies.single().author.username).isEqualTo("dave")
+    }
+
     private data class NodeTopicsHtmlRequest(
         val nodeName: String,
         val page: Int?,
@@ -100,20 +179,32 @@ class TopicRemoteDataSourceTest {
     )
 
     private class FakeV2exRawApi(
-        private val recentHtml: String,
+        private val recentHtml: String = "",
+        private val topicHtmlPages: Map<Int?, String> = emptyMap(),
+        private val topicJson: String = "[]",
+        private val repliesJson: String = "[]",
     ) : V2exRawApi {
         var latestTopicsRequestCount: Int = 0
+        var topicJsonCalls: Int = 0
+        var repliesJsonCalls: Int = 0
         val nodeTopicsHtmlRequests = mutableListOf<NodeTopicsHtmlRequest>()
         val recentTopicsHtmlRequests = mutableListOf<RecentTopicsHtmlRequest>()
+        val topicHtmlRequests = mutableListOf<Int?>()
 
         override suspend fun latestTopics(): Response<ResponseBody> {
             latestTopicsRequestCount += 1
             return htmlResponse("[]")
         }
 
-        override suspend fun topic(id: Long): Response<ResponseBody> = htmlResponse("")
+        override suspend fun topic(id: Long): Response<ResponseBody> {
+            topicJsonCalls += 1
+            return htmlResponse(topicJson)
+        }
 
-        override suspend fun replies(topicId: Long): Response<ResponseBody> = htmlResponse("")
+        override suspend fun replies(topicId: Long): Response<ResponseBody> {
+            repliesJsonCalls += 1
+            return htmlResponse(repliesJson)
+        }
 
         override suspend fun node(name: String): Response<ResponseBody> = htmlResponse("")
 
@@ -131,7 +222,10 @@ class TopicRemoteDataSourceTest {
 
         override suspend fun planesHtml(): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> = htmlResponse("")
+        override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> {
+            topicHtmlRequests += page
+            return htmlResponse(topicHtmlPages[page].orEmpty())
+        }
 
         override suspend fun memberHtml(username: String): Response<ResponseBody> = htmlResponse("")
 

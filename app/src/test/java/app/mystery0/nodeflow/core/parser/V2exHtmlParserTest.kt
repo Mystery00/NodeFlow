@@ -632,7 +632,8 @@ class V2exHtmlParserTest {
 
         val topic = parser.parseTopicHtml(topicId = 1223541, html = html)
 
-        assertThat(topic.viewCount).isEqualTo(5662)
+        assertThat(topic).isNotNull()
+        assertThat(topic!!.viewCount).isEqualTo(5662)
         assertThat(topic.hotReplyCount).isEqualTo(3)
         assertThat(topic.tags).containsExactly("Coding", "plan", "glm").inOrder()
     }
@@ -650,7 +651,8 @@ class V2exHtmlParserTest {
 
         val topic = parser.parseTopicHtml(topicId = 1, html = html)
 
-        assertThat(topic.viewCount).isNull()
+        assertThat(topic).isNotNull()
+        assertThat(topic!!.viewCount).isNull()
         assertThat(topic.hotReplyCount).isNull()
         assertThat(topic.tags).isEmpty()
     }
@@ -674,7 +676,109 @@ class V2exHtmlParserTest {
 
         val topic = parser.parseTopicHtml(topicId = 1, html = html)
 
-        assertThat(topic.hotReplyCount).isEqualTo(1)
+        assertThat(topic!!.hotReplyCount).isEqualTo(1)
+    }
+
+    @Test
+    fun parseTopicHtml_readsRepliesAndPaginationFromTopicPage() {
+        val html = """
+            <html>
+              <head>
+                <meta property="article:section" content="Android" />
+              </head>
+              <body>
+                <div id="Wrapper">
+                  <div class="header">
+                    <div class="fr">
+                      <a href="/member/adz2k"><img src="//cdn.v2ex.com/gravatar/abc.png" class="avatar" alt="adz2k" /></a>
+                    </div>
+                    <div><a href="/">V2EX</a> <span class="chevron">›</span> <a href="/go/android">Android</a></div>
+                    <h1>港版安卓机是满血的国际版安卓机吗？</h1>
+                    <small class="gray"><a href="/member/adz2k">adz2k</a> · <span title="2026-07-10 16:33:39 +08:00">20h 5m ago</span> · 1656 views</small>
+                  </div>
+                  <div class="cell"><div class="topic_content"><p>正文段落</p></div></div>
+                  <div id="r_17853599" class="cell">
+                    <table>
+                      <tr>
+                        <td><img src="//cdn.v2ex.com/avatar/x_normal.png" class="avatar" alt="xingfu0539" /></td>
+                        <td>
+                          <div class="fr"> &nbsp; <span class="no">1</span></div>
+                          <strong><a href="/member/xingfu0539" class="dark">xingfu0539</a></strong>
+                          <span class="ago" title="2026-07-10 19:37:31 +08:00">17h 1m ago</span>
+                          <div class="reply_content">第一条回复</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </div>
+                  <div id="r_17853600" class="cell">
+                    <table>
+                      <tr>
+                        <td><img src="//cdn.v2ex.com/avatar/y_normal.png" class="avatar" alt="moefishtang" /></td>
+                        <td>
+                          <div class="fr">
+                            <span class="small fade"><img src="/static/img/heart_neue@2x.png" alt="❤️" /> 3</span>
+                            &nbsp; <span class="no">2</span>
+                          </div>
+                          <strong><a href="/member/moefishtang" class="dark">moefishtang</a></strong>
+                          <span class="ago" title="2026-07-10 19:43:00 +08:00">17h ago</span>
+                          <div class="reply_content">回应 <a href="/member/xingfu0539">@xingfu0539</a> 的内容</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </div>
+                  <input type="number" class="page_input" min="1" max="3" value="1" />
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = parser.parseTopicHtml(topicId = 1226421, html = html)
+
+        assertThat(topic).isNotNull()
+        assertThat(topic!!.title).isEqualTo("港版安卓机是满血的国际版安卓机吗？")
+        assertThat(topic.authorName).isEqualTo("adz2k")
+        assertThat(topic.authorAvatarUrl).isEqualTo("https://cdn.v2ex.com/gravatar/abc.png")
+        assertThat(topic.nodeName).isEqualTo("android")
+        assertThat(topic.nodeTitle).isEqualTo("Android")
+        assertThat(topic.createdAtEpochSeconds)
+            .isEqualTo(java.time.OffsetDateTime.parse("2026-07-10T16:33:39+08:00").toEpochSecond())
+        assertThat(topic.contentRendered).contains("正文段落")
+        assertThat(topic.viewCount).isEqualTo(1656)
+        assertThat(topic.pageCount).isEqualTo(3)
+        assertThat(topic.replies).hasSize(2)
+
+        val first = topic.replies[0]
+        assertThat(first.id).isEqualTo(17853599)
+        assertThat(first.floor).isEqualTo(1)
+        assertThat(first.author.username).isEqualTo("xingfu0539")
+        assertThat(first.author.avatarUrl).isEqualTo("https://cdn.v2ex.com/avatar/x_normal.png")
+        assertThat(first.contentRendered).isEqualTo("第一条回复")
+        assertThat(first.createdAtEpochSeconds)
+            .isEqualTo(java.time.OffsetDateTime.parse("2026-07-10T19:37:31+08:00").toEpochSecond())
+        assertThat(first.thanks).isEqualTo(0)
+
+        val second = topic.replies[1]
+        assertThat(second.id).isEqualTo(17853600)
+        assertThat(second.floor).isEqualTo(2)
+        assertThat(second.author.username).isEqualTo("moefishtang")
+        assertThat(second.thanks).isEqualTo(3)
+        assertThat(second.contentRendered).contains("@xingfu0539")
+    }
+
+    @Test
+    fun parseTopicHtml_returnsNullForNonTopicPage() {
+        val html = """
+            <html>
+              <body>
+                <div class="box">
+                  <div class="header">登录 V2EX</div>
+                  <form action="/signin" method="post"><input type="text" name="u" /></form>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        assertThat(parser.parseTopicHtml(topicId = 1, html = html)).isNull()
     }
 
     @Test

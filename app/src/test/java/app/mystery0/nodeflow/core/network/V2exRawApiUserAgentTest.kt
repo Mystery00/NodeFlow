@@ -56,6 +56,17 @@ class V2exRawApiUserAgentTest {
     }
 
     @Test
+    fun topicHtml_usesDesktopUserAgent() = runTest {
+        server.enqueue(MockResponse().setBody(""))
+
+        api.topicHtml(topicId = 1226421, page = null)
+
+        val request = server.takeRequest()
+        assertThat(request.path).isEqualTo("/t/1226421")
+        assertThat(request.getHeader("User-Agent")).isEqualTo(V2exUserAgents.DESKTOP)
+    }
+
+    @Test
     fun otherRequests_useMobileUserAgent() = runTest {
         server.enqueue(MockResponse().setBody(""))
 

@@ -42,6 +42,8 @@ interface V2exRawApi {
     @GET("planes")
     suspend fun planesHtml(): Response<ResponseBody>
 
+    // 移动版帖子页的回复只有相对时间，桌面版才带精确时间戳，因此按桌面版请求
+    @Headers("User-Agent: ${V2exUserAgents.DESKTOP}")
     @GET("t/{topicId}")
     suspend fun topicHtml(
         @Path("topicId") topicId: Long,
