@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,14 +29,24 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+
+// 用户名、密码、验证码只接受半角英文/数字/符号，过滤掉中文等非 ASCII 及空白字符
+internal fun asciiCredentialInput(input: String): String =
+    input.filter { it in '!'..'~' }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,18 +87,37 @@ fun AuthScreen(
             if (state.twoFactorChallenge == null) {
                 OutlinedTextField(
                     value = state.username,
-                    onValueChange = { onEvent(AuthUiEvent.UsernameChanged(it)) },
+                    onValueChange = { onEvent(AuthUiEvent.UsernameChanged(asciiCredentialInput(it))) },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("用户名或邮箱") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
                 )
+                var passwordVisible by remember { mutableStateOf(false) }
                 OutlinedTextField(
                     value = state.password,
-                    onValueChange = { onEvent(AuthUiEvent.PasswordChanged(it)) },
+                    onValueChange = { onEvent(AuthUiEvent.PasswordChanged(asciiCredentialInput(it))) },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("密码") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = if (passwordVisible) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) {
+                                    Icons.Outlined.VisibilityOff
+                                } else {
+                                    Icons.Outlined.Visibility
+                                },
+                                contentDescription = if (passwordVisible) "隐藏密码" else "显示密码",
+                            )
+                        }
+                    },
                 )
                 CaptchaContent(
                     state = state,
@@ -94,10 +125,11 @@ fun AuthScreen(
                 )
                 OutlinedTextField(
                     value = state.captcha,
-                    onValueChange = { onEvent(AuthUiEvent.CaptchaChanged(it)) },
+                    onValueChange = { onEvent(AuthUiEvent.CaptchaChanged(asciiCredentialInput(it))) },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("验证码") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
                 )
             } else {
                 TwoFactorContent(
