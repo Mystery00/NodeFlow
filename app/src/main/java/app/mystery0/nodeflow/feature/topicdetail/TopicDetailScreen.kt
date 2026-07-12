@@ -57,6 +57,8 @@ import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.designsystem.component.RichHtmlText
 import app.mystery0.nodeflow.core.designsystem.component.ZoomableImageViewer
+import app.mystery0.nodeflow.core.link.V2exLink
+import app.mystery0.nodeflow.core.link.V2exLinkParser
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.ReplyItem
@@ -106,6 +108,7 @@ fun TopicDetailScreen(
     onBackClick: () -> Unit,
     onNodeClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
+    onTopicClick: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val detail = state.detail
@@ -150,6 +153,7 @@ fun TopicDetailScreen(
                 errorMessage = state.errorMessage,
                 onNodeClick = onNodeClick,
                 onUserClick = onUserClick,
+                onTopicClick = onTopicClick,
                 onImageClick = { previewImageUrl = it },
                 contentPadding = paddingValues,
             )
@@ -195,12 +199,31 @@ private fun TopicDetailContent(
     errorMessage: String?,
     onNodeClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
+    onTopicClick: (Long) -> Unit,
     onImageClick: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     var highlightedReplyId by remember(detail.topic.id) { mutableStateOf<Long?>(null) }
+    // 正文与回复里的 v2ex 链接优先在 app 内打开，无法识别的返回 false 走浏览器
+    val openV2exUrl: (String) -> Boolean = { url ->
+        when (val link = V2exLinkParser.parse(url)) {
+            is V2exLink.Topic -> {
+                onTopicClick(link.id)
+                true
+            }
+            is V2exLink.Node -> {
+                onNodeClick(link.name)
+                true
+            }
+            is V2exLink.Member -> {
+                onUserClick(link.username)
+                true
+            }
+            null -> false
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         if (isRefreshing) {
             NodeFlowHorizontalRefreshIndicator(Modifier.fillMaxWidth())
@@ -245,6 +268,7 @@ private fun TopicDetailContent(
                     RichHtmlText(
                         html = detail.contentRendered,
                         onImageClick = onImageClick,
+                        onUrlClick = openV2exUrl,
                     )
                 }
                 HorizontalDivider(
@@ -260,6 +284,7 @@ private fun TopicDetailContent(
                     reply = reply,
                     highlighted = highlightedReplyId == reply.id,
                     onImageClick = onImageClick,
+                    onUrlClick = openV2exUrl,
                     onReferenceClick = { reference ->
                         val targetIndex = detail.replies.indexOfFirst { it.id == reference.replyId }
                         if (targetIndex >= 0) {

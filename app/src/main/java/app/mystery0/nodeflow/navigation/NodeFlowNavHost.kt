@@ -11,6 +11,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -20,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.paging.compose.collectAsLazyPagingItems
+import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.feature.auth.AuthScreen
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
@@ -41,8 +43,16 @@ import org.koin.androidx.compose.koinViewModel
 fun NodeFlowNavHost(
     settings: AppSettings,
     modifier: Modifier = Modifier,
+    deepLink: V2exLink? = null,
+    onDeepLinkConsumed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    LaunchedEffect(deepLink) {
+        if (deepLink != null) {
+            navController.navigate(NodeFlowDestinations.routeFor(deepLink))
+            onDeepLinkConsumed()
+        }
+    }
     NavHost(
         navController = navController,
         startDestination = rootStartDestination(),
@@ -113,6 +123,9 @@ fun NodeFlowNavHost(
                 },
                 onUserClick = { username ->
                     navController.navigate(NodeFlowDestinations.profile(username))
+                },
+                onTopicClick = { topicId ->
+                    navController.navigate(NodeFlowDestinations.topic(topicId))
                 },
             )
         }

@@ -33,10 +33,12 @@ fun RichHtmlText(
     html: String,
     modifier: Modifier = Modifier,
     onImageClick: (String) -> Unit = {},
+    onUrlClick: (String) -> Boolean = { false },
 ) {
     if (html.isBlank()) return
     val context = LocalContext.current
     val currentOnImageClick = rememberUpdatedState(onImageClick)
+    val currentOnUrlClick = rememberUpdatedState(onUrlClick)
     val colorScheme = MaterialTheme.colorScheme
     val htmlDocument = remember(html, colorScheme) {
         buildV2exHtmlDocument(
@@ -103,7 +105,7 @@ fun RichHtmlText(
             )
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                    context.openExternalUri(request.url)
+                    currentOnUrlClick.value(request.url.toString()) || context.openExternalUri(request.url)
 
                 override fun onPageFinished(view: WebView, url: String?) {
                     installImageManager(view)

@@ -1,6 +1,7 @@
 package app.mystery0.nodeflow.navigation
 
 import android.net.Uri
+import app.mystery0.nodeflow.core.link.V2exLink
 
 object NodeFlowDestinations {
     const val Main = "main"
@@ -20,6 +21,12 @@ object NodeFlowDestinations {
     fun profile(username: String): String = "profile/${Uri.encode(username)}"
 
     fun isTopLevelRoute(route: String?): Boolean = route in setOf(Home, NodeList, Account)
+
+    fun routeFor(link: V2exLink): String = when (link) {
+        is V2exLink.Topic -> topic(link.id)
+        is V2exLink.Node -> node(link.name)
+        is V2exLink.Member -> profile(link.username)
+    }
 }
 
 fun rootStartDestination(): String = NodeFlowDestinations.Main

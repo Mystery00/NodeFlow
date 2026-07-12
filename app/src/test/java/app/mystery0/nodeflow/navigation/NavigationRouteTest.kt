@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.navigation
 
+import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -35,6 +36,13 @@ class NavigationRouteTest {
     @Test
     fun rootStartDestination_usesMainShellRoute() {
         assertThat(rootStartDestination()).isEqualTo(NodeFlowDestinations.Main)
+    }
+
+    @Test
+    fun routeFor_mapsTopicLinkToTopicRoute() {
+        // node/member 路由包含 Uri.encode，依赖 Android 运行时，这里只验证 topic 映射
+        assertThat(NodeFlowDestinations.routeFor(V2exLink.Topic(1226527)))
+            .isEqualTo("topic/1226527")
     }
 
     @Test

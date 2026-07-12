@@ -17,12 +17,29 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.NodeFlow"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 无法在 v2ex.com 部署 assetlinks.json 做域名验证，Android 12+ 需用户在
+                 系统设置 → 应用 → NodeFlow → 默认打开 中手动添加链接后才会自动接管 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:host="v2ex.com" />
+                <data android:host="www.v2ex.com" />
+                <data android:pathPrefix="/t/" />
+                <data android:pathPrefix="/go/" />
+                <data android:pathPrefix="/member/" />
             </intent-filter>
         </activity>
         <activity

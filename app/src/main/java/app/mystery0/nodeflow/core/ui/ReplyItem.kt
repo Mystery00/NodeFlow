@@ -33,6 +33,7 @@ fun ReplyItem(
     highlighted: Boolean = false,
     onReferenceClick: (ReplyReference) -> Unit = {},
     onImageClick: (String) -> Unit = {},
+    onUrlClick: (String) -> Boolean = { false },
 ) {
     val containerColor by animateColorAsState(
         targetValue = if (highlighted) {
@@ -95,7 +96,7 @@ fun ReplyItem(
                         onReferenceClick(reference)
                         true
                     } else {
-                        false
+                        onUrlClick(url)
                     }
                 },
             )
