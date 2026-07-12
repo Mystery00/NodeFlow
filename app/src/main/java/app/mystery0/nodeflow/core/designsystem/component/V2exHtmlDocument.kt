@@ -58,6 +58,12 @@ internal fun buildV2exHtmlDocument(
               word-break: break-word;
               overflow-wrap: anywhere;
             }
+            .nodeflow-content {
+              /* 建立 BFC，阻止嵌套首尾元素（如 markdown 包装层里的 h1/p）的外边距
+                 塌陷逃逸到容器外——逃逸的边距不计入 getBoundingClientRect，
+                 会导致高度测量偏小、正文底部被截断 */
+              display: flow-root;
+            }
             .nodeflow-content > :first-child { margin-top: 0; }
             .nodeflow-content > :last-child { margin-bottom: 0; }
             p { margin: 0 0 14px; }

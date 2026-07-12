@@ -36,4 +36,24 @@ class V2exHtmlDocumentTest {
         assertThat(document).contains("val answer = 42")
         assertThat(document).doesNotContain("<script>")
     }
+
+    @Test
+    fun buildV2exHtmlDocument_containsMarginsWithFlowRoot() {
+        // markdown 包装层里首尾元素的外边距若塌陷逃逸出 .nodeflow-content，
+        // getBoundingClientRect 会漏掉这部分高度，导致正文底部被截断
+        val document = buildV2exHtmlDocument(
+            bodyHtml = "<p>正文</p>",
+            colors = V2exHtmlColors(
+                text = "#111111",
+                secondaryText = "#666666",
+                link = "#0066cc",
+                background = "#ffffff",
+                codeBackground = "#f3f4f6",
+                quoteBackground = "#f7f8fa",
+                border = "#dddddd",
+            ),
+        )
+
+        assertThat(document).contains("display: flow-root;")
+    }
 }
