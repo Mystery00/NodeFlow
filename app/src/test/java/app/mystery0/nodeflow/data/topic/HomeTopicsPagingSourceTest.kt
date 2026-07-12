@@ -60,6 +60,73 @@ class HomeTopicsPagingSourceTest {
         assertThat(cachedTopics).isEmpty()
     }
 
+    @Test
+    fun load_dropsTopicsAlreadySeenInPreviousPages() = runTest {
+        // V2EX 列表实时变动，翻页时上一页的主题可能再次出现在下一页；
+        // 重复 id 会让 LazyColumn 的 key 冲突直接崩溃，必须在数据层过滤掉
+        val pages = mapOf(
+            1 to listOf(topic(id = 1), topic(id = 2)),
+            2 to listOf(topic(id = 2), topic(id = 3)),
+        )
+        val cachedTopics = mutableListOf<Topic>()
+        val pagingSource = HomeTopicsPagingSource(
+            loadTopics = { page -> pages.getValue(page) },
+            cacheTopics = { topics -> cachedTopics += topics },
+        )
+
+        pagingSource.load(
+            PagingSource.LoadParams.Refresh(
+                key = null,
+                loadSize = 20,
+                placeholdersEnabled = false,
+            ),
+        )
+        val result = pagingSource.load(
+            PagingSource.LoadParams.Append(
+                key = 2,
+                loadSize = 20,
+                placeholdersEnabled = false,
+            ),
+        )
+
+        val page = result as PagingSource.LoadResult.Page
+        assertThat(page.data.map { it.id }).containsExactly(3L)
+        assertThat(page.nextKey).isEqualTo(3)
+        assertThat(cachedTopics.map { it.id }).containsExactly(1L, 2L, 3L)
+    }
+
+    @Test
+    fun load_keepsPagingWhenPageOnlyContainsSeenTopics() = runTest {
+        val pages = mapOf(
+            1 to listOf(topic(id = 1), topic(id = 2)),
+            2 to listOf(topic(id = 1), topic(id = 2)),
+        )
+        val pagingSource = HomeTopicsPagingSource(
+            loadTopics = { page -> pages.getValue(page) },
+            cacheTopics = {},
+        )
+
+        pagingSource.load(
+            PagingSource.LoadParams.Refresh(
+                key = null,
+                loadSize = 20,
+                placeholdersEnabled = false,
+            ),
+        )
+        val result = pagingSource.load(
+            PagingSource.LoadParams.Append(
+                key = 2,
+                loadSize = 20,
+                placeholdersEnabled = false,
+            ),
+        )
+
+        val page = result as PagingSource.LoadResult.Page
+        assertThat(page.data).isEmpty()
+        // 原始页非空说明服务端还有数据，不能因为整页都是重复项就终止分页
+        assertThat(page.nextKey).isEqualTo(3)
+    }
+
     private fun topic(id: Long): Topic = Topic(
         id = id,
         title = "主题 $id",
