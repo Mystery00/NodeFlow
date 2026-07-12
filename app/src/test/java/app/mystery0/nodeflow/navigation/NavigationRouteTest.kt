@@ -38,19 +38,6 @@ class NavigationRouteTest {
     }
 
     @Test
-    fun isRootDetailRoute_matchesOnlyRootLevelDetailRoutes() {
-        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.TopicRoute)).isTrue()
-        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.NodeRoute)).isTrue()
-        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.ProfileRoute)).isTrue()
-        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.Settings)).isTrue()
-        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.Auth)).isTrue()
-        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.Home)).isFalse()
-        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.NodeList)).isFalse()
-        assertThat(NodeFlowDestinations.isRootDetailRoute(NodeFlowDestinations.Account)).isFalse()
-        assertThat(NodeFlowDestinations.isRootDetailRoute(null)).isFalse()
-    }
-
-    @Test
     fun nodeBottomBarRoute_targetsNodeListInsteadOfDefaultNodeDetail() {
         assertThat(nodeBottomBarRoute()).isEqualTo(NodeFlowDestinations.NodeList)
     }

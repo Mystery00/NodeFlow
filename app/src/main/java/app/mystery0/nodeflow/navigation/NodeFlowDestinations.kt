@@ -20,8 +20,6 @@ object NodeFlowDestinations {
     fun profile(username: String): String = "profile/${Uri.encode(username)}"
 
     fun isTopLevelRoute(route: String?): Boolean = route in setOf(Home, NodeList, Account)
-
-    fun isRootDetailRoute(route: String?): Boolean = route in setOf(NodeRoute, TopicRoute, ProfileRoute, Settings, Auth)
 }
 
 fun rootStartDestination(): String = NodeFlowDestinations.Main
