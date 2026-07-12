@@ -5,21 +5,57 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-android {
-    namespace = "app.mystery0.nodeflow"
-    compileSdk = 37
+val packageName = "app.mystery0.nodeflow"
+val gitVersionCode: Int = providers.exec {
+    commandLine(
+        "git",
+        "rev-list",
+        "HEAD",
+        "--count"
+    )
+}.standardOutput.asText.get().trim().toInt()
+val gitVersionName: String =
+    providers.exec {
+        commandLine(
+            "git",
+            "rev-parse",
+            "--short=8",
+            "HEAD"
+        )
+    }.standardOutput.asText.get().trim()
+val appVersionName: String = libs.versions.app.version.get()
 
-    defaultConfig {
-        applicationId = "app.mystery0.nodeflow"
-        minSdk = 29
-        targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+android {
+    namespace = packageName
+    compileSdk {
+        version = release(libs.versions.android.compileSdk.get().toInt())
     }
 
+    defaultConfig {
+        applicationId = packageName
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        versionCode = gitVersionCode
+        versionName = appVersionName
+    }
+
+    signingConfigs {
+        create("sign")
+    }
     buildTypes {
-        release {
+        debug {
             isMinifyEnabled = false
+            versionNameSuffix = ".d$gitVersionCode.$gitVersionName"
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            versionNameSuffix = ".r$gitVersionCode.$gitVersionName"
+            signingConfig = signingConfigs.getByName("sign")
         }
     }
     compileOptions {
@@ -85,3 +121,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+apply(from = rootProject.file("signing.gradle"))

@@ -1,0 +1,19 @@
+def kFile = rootProject.file('local.properties')
+def props = new Properties()
+if (kFile.canRead()) {
+    props.load(new FileInputStream(kFile))
+}
+
+// local.properties 里没有配置签名信息时回退到环境变量；
+// 两处都没有则保持 sign 配置为空，debug 构建不受影响，release 打包时才会报缺失
+def resolve = { String key ->
+    props[key] != null ? props[key] : System.getenv(key)
+}
+
+def storeFilePath = resolve('SIGN_KEY_STORE_FILE')
+if (storeFilePath != null) {
+    android.signingConfigs.sign.storeFile file(storeFilePath)
+    android.signingConfigs.sign.storePassword resolve('SIGN_KEY_STORE_PASSWORD')
+    android.signingConfigs.sign.keyAlias resolve('SIGN_KEY_ALIAS')
+    android.signingConfigs.sign.keyPassword resolve('SIGN_KEY_PASSWORD')
+}

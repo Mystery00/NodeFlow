@@ -1,4 +1,8 @@
 [versions]
+app-version = "1.0"
+android-compileSdk = "37"
+android-minSdk = "29"
+android-targetSdk = "37"
 agp = "9.4.0-alpha04"
 coreKtx = "1.19.0"
 lifecycleRuntimeKtx = "2.11.0"
