@@ -97,6 +97,7 @@ class TopicRepositoryImpl(
                 // 请求发出后若出现了更新的权限拒绝，较早的成功响应不能覆盖它
                 if (accessState.generation != requestGeneration) {
                     accessState.accessDeniedError?.let { throw it }
+                    throw CancellationException("Topic detail request was superseded")
                 }
                 localDataSource.cacheTopicDetail(remoteDetail)
                 accessState.accessDeniedError = null
