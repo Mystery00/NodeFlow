@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.data.topic
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import app.mystery0.nodeflow.core.common.isAccessDenied
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.domain.topic.TopicRepository
@@ -61,12 +62,12 @@ class TopicRepositoryImpl(
             // 不完整的缓存不能当作成功结果，否则会出现“正文正常、回复丢失”的降级被静默吞掉
             val usableCachedDetail = localDataSource.topicDetail(topicId)
                 ?.takeIf { it.replies.isNotEmpty() || it.topic.replyCount == 0 }
-            if (!forceRefresh && usableCachedDetail != null) {
-                return@runCatching usableCachedDetail
-            }
             runCatching { remoteDataSource.topicDetail(topicId) }
                 .onSuccess { localDataSource.cacheTopicDetail(it) }
-                .getOrElse { error -> usableCachedDetail ?: throw error }
+                .getOrElse { error ->
+                    if (error.isAccessDenied()) throw error
+                    usableCachedDetail ?: throw error
+                }
         }
     }
 

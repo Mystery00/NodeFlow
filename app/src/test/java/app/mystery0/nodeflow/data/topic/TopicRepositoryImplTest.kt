@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.data.topic
 
+import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.database.dao.TopicDao
 import app.mystery0.nodeflow.core.database.entity.TopicEntity
 import app.mystery0.nodeflow.core.model.Node
@@ -13,6 +14,9 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response as OkHttpResponse
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
@@ -85,6 +89,32 @@ class TopicRepositoryImplTest {
 
         assertThat(result.isSuccess).isTrue()
         assertThat(result.getOrThrow().contentRendered).isEqualTo("<p>正文</p>")
+    }
+
+    @Test
+    fun topicDetail_doesNotReturnCachedDetailWhenRemoteReportsAccessDenied() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dao = FakeTopicDao()
+        val api = AccessDeniedV2exRawApi()
+        val repository = repository(api, dao, dispatcher)
+        TopicLocalDataSource(dao).cacheTopicDetail(
+            TopicDetail(
+                topic = topic(id = 1221181, replyCount = 0),
+                content = "旧缓存正文",
+                contentRendered = "<p>旧缓存正文</p>",
+                replies = emptyList(),
+            ),
+        )
+
+        val result = repository.topicDetail(
+            topicId = 1221181,
+            forceRefresh = false,
+        )
+
+        assertThat(api.topicHtmlCalls).isEqualTo(1)
+        assertThat(result.isFailure).isTrue()
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
     }
 
     @Test
@@ -181,6 +211,33 @@ class TopicRepositoryImplTest {
         override suspend fun balance(): Response<ResponseBody> = failure()
     }
 
+    private class AccessDeniedV2exRawApi : FailingV2exRawApi() {
+        var topicHtmlCalls: Int = 0
+            private set
+
+        override suspend fun topicHtml(
+            topicId: Long,
+            page: Int?,
+        ): Response<ResponseBody> {
+            topicHtmlCalls += 1
+            val rawResponse = OkHttpResponse.Builder()
+                .request(
+                    Request.Builder()
+                        .url("https://www.v2ex.com/restricted")
+                        .build(),
+                )
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(
+                "<html><body>Restricted</body></html>"
+                    .toResponseBody("text/html".toMediaType()),
+                rawResponse,
+            )
+        }
+    }
+
     private class SuccessV2exRawApi : FailingV2exRawApi() {
         override suspend fun topic(id: Long): Response<ResponseBody> = jsonResponse(
             """
@@ -194,8 +251,24 @@ class TopicRepositoryImplTest {
             """.trimIndent(),
         )
 
-        override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> =
-            Response.success("<html><body></body></html>".toResponseBody("text/html".toMediaType()))
+        override suspend fun topicHtml(
+            topicId: Long,
+            page: Int?,
+        ): Response<ResponseBody> {
+            val finalUrl = "https://www.v2ex.com/t/$topicId" +
+                page?.let { "?p=$it" }.orEmpty()
+            val rawResponse = OkHttpResponse.Builder()
+                .request(Request.Builder().url(finalUrl).build())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(
+                "<html><body></body></html>"
+                    .toResponseBody("text/html".toMediaType()),
+                rawResponse,
+            )
+        }
 
         private fun jsonResponse(body: String): Response<ResponseBody> =
             Response.success(body.toResponseBody("application/json".toMediaType()))
