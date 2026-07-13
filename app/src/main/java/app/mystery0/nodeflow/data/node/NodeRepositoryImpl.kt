@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.data.node
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import app.mystery0.nodeflow.core.common.isAccessDenied
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.Topic
@@ -54,6 +55,7 @@ class NodeRepositoryImpl(
             runCatching { remoteDataSource.topics(name, page) }
                 .onSuccess { topicLocalDataSource.cacheTopics(it) }
                 .getOrElse { error ->
+                    if (error.isAccessDenied()) throw error
                     if (cached.isNotEmpty()) cached else throw error
                 }
         }
