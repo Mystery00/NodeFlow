@@ -1,10 +1,13 @@
 package app.mystery0.nodeflow.data.topic
 
+import app.mystery0.nodeflow.core.common.isAccessDenied
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.model.User
+import app.mystery0.nodeflow.core.network.V2exHtmlAccessTarget
 import app.mystery0.nodeflow.core.network.V2exRawApi
+import app.mystery0.nodeflow.core.network.accessibleHtmlOrThrow
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
@@ -30,7 +33,12 @@ class TopicRemoteDataSource(
 
     suspend fun topicDetail(topicId: Long): TopicDetail = safeNetworkCall {
         // 主线路：网页 HTML，不消耗旧 JSON API 的 IP 限流配额，并支持登录可见内容
-        val htmlDetail = runCatching { htmlTopicDetail(topicId) }.getOrNull()
+        val htmlDetail = runCatching {
+            htmlTopicDetail(topicId)
+        }.getOrElse { error ->
+            if (error.isAccessDenied()) throw error
+            null
+        }
         if (htmlDetail != null && htmlDetail.contentRendered.isNotBlank()) {
             htmlDetail
         } else {
@@ -42,7 +50,8 @@ class TopicRemoteDataSource(
     private suspend fun htmlTopicDetail(topicId: Long): TopicDetail? {
         val firstPage = parser.parseTopicHtml(
             topicId = topicId,
-            html = api.topicHtml(topicId).bodyStringOrThrow(),
+            html = api.topicHtml(topicId)
+                .accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic),
         ) ?: return null
         val replies = firstPage.replies.toMutableList()
         // 回复超过一页时按页顺序拉取剩余页并拼接
@@ -51,9 +60,13 @@ class TopicRemoteDataSource(
                 val nextPage = runCatching {
                     parser.parseTopicHtml(
                         topicId = topicId,
-                        html = api.topicHtml(topicId, page = page).bodyStringOrThrow(),
+                        html = api.topicHtml(topicId, page = page)
+                            .accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic),
                     )
-                }.getOrNull() ?: continue
+                }.getOrElse { error ->
+                    if (error.isAccessDenied()) throw error
+                    null
+                } ?: continue
                 replies += nextPage.replies
             }
         }
@@ -77,9 +90,13 @@ class TopicRemoteDataSource(
         val supplemental = runCatching {
             parser.parseTopicHtml(
                 topicId = topicId,
-                html = api.topicHtml(topicId).bodyStringOrThrow(),
+                html = api.topicHtml(topicId)
+                    .accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic),
             )
-        }.getOrNull()
+        }.getOrElse { error ->
+            if (error.isAccessDenied()) throw error
+            null
+        }
         return TopicDetail(
             topic = topic.toTopic(),
             content = topic.content.orEmpty(),

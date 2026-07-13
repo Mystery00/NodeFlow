@@ -1,11 +1,16 @@
 package app.mystery0.nodeflow.data.topic
 
+import app.mystery0.nodeflow.core.common.NodeFlowException
+import app.mystery0.nodeflow.core.network.V2EX_ACCESS_DENIED_MESSAGE
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response as OkHttpResponse
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
@@ -169,6 +174,58 @@ class TopicRemoteDataSourceTest {
         assertThat(detail.replies.single().author.username).isEqualTo("dave")
     }
 
+    @Test
+    fun topicDetail_doesNotFallBackToJsonWhenFinalUrlIsRestricted() = runTest {
+        assertTopicAccessDeniedWithoutJson(
+            finalUrl = "https://www.v2ex.com/restricted",
+        )
+    }
+
+    @Test
+    fun topicDetail_doesNotFallBackToJsonWhenFinalUrlIsSignIn() = runTest {
+        assertTopicAccessDeniedWithoutJson(
+            finalUrl = "https://www.v2ex.com/signin?next=%2Frestricted",
+        )
+    }
+
+    private suspend fun assertTopicAccessDeniedWithoutJson(finalUrl: String) {
+        val api = FakeV2exRawApi(
+            topicHtmlPages = mapOf(
+                null to """
+                    <html><body>
+                      <div id="problem" class="topic_content">Restricted</div>
+                      <form action="/signin">
+                        <input type="password" name="password" />
+                      </form>
+                    </body></html>
+                """.trimIndent(),
+            ),
+            topicHtmlFinalUrls = mapOf(null to finalUrl),
+            topicJson = """
+                [{
+                  "id": 1221181,
+                  "title": "不应显示的 JSON 主题",
+                  "content": "",
+                  "content_rendered": "",
+                  "replies": 25
+                }]
+            """.trimIndent(),
+            repliesJson = "[]",
+        )
+        val dataSource = TopicRemoteDataSource(api, json, parser)
+
+        val result = runCatching {
+            dataSource.topicDetail(topicId = 1221181)
+        }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(error.message).isEqualTo(V2EX_ACCESS_DENIED_MESSAGE)
+        assertThat(api.topicJsonCalls).isEqualTo(0)
+        assertThat(api.repliesJsonCalls).isEqualTo(0)
+        assertThat(api.topicHtmlRequests).containsExactly(null)
+    }
+
     private data class NodeTopicsHtmlRequest(
         val nodeName: String,
         val page: Int?,
@@ -181,6 +238,7 @@ class TopicRemoteDataSourceTest {
     private class FakeV2exRawApi(
         private val recentHtml: String = "",
         private val topicHtmlPages: Map<Int?, String> = emptyMap(),
+        private val topicHtmlFinalUrls: Map<Int?, String> = emptyMap(),
         private val topicJson: String = "[]",
         private val repliesJson: String = "[]",
     ) : V2exRawApi {
@@ -222,9 +280,17 @@ class TopicRemoteDataSourceTest {
 
         override suspend fun planesHtml(): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> {
+        override suspend fun topicHtml(
+            topicId: Long,
+            page: Int?,
+        ): Response<ResponseBody> {
             topicHtmlRequests += page
-            return htmlResponse(topicHtmlPages[page].orEmpty())
+            val defaultUrl = "https://www.v2ex.com/t/$topicId" +
+                page?.let { "?p=$it" }.orEmpty()
+            return htmlResponse(
+                html = topicHtmlPages[page].orEmpty(),
+                finalUrl = topicHtmlFinalUrls[page] ?: defaultUrl,
+            )
         }
 
         override suspend fun memberHtml(username: String): Response<ResponseBody> = htmlResponse("")
@@ -251,7 +317,19 @@ class TopicRemoteDataSourceTest {
 
         override suspend fun balance(): Response<ResponseBody> = htmlResponse("")
 
-        private fun htmlResponse(html: String): Response<ResponseBody> =
-            Response.success(html.toResponseBody("text/html".toMediaType()))
+        private fun htmlResponse(
+            html: String,
+            finalUrl: String? = null,
+        ): Response<ResponseBody> {
+            val body = html.toResponseBody("text/html".toMediaType())
+            if (finalUrl == null) return Response.success(body)
+            val rawResponse = OkHttpResponse.Builder()
+                .request(Request.Builder().url(finalUrl).build())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(body, rawResponse)
+        }
     }
 }

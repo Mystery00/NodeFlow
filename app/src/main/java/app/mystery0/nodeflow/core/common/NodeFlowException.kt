@@ -15,3 +15,7 @@ class NodeFlowException(
         Unknown,
     }
 }
+
+fun Throwable.isAccessDenied(): Boolean =
+    this is NodeFlowException &&
+        kind == NodeFlowException.Kind.AccessDenied
