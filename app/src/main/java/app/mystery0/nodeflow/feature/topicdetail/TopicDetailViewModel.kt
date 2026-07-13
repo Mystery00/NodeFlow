@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.feature.topicdetail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.mystery0.nodeflow.core.common.isAccessDenied
 import app.mystery0.nodeflow.core.common.toUserMessage
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +55,7 @@ class TopicDetailViewModel(
                         current.copy(
                             isLoading = false,
                             isRefreshing = false,
+                            detail = if (error.isAccessDenied()) null else current.detail,
                             errorMessage = error.toUserMessage(),
                         )
                     },
