@@ -10,12 +10,16 @@ import app.mystery0.nodeflow.domain.topic.TopicRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 class TopicRepositoryImpl(
     private val remoteDataSource: TopicRemoteDataSource,
     private val localDataSource: TopicLocalDataSource,
     private val ioDispatcher: CoroutineDispatcher,
 ) : TopicRepository {
+    // 防止并发请求或缓存清理失败后重新暴露已确认无权访问的旧正文
+    private val accessDeniedErrors = ConcurrentHashMap<Long, Throwable>()
+
     override suspend fun latestTopics(forceRefresh: Boolean): Result<List<Topic>> =
         withContext(ioDispatcher) {
             runCatching {
@@ -62,15 +66,25 @@ class TopicRepositoryImpl(
             // 不完整的缓存不能当作成功结果，否则会出现“正文正常、回复丢失”的降级被静默吞掉
             val usableCachedDetail = localDataSource.topicDetail(topicId)
                 ?.takeIf { it.replies.isNotEmpty() || it.topic.replyCount == 0 }
-            runCatching { remoteDataSource.topicDetail(topicId) }
-                .onSuccess { localDataSource.cacheTopicDetail(it) }
-                .getOrElse { error ->
+            runCatching { remoteDataSource.topicDetail(topicId) }.fold(
+                onSuccess = { detail ->
+                    localDataSource.cacheTopicDetail(detail)
+                    accessDeniedErrors.remove(topicId)
+                    detail
+                },
+                onFailure = { error ->
                     if (error.isAccessDenied()) {
-                        localDataSource.clearTopicDetail(topicId)
+                        accessDeniedErrors[topicId] = error
+                        runCatching { localDataSource.clearTopicDetail(topicId) }
+                            .exceptionOrNull()
+                            ?.takeIf { it !== error }
+                            ?.let(error::addSuppressed)
                         throw error
                     }
+                    accessDeniedErrors[topicId]?.let { throw it }
                     usableCachedDetail ?: throw error
-                }
+                },
+            )
         }
     }
 

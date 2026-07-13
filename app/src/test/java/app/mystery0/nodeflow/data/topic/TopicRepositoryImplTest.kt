@@ -10,7 +10,11 @@ import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -22,6 +26,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
 import retrofit2.Response
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TopicRepositoryImplTest {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -157,6 +162,107 @@ class TopicRepositoryImplTest {
     }
 
     @Test
+    fun topicDetail_concurrentFailureDoesNotUseCapturedCacheAfterAccessDenied() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dao = FakeTopicDao()
+        val api = ConcurrentAccessDeniedV2exRawApi()
+        val repository = repository(api, dao, dispatcher)
+        TopicLocalDataSource(dao).cacheTopicDetail(
+            TopicDetail(
+                topic = topic(id = 1221181, replyCount = 0),
+                content = "旧缓存正文",
+                contentRendered = "<p>旧缓存正文</p>",
+                replies = emptyList(),
+            ),
+        )
+
+        val ordinaryFailure = async {
+            repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        }
+        runCurrent()
+        assertThat(api.firstRequestStarted.isCompleted).isTrue()
+
+        val accessDenied = async {
+            repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        }
+        runCurrent()
+        val accessDeniedResult = accessDenied.await()
+
+        api.releaseFirstFailure.complete(Unit)
+        runCurrent()
+        val ordinaryFailureResult = ordinaryFailure.await()
+
+        assertThat(accessDeniedResult.isFailure).isTrue()
+        assertThat((accessDeniedResult.exceptionOrNull() as NodeFlowException).kind)
+            .isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(ordinaryFailureResult.isFailure).isTrue()
+        assertThat((ordinaryFailureResult.exceptionOrNull() as NodeFlowException).kind)
+            .isEqualTo(NodeFlowException.Kind.AccessDenied)
+    }
+
+    @Test
+    fun topicDetail_preservesAccessDeniedWhenClearingCacheFails() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val clearFailure = IllegalStateException("clear failed")
+        val dao = FakeTopicDao(clearTopicDetailFailure = clearFailure)
+        val api = AccessDeniedThenFailingV2exRawApi()
+        val repository = repository(api, dao, dispatcher)
+        val localDataSource = TopicLocalDataSource(dao)
+        localDataSource.cacheTopicDetail(
+            TopicDetail(
+                topic = topic(id = 1221181, replyCount = 0),
+                content = "旧缓存正文",
+                contentRendered = "<p>旧缓存正文</p>",
+                replies = emptyList(),
+            ),
+        )
+        localDataSource.cacheTopicDetail(
+            TopicDetail(
+                topic = topic(id = 2, replyCount = 0),
+                content = "其他主题缓存",
+                contentRendered = "<p>其他主题缓存</p>",
+                replies = emptyList(),
+            ),
+        )
+
+        val accessDeniedResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        val laterFailureResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        val otherTopicResult = repository.topicDetail(topicId = 2, forceRefresh = false)
+
+        assertThat(accessDeniedResult.isFailure).isTrue()
+        val accessDeniedError = accessDeniedResult.exceptionOrNull() as NodeFlowException
+        assertThat(accessDeniedError.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(accessDeniedError.suppressed.asList()).containsExactly(clearFailure)
+        assertThat(localDataSource.topicDetail(1221181)?.contentRendered)
+            .isEqualTo("<p>旧缓存正文</p>")
+        assertThat(laterFailureResult.isFailure).isTrue()
+        assertThat((laterFailureResult.exceptionOrNull() as NodeFlowException).kind)
+            .isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(otherTopicResult.getOrThrow().contentRendered)
+            .isEqualTo("<p>其他主题缓存</p>")
+    }
+
+    @Test
+    fun topicDetail_successfulRefreshClearsAccessDeniedForLaterCacheFallback() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dao = FakeTopicDao()
+        val api = AccessDeniedThenSuccessThenFailingV2exRawApi()
+        val repository = repository(api, dao, dispatcher)
+
+        val accessDeniedResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        val successfulResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        val laterFailureResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
+
+        assertThat(accessDeniedResult.isFailure).isTrue()
+        assertThat((accessDeniedResult.exceptionOrNull() as NodeFlowException).kind)
+            .isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(successfulResult.getOrThrow().contentRendered)
+            .isEqualTo("<p>新缓存正文</p>")
+        assertThat(laterFailureResult.getOrThrow().contentRendered)
+            .isEqualTo("<p>新缓存正文</p>")
+    }
+
+    @Test
     fun topicDetail_returnsRemoteDetailWhenRemoteSucceeds() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
@@ -180,7 +286,9 @@ class TopicRepositoryImplTest {
         replyCount = replyCount,
     )
 
-    private class FakeTopicDao : TopicDao {
+    private class FakeTopicDao(
+        private val clearTopicDetailFailure: Throwable? = null,
+    ) : TopicDao {
         private val topics = mutableMapOf<Long, TopicEntity>()
 
         override suspend fun latestTopics(limit: Int): List<TopicEntity> = topics.values.toList()
@@ -199,6 +307,7 @@ class TopicRepositoryImplTest {
         }
 
         override suspend fun clearTopicDetail(topicId: Long) {
+            clearTopicDetailFailure?.let { throw it }
             topics[topicId]?.let { topic ->
                 topics[topicId] = topic.copy(
                     content = null,
@@ -297,6 +406,96 @@ class TopicRepositoryImplTest {
             topicHtmlCalls += 1
             if (topicHtmlCalls > 1) return super.topicHtml(topicId, page)
 
+            val rawResponse = OkHttpResponse.Builder()
+                .request(
+                    Request.Builder()
+                        .url("https://www.v2ex.com/restricted")
+                        .build(),
+                )
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(
+                "<html><body>Restricted</body></html>"
+                    .toResponseBody("text/html".toMediaType()),
+                rawResponse,
+            )
+        }
+    }
+
+    private class ConcurrentAccessDeniedV2exRawApi : FailingV2exRawApi() {
+        val firstRequestStarted = CompletableDeferred<Unit>()
+        val releaseFirstFailure = CompletableDeferred<Unit>()
+        private var topicHtmlCalls = 0
+
+        override suspend fun topicHtml(
+            topicId: Long,
+            page: Int?,
+        ): Response<ResponseBody> {
+            topicHtmlCalls += 1
+            if (topicHtmlCalls == 1) {
+                firstRequestStarted.complete(Unit)
+                releaseFirstFailure.await()
+                return super.topicHtml(topicId, page)
+            }
+            return accessDeniedHtmlResponse()
+        }
+    }
+
+    private class AccessDeniedThenSuccessThenFailingV2exRawApi : FailingV2exRawApi() {
+        private var topicHtmlCalls = 0
+
+        override suspend fun topicHtml(
+            topicId: Long,
+            page: Int?,
+        ): Response<ResponseBody> {
+            topicHtmlCalls += 1
+            return when (topicHtmlCalls) {
+                1 -> accessDeniedHtmlResponse()
+                2, 3 -> topicHtmlResponse(topicId)
+                else -> super.topicHtml(topicId, page)
+            }
+        }
+
+        override suspend fun topic(id: Long): Response<ResponseBody> =
+            if (topicHtmlCalls in 2..3) {
+                jsonResponse(
+                    """
+                        [{"id": $id, "title": "新标题", "content": "新缓存正文", "content_rendered": "<p>新缓存正文</p>", "replies": 0}]
+                    """.trimIndent(),
+                )
+            } else {
+                super.topic(id)
+            }
+
+        override suspend fun replies(topicId: Long): Response<ResponseBody> =
+            if (topicHtmlCalls in 2..3) {
+                jsonResponse("[]")
+            } else {
+                super.replies(topicId)
+            }
+
+        private fun topicHtmlResponse(topicId: Long): Response<ResponseBody> {
+            val rawResponse = OkHttpResponse.Builder()
+                .request(Request.Builder().url("https://www.v2ex.com/t/$topicId").build())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(
+                "<html><body></body></html>"
+                    .toResponseBody("text/html".toMediaType()),
+                rawResponse,
+            )
+        }
+
+        private fun jsonResponse(body: String): Response<ResponseBody> =
+            Response.success(body.toResponseBody("application/json".toMediaType()))
+    }
+
+    private companion object {
+        fun accessDeniedHtmlResponse(): Response<ResponseBody> {
             val rawResponse = OkHttpResponse.Builder()
                 .request(
                     Request.Builder()
