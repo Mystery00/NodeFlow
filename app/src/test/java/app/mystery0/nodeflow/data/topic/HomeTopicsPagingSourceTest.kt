@@ -1,9 +1,11 @@
 package app.mystery0.nodeflow.data.topic
 
 import androidx.paging.PagingSource
+import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.User
+import app.mystery0.nodeflow.core.network.V2EX_ACCESS_DENIED_MESSAGE
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -125,6 +127,31 @@ class HomeTopicsPagingSourceTest {
         assertThat(page.data).isEmpty()
         // 原始页非空说明服务端还有数据，不能因为整页都是重复项就终止分页
         assertThat(page.nextKey).isEqualTo(3)
+    }
+
+    @Test
+    fun load_preservesAccessDeniedErrorWithoutCaching() = runTest {
+        val accessDenied = NodeFlowException(
+            kind = NodeFlowException.Kind.AccessDenied,
+            message = V2EX_ACCESS_DENIED_MESSAGE,
+        )
+        var cacheCallCount = 0
+        val pagingSource = HomeTopicsPagingSource(
+            loadTopics = { throw accessDenied },
+            cacheTopics = { cacheCallCount += 1 },
+        )
+
+        val result = pagingSource.load(
+            PagingSource.LoadParams.Refresh(
+                key = null,
+                loadSize = 20,
+                placeholdersEnabled = false,
+            ),
+        )
+
+        val error = result as PagingSource.LoadResult.Error
+        assertThat(error.throwable).isSameInstanceAs(accessDenied)
+        assertThat(cacheCallCount).isEqualTo(0)
     }
 
     private fun topic(id: Long): Topic = Topic(

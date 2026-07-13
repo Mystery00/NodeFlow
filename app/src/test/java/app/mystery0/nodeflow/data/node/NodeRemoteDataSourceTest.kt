@@ -1,11 +1,16 @@
 package app.mystery0.nodeflow.data.node
 
+import app.mystery0.nodeflow.core.common.NodeFlowException
+import app.mystery0.nodeflow.core.network.V2EX_ACCESS_DENIED_MESSAGE
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response as OkHttpResponse
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
@@ -52,14 +57,64 @@ class NodeRemoteDataSourceTest {
         assertThat(api.nodeTopicsHtmlRequests).containsExactly(NodeTopicsHtmlRequest("android", null))
     }
 
+    @Test
+    fun topics_throwsAccessDeniedWhenNodeRedirectsToHome() = runTest {
+        val api = FakeV2exRawApi(
+            nodeHtml = topicListHtml(topicId = 9001, title = "首页主题"),
+            nodeTopicsFinalUrl = "https://www.v2ex.com/",
+        )
+        val dataSource = NodeRemoteDataSource(api, json, parser)
+
+        val result = runCatching {
+            dataSource.topics(name = "flamewar", page = 1)
+        }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(error.message).isEqualTo(V2EX_ACCESS_DENIED_MESSAGE)
+        assertThat(api.nodeTopicsHtmlRequests)
+            .containsExactly(NodeTopicsHtmlRequest("flamewar", null))
+    }
+
+    @Test
+    fun topics_parsesPublicNodeWhenFinalUrlRemainsNodePath() = runTest {
+        val api = FakeV2exRawApi(
+            nodeHtml = topicListHtml(topicId = 9002, title = "Android 主题"),
+            nodeTopicsFinalUrl = "https://www.v2ex.com/go/android?p=2",
+        )
+        val dataSource = NodeRemoteDataSource(api, json, parser)
+
+        val topics = dataSource.topics(name = "android", page = 2)
+
+        assertThat(topics.map { it.id }).containsExactly(9002L)
+        assertThat(topics.single().node.name).isEqualTo("android")
+        assertThat(api.nodeTopicsHtmlRequests)
+            .containsExactly(NodeTopicsHtmlRequest("android", 2))
+    }
+
+    private fun topicListHtml(topicId: Long, title: String): String =
+        """
+            <html><body>
+              <div class="cell from_1 t_$topicId">
+                <span class="item_title">
+                  <a class="topic-link" href="/t/$topicId">$title</a>
+                </span>
+                <span class="topic_info">
+                  <strong><a href="/member/alice">alice</a></strong>
+                </span>
+              </div>
+            </body></html>
+        """.trimIndent()
+
     private data class NodeTopicsHtmlRequest(
         val nodeName: String,
         val page: Int?,
     )
 
     private class FakeV2exRawApi(
-        private val nodeJson: String,
-        private val nodeHtml: String,
+        private val nodeJson: String = "{}",
+        private val nodeHtml: String = "",
+        private val nodeTopicsFinalUrl: String? = null,
     ) : V2exRawApi {
         val nodeTopicsHtmlRequests = mutableListOf<NodeTopicsHtmlRequest>()
 
@@ -76,7 +131,12 @@ class NodeRemoteDataSourceTest {
 
         override suspend fun nodeTopicsHtml(nodeName: String, page: Int?): Response<ResponseBody> {
             nodeTopicsHtmlRequests += NodeTopicsHtmlRequest(nodeName, page)
-            return htmlResponse(nodeHtml)
+            val defaultUrl = "https://www.v2ex.com/go/$nodeName" +
+                page?.let { "?p=$it" }.orEmpty()
+            return htmlResponse(
+                html = nodeHtml,
+                finalUrl = nodeTopicsFinalUrl ?: defaultUrl,
+            )
         }
 
         override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> = htmlResponse("")
@@ -109,7 +169,19 @@ class NodeRemoteDataSourceTest {
 
         override suspend fun balance(): Response<ResponseBody> = htmlResponse("")
 
-        private fun htmlResponse(html: String): Response<ResponseBody> =
-            Response.success(html.toResponseBody("text/html".toMediaType()))
+        private fun htmlResponse(
+            html: String,
+            finalUrl: String? = null,
+        ): Response<ResponseBody> {
+            val body = html.toResponseBody("text/html".toMediaType())
+            if (finalUrl == null) return Response.success(body)
+            val rawResponse = OkHttpResponse.Builder()
+                .request(Request.Builder().url(finalUrl).build())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(body, rawResponse)
+        }
     }
 }

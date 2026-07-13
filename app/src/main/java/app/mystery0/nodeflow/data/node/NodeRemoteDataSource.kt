@@ -3,7 +3,9 @@ package app.mystery0.nodeflow.data.node
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.Topic
+import app.mystery0.nodeflow.core.network.V2exHtmlAccessTarget
 import app.mystery0.nodeflow.core.network.V2exRawApi
+import app.mystery0.nodeflow.core.network.accessibleHtmlOrThrow
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
@@ -41,7 +43,10 @@ class NodeRemoteDataSource(
 
     suspend fun topics(name: String, page: Int): List<Topic> = safeNetworkCall {
         parser.parseTopicList(
-            html = api.nodeTopicsHtml(name, page.takeIf { it > 1 }).bodyStringOrThrow(),
+            html = api.nodeTopicsHtml(
+                nodeName = name,
+                page = page.takeIf { it > 1 },
+            ).accessibleHtmlOrThrow(V2exHtmlAccessTarget.NodeTopics),
             sourceNodeName = name,
         )
     }
