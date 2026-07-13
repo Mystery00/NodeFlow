@@ -10,6 +10,7 @@ import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -263,6 +264,76 @@ class TopicRepositoryImplTest {
     }
 
     @Test
+    fun topicDetail_doesNotLetOlderSuccessClearNewerAccessDenied() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dao = FakeTopicDao()
+        val api = ConcurrentSuccessThenAccessDeniedV2exRawApi()
+        val repository = repository(api, dao, dispatcher)
+
+        val olderSuccess = async {
+            repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        }
+        runCurrent()
+        assertThat(api.firstRequestStarted.isCompleted).isTrue()
+
+        val accessDenied = async {
+            repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        }
+        runCurrent()
+        val accessDeniedResult = accessDenied.await()
+
+        api.releaseFirstSuccess.complete(Unit)
+        runCurrent()
+        val olderSuccessResult = olderSuccess.await()
+
+        assertThat((accessDeniedResult.exceptionOrNull() as NodeFlowException).kind)
+            .isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(olderSuccessResult.isFailure).isTrue()
+        assertThat((olderSuccessResult.exceptionOrNull() as NodeFlowException).kind)
+            .isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(TopicLocalDataSource(dao).topicDetail(1221181)).isNull()
+    }
+
+    @Test
+    fun topicDetail_propagatesRemoteCancellation() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val cancellation = CancellationException("remote cancelled")
+        val repository = repository(CancellingV2exRawApi(cancellation), FakeTopicDao(), dispatcher)
+
+        val invocation = runCatching {
+            repository.topicDetail(topicId = 1, forceRefresh = false)
+        }
+
+        assertThat(invocation.isFailure).isTrue()
+        assertThat(invocation.exceptionOrNull()).isInstanceOf(CancellationException::class.java)
+        assertThat(invocation.exceptionOrNull()?.message).isEqualTo("remote cancelled")
+    }
+
+    @Test
+    fun topicDetail_propagatesCacheClearCancellation() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val cancellation = CancellationException("clear cancelled")
+        val dao = FakeTopicDao(clearTopicDetailFailure = cancellation)
+        val repository = repository(AccessDeniedV2exRawApi(), dao, dispatcher)
+        TopicLocalDataSource(dao).cacheTopicDetail(
+            TopicDetail(
+                topic = topic(id = 1221181, replyCount = 0),
+                content = "旧缓存正文",
+                contentRendered = "<p>旧缓存正文</p>",
+                replies = emptyList(),
+            ),
+        )
+
+        val invocation = runCatching {
+            repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        }
+
+        assertThat(invocation.isFailure).isTrue()
+        assertThat(invocation.exceptionOrNull()).isInstanceOf(CancellationException::class.java)
+        assertThat(invocation.exceptionOrNull()?.message).isEqualTo("clear cancelled")
+    }
+
+    @Test
     fun topicDetail_returnsRemoteDetailWhenRemoteSucceeds() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
@@ -441,6 +512,51 @@ class TopicRepositoryImplTest {
             }
             return accessDeniedHtmlResponse()
         }
+    }
+
+    private class ConcurrentSuccessThenAccessDeniedV2exRawApi : FailingV2exRawApi() {
+        val firstRequestStarted = CompletableDeferred<Unit>()
+        val releaseFirstSuccess = CompletableDeferred<Unit>()
+        private var topicHtmlCalls = 0
+
+        override suspend fun topicHtml(
+            topicId: Long,
+            page: Int?,
+        ): Response<ResponseBody> {
+            topicHtmlCalls += 1
+            if (topicHtmlCalls > 1) return accessDeniedHtmlResponse()
+
+            firstRequestStarted.complete(Unit)
+            releaseFirstSuccess.await()
+            val rawResponse = OkHttpResponse.Builder()
+                .request(Request.Builder().url("https://www.v2ex.com/t/$topicId").build())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(
+                """
+                    <html>
+                      <body>
+                        <div id="Main">
+                          <h1>较早成功响应</h1>
+                          <div class="topic_content"><p>较早正文</p></div>
+                        </div>
+                      </body>
+                    </html>
+                """.trimIndent().toResponseBody("text/html".toMediaType()),
+                rawResponse,
+            )
+        }
+    }
+
+    private class CancellingV2exRawApi(
+        private val cancellation: CancellationException,
+    ) : FailingV2exRawApi() {
+        override suspend fun topicHtml(
+            topicId: Long,
+            page: Int?,
+        ): Response<ResponseBody> = throw cancellation
     }
 
     private class AccessDeniedThenSuccessThenFailingV2exRawApi : FailingV2exRawApi() {

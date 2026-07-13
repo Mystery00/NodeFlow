@@ -15,6 +15,7 @@ import app.mystery0.nodeflow.data.common.V2exReplyDto
 import app.mystery0.nodeflow.data.common.V2exTopicDto
 import app.mystery0.nodeflow.data.common.toReply
 import app.mystery0.nodeflow.data.common.toTopic
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
@@ -36,7 +37,7 @@ class TopicRemoteDataSource(
         val htmlDetail = runCatching {
             htmlTopicDetail(topicId)
         }.getOrElse { error ->
-            if (error.isAccessDenied()) throw error
+            if (error is CancellationException || error.isAccessDenied()) throw error
             null
         }
         if (htmlDetail != null && htmlDetail.contentRendered.isNotBlank()) {
@@ -64,7 +65,7 @@ class TopicRemoteDataSource(
                             .accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic),
                     )
                 }.getOrElse { error ->
-                    if (error.isAccessDenied()) throw error
+                    if (error is CancellationException || error.isAccessDenied()) throw error
                     null
                 } ?: continue
                 replies += nextPage.replies
@@ -94,7 +95,7 @@ class TopicRemoteDataSource(
                     .accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic),
             )
         }.getOrElse { error ->
-            if (error.isAccessDenied()) throw error
+            if (error is CancellationException || error.isAccessDenied()) throw error
             null
         }
         return TopicDetail(

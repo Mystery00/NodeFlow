@@ -2,6 +2,7 @@ package app.mystery0.nodeflow.core.network
 
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import okhttp3.ResponseBody
 import retrofit2.Response
@@ -9,6 +10,8 @@ import retrofit2.Response
 suspend fun <T> safeNetworkCall(block: suspend () -> T): T {
     return try {
         block()
+    } catch (error: CancellationException) {
+        throw error
     } catch (error: NodeFlowException) {
         throw error
     } catch (error: IOException) {
