@@ -14,6 +14,7 @@ import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import app.mystery0.nodeflow.data.topic.TopicLocalDataSource
 import com.google.common.truth.Truth.assertThat
+import java.io.IOException
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -33,7 +34,7 @@ class NodeRepositoryImplTest {
         val topicDao = FakeTopicDao()
         val topicLocalDataSource = TopicLocalDataSource(topicDao)
         topicLocalDataSource.cacheTopics(listOf(cachedTopic()))
-        val api = AccessDeniedV2exRawApi()
+        val api = NodeTopicsV2exRawApi(accessDenied = true)
         val repository = NodeRepositoryImpl(
             remoteDataSource = NodeRemoteDataSource(
                 api = api,
@@ -55,6 +56,34 @@ class NodeRepositoryImplTest {
         assertThat(result.isFailure).isTrue()
         val error = result.exceptionOrNull() as NodeFlowException
         assertThat(error.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
+    }
+
+    @Test
+    fun topics_fallsBackToCacheWhenRemoteFailsNormally() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val topicDao = FakeTopicDao()
+        val topicLocalDataSource = TopicLocalDataSource(topicDao)
+        topicLocalDataSource.cacheTopics(listOf(cachedTopic()))
+        val api = NodeTopicsV2exRawApi(accessDenied = false)
+        val repository = NodeRepositoryImpl(
+            remoteDataSource = NodeRemoteDataSource(
+                api = api,
+                json = Json { ignoreUnknownKeys = true },
+                parser = V2exHtmlParser(),
+            ),
+            localDataSource = NodeLocalDataSource(FakeNodeDao()),
+            topicLocalDataSource = topicLocalDataSource,
+            ioDispatcher = dispatcher,
+        )
+
+        val result = repository.topics(
+            name = "flamewar",
+            page = 1,
+            forceRefresh = true,
+        )
+
+        assertThat(api.nodeTopicsHtmlCalls).isEqualTo(1)
+        assertThat(result.getOrThrow().map { topic -> topic.id }).containsExactly(1221181L)
     }
 
     private fun cachedTopic(): Topic = Topic(
@@ -113,7 +142,9 @@ class NodeRepositoryImplTest {
         override suspend fun clear() = Unit
     }
 
-    private class AccessDeniedV2exRawApi : V2exRawApi {
+    private class NodeTopicsV2exRawApi(
+        private val accessDenied: Boolean,
+    ) : V2exRawApi {
         var nodeTopicsHtmlCalls: Int = 0
             private set
 
@@ -135,6 +166,7 @@ class NodeRepositoryImplTest {
             page: Int?,
         ): Response<ResponseBody> {
             nodeTopicsHtmlCalls += 1
+            if (!accessDenied) throw IOException("offline")
             val rawResponse = OkHttpResponse.Builder()
                 .request(Request.Builder().url("https://www.v2ex.com/").build())
                 .protocol(Protocol.HTTP_1_1)
