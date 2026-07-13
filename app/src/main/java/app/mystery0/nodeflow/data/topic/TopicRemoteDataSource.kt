@@ -40,10 +40,10 @@ class TopicRemoteDataSource(
             if (error is CancellationException || error.isAccessDenied()) throw error
             null
         }
-        if (htmlDetail != null && htmlDetail.contentRendered.isNotBlank()) {
+        if (htmlDetail != null) {
             htmlDetail
         } else {
-            // 兜底线路：网页解析失败（结构变更 / 非预期页面）时回退到旧 JSON API
+            // 兜底线路：网页未被识别为主题（结构变更 / 非预期页面）时回退到旧 JSON API
             jsonTopicDetail(topicId)
         }
     }

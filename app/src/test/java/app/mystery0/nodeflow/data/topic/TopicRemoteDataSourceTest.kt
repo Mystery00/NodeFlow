@@ -145,6 +145,58 @@ class TopicRemoteDataSourceTest {
     }
 
     @Test
+    fun topicDetail_usesParsedHtmlWhenTopicBodyIsEmptyWithoutJsonApi() = runTest {
+        val api = FakeV2exRawApi(
+            topicHtmlPages = mapOf(
+                null to """
+                    <html><body>
+                      <div id="Main">
+                        <div class="box">
+                          <div class="header">
+                            <a href="/go/flamewar">水深火热</a>
+                            <h1>正文为空的归档主题</h1>
+                            <small class="gray"><a href="/member/alice">alice</a></small>
+                          </div>
+                          <div class="topic_buttons">主题操作</div>
+                        </div>
+                        <div class="box">
+                          <div id="r_1" class="cell">
+                            <strong><a href="/member/bob">bob</a></strong>
+                            <span class="no">1</span>
+                            <div class="reply_content">HTML 可见回复</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="Rightbar">
+                        <div id="node_sidebar">
+                          <div class="topic_content markdown_body">
+                            <p>这个节点的存在，只是为了将一类信息进行归类。</p>
+                          </div>
+                        </div>
+                      </div>
+                    </body></html>
+                """.trimIndent(),
+            ),
+            topicJson = """
+                [{"id": 1221181, "title": "不应使用的 JSON 主题", "content_rendered": "<p>不应显示</p>", "replies": 1}]
+            """.trimIndent(),
+            repliesJson = """
+                [{"id": 9, "topic_id": 1221181, "content_rendered": "<p>JSON 回复</p>", "member": {"username": "json"}}]
+            """.trimIndent(),
+        )
+        val dataSource = TopicRemoteDataSource(api, json, parser)
+
+        val detail = dataSource.topicDetail(topicId = 1221181)
+
+        assertThat(api.topicJsonCalls).isEqualTo(0)
+        assertThat(api.repliesJsonCalls).isEqualTo(0)
+        assertThat(api.topicHtmlRequests).containsExactly(null)
+        assertThat(detail.topic.title).isEqualTo("正文为空的归档主题")
+        assertThat(detail.contentRendered).isEmpty()
+        assertThat(detail.replies.single().contentRendered).isEqualTo("HTML 可见回复")
+    }
+
+    @Test
     fun topicDetail_fallsBackToJsonWhenHtmlIsNotTopicPage() = runTest {
         val api = FakeV2exRawApi(
             topicHtmlPages = mapOf(
