@@ -324,6 +324,43 @@ class TopicRepositoryImplTest {
     }
 
     @Test
+    fun topicDetail_doesNotLetOlderFailureRestoreCacheAfterAccessDeniedRecovery() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dao = FakeTopicDao()
+        val api = OlderFailureAccessDeniedThenSuccessV2exRawApi()
+        val repository = repository(api, dao, dispatcher)
+        TopicLocalDataSource(dao).cacheTopicDetail(
+            TopicDetail(
+                topic = topic(id = 1221181, replyCount = 0),
+                content = "旧缓存正文",
+                contentRendered = "<p>旧缓存正文</p>",
+                replies = emptyList(),
+            ),
+        )
+
+        val olderFailure = async {
+            runCatching { repository.topicDetail(topicId = 1221181, forceRefresh = false) }
+        }
+        runCurrent()
+        assertThat(api.firstRequestStarted.isCompleted).isTrue()
+
+        val accessDeniedResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        val recoveredResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
+        api.releaseFirstFailure.complete(Unit)
+        runCurrent()
+        val olderInvocation = olderFailure.await()
+
+        assertThat((accessDeniedResult.exceptionOrNull() as NodeFlowException).kind)
+            .isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(recoveredResult.getOrThrow().contentRendered).contains("最新正文")
+        assertThat(olderInvocation.isFailure).isTrue()
+        assertThat(olderInvocation.exceptionOrNull())
+            .isInstanceOf(CancellationException::class.java)
+        assertThat(TopicLocalDataSource(dao).topicDetail(1221181)?.contentRendered)
+            .contains("最新正文")
+    }
+
+    @Test
     fun topicDetail_propagatesRemoteCancellation() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val cancellation = CancellationException("remote cancelled")
@@ -617,6 +654,50 @@ class TopicRepositoryImplTest {
                         <div id="Main">
                           <h1>并发恢复主题</h1>
                           <div class="topic_content"><p>$content</p></div>
+                        </div>
+                      </body>
+                    </html>
+                """.trimIndent().toResponseBody("text/html".toMediaType()),
+                rawResponse,
+            )
+        }
+    }
+
+    private class OlderFailureAccessDeniedThenSuccessV2exRawApi : FailingV2exRawApi() {
+        val firstRequestStarted = CompletableDeferred<Unit>()
+        val releaseFirstFailure = CompletableDeferred<Unit>()
+        private var topicHtmlCalls = 0
+
+        override suspend fun topicHtml(
+            topicId: Long,
+            page: Int?,
+        ): Response<ResponseBody> {
+            topicHtmlCalls += 1
+            return when (topicHtmlCalls) {
+                1 -> {
+                    firstRequestStarted.complete(Unit)
+                    releaseFirstFailure.await()
+                    super.topicHtml(topicId, page)
+                }
+                2 -> accessDeniedHtmlResponse()
+                else -> topicHtmlResponse(topicId)
+            }
+        }
+
+        private fun topicHtmlResponse(topicId: Long): Response<ResponseBody> {
+            val rawResponse = OkHttpResponse.Builder()
+                .request(Request.Builder().url("https://www.v2ex.com/t/$topicId").build())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(
+                """
+                    <html>
+                      <body>
+                        <div id="Main">
+                          <h1>并发恢复主题</h1>
+                          <div class="topic_content"><p>最新正文</p></div>
                         </div>
                       </body>
                     </html>

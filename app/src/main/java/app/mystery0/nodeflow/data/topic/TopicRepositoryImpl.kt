@@ -88,6 +88,11 @@ class TopicRepositoryImpl(
                         }
                         throw error
                     }
+                    // 权限状态推进后，较早请求捕获的缓存不能重新成为回退结果。
+                    if (accessState.generation != requestGeneration) {
+                        accessState.accessDeniedError?.let { throw it }
+                        throw CancellationException("Topic detail request was superseded")
+                    }
                     accessState.accessDeniedError?.let { throw it }
                     usableCachedDetail ?: throw error
                 }
