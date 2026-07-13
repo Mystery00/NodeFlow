@@ -617,6 +617,58 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseTopicHtml_prefersMainTopicContentOverNodeNotice() {
+        val html = """
+            <html>
+              <body>
+                <div class="topic_content">
+                  <p>这个节点的存在，只是为了将一类信息进行归类。</p>
+                </div>
+                <div id="Main">
+                  <div class="box">
+                    <div class="header">
+                      <a href="/go/flamewar">水深火热</a>
+                      <h1>受限归档主题</h1>
+                      <small class="gray">
+                        <a href="/member/alice">alice</a>
+                      </small>
+                    </div>
+                    <div class="cell">
+                      <div class="topic_content">
+                        <p>真实主题正文</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = parser.parseTopicHtml(topicId = 1221181, html = html)
+
+        assertThat(topic).isNotNull()
+        assertThat(topic!!.contentRendered).contains("真实主题正文")
+        assertThat(topic.contentRendered).doesNotContain("这个节点的存在")
+    }
+
+    @Test
+    fun parseTopicHtml_returnsNullForRestrictedSignInPageWithTopicContent() {
+        val html = """
+            <html>
+              <body>
+                <div id="problem" class="topic_content">需要登录后访问</div>
+                <form action="/signin" method="post">
+                  <input type="hidden" name="next" value="/restricted" />
+                  <input type="password" name="password" />
+                </form>
+              </body>
+            </html>
+        """.trimIndent()
+
+        assertThat(parser.parseTopicHtml(topicId = 1221181, html = html)).isNull()
+    }
+
+    @Test
     fun parseTopicHtml_readsSupplementalMetadataFromTopicPage() {
         val html = """
             <html>

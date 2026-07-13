@@ -344,7 +344,9 @@ class V2exHtmlParser {
 
     fun parseTopicHtml(topicId: Long, html: String): ParsedTopicHtml? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
-        val contentElement = document.selectFirst(".topic_content")
+        if (document.hasRestrictedSignInForm()) return null
+        val contentElement = document.selectFirst("#Main .topic_content")
+            ?: document.selectFirst(".topic_content")
         val replyElements = document.select("div[id]").filter { REPLY_ROW_ID_REGEX.matches(it.id()) }
         // 登录页、404 等非主题页面既没有正文块也没有回复行，直接返回 null 交给 JSON 兜底
         if (contentElement == null && replyElements.isEmpty()) return null
