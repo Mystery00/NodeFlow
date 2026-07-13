@@ -43,6 +43,10 @@ class TopicLocalDataSource(
         )
     }
 
+    suspend fun clearTopicDetail(topicId: Long) {
+        topicDao.clearTopicDetail(topicId)
+    }
+
     suspend fun clear() {
         topicDao.clear()
     }

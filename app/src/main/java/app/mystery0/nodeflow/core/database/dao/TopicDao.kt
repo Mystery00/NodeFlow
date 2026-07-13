@@ -22,6 +22,9 @@ interface TopicDao {
     @Upsert
     suspend fun upsertTopic(topic: TopicEntity)
 
+    @Query("UPDATE topics SET content = NULL, contentRendered = NULL WHERE id = :topicId")
+    suspend fun clearTopicDetail(topicId: Long)
+
     @Query("DELETE FROM topics")
     suspend fun clear()
 }

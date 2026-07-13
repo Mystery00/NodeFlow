@@ -65,7 +65,10 @@ class TopicRepositoryImpl(
             runCatching { remoteDataSource.topicDetail(topicId) }
                 .onSuccess { localDataSource.cacheTopicDetail(it) }
                 .getOrElse { error ->
-                    if (error.isAccessDenied()) throw error
+                    if (error.isAccessDenied()) {
+                        localDataSource.clearTopicDetail(topicId)
+                        throw error
+                    }
                     usableCachedDetail ?: throw error
                 }
         }

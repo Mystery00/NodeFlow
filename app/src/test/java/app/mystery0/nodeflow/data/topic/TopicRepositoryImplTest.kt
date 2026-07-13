@@ -118,6 +118,45 @@ class TopicRepositoryImplTest {
     }
 
     @Test
+    fun topicDetail_clearsCachedDetailAfterAccessDeniedBeforeLaterNetworkFailure() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val dao = FakeTopicDao()
+        val api = AccessDeniedThenFailingV2exRawApi()
+        val repository = repository(api, dao, dispatcher)
+        val localDataSource = TopicLocalDataSource(dao)
+        localDataSource.cacheTopicDetail(
+            TopicDetail(
+                topic = topic(id = 1221181, replyCount = 0),
+                content = "旧缓存正文",
+                contentRendered = "<p>旧缓存正文</p>",
+                replies = emptyList(),
+            ),
+        )
+
+        val accessDeniedResult = repository.topicDetail(
+            topicId = 1221181,
+            forceRefresh = false,
+        )
+        val networkFailureResult = repository.topicDetail(
+            topicId = 1221181,
+            forceRefresh = false,
+        )
+
+        assertThat(accessDeniedResult.isFailure).isTrue()
+        val accessDeniedError = accessDeniedResult.exceptionOrNull() as NodeFlowException
+        assertThat(accessDeniedError.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
+        assertThat(networkFailureResult.isFailure).isTrue()
+        assertThat(api.topicHtmlCalls).isEqualTo(2)
+        val cachedTopic = localDataSource.topic(1221181)
+        assertThat(cachedTopic).isNotNull()
+        assertThat(cachedTopic?.title).isEqualTo("标题 1221181")
+        assertThat(cachedTopic?.node?.name).isEqualTo("python")
+        assertThat(cachedTopic?.author?.username).isEqualTo("author")
+        assertThat(cachedTopic?.replyCount).isEqualTo(0)
+        assertThat(localDataSource.topicDetail(1221181)).isNull()
+    }
+
+    @Test
     fun topicDetail_returnsRemoteDetailWhenRemoteSucceeds() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
@@ -157,6 +196,15 @@ class TopicRepositoryImplTest {
 
         override suspend fun upsertTopic(topic: TopicEntity) {
             topics[topic.id] = topic
+        }
+
+        override suspend fun clearTopicDetail(topicId: Long) {
+            topics[topicId]?.let { topic ->
+                topics[topicId] = topic.copy(
+                    content = null,
+                    contentRendered = null,
+                )
+            }
         }
 
         override suspend fun clear() {
@@ -220,6 +268,35 @@ class TopicRepositoryImplTest {
             page: Int?,
         ): Response<ResponseBody> {
             topicHtmlCalls += 1
+            val rawResponse = OkHttpResponse.Builder()
+                .request(
+                    Request.Builder()
+                        .url("https://www.v2ex.com/restricted")
+                        .build(),
+                )
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(
+                "<html><body>Restricted</body></html>"
+                    .toResponseBody("text/html".toMediaType()),
+                rawResponse,
+            )
+        }
+    }
+
+    private class AccessDeniedThenFailingV2exRawApi : FailingV2exRawApi() {
+        var topicHtmlCalls: Int = 0
+            private set
+
+        override suspend fun topicHtml(
+            topicId: Long,
+            page: Int?,
+        ): Response<ResponseBody> {
+            topicHtmlCalls += 1
+            if (topicHtmlCalls > 1) return super.topicHtml(topicId, page)
+
             val rawResponse = OkHttpResponse.Builder()
                 .request(
                     Request.Builder()
