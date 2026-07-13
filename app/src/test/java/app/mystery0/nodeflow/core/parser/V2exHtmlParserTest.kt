@@ -652,6 +652,49 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseTopicHtml_ignoresNodeSidebarNoticeWhenTopicContentIsMissing() {
+        val html = """
+            <html>
+              <body>
+                <div id="Main">
+                  <div class="box">
+                    <div class="header">
+                      <a href="/go/flamewar">水深火热</a>
+                      <h1>受限归档主题</h1>
+                      <small class="gray"><a href="/member/alice">alice</a></small>
+                    </div>
+                    <div class="topic_buttons">主题操作</div>
+                  </div>
+                  <div class="box">
+                    <div id="r_17800001" class="cell">
+                      <strong><a href="/member/bob">bob</a></strong>
+                      <span class="no">1</span>
+                      <div class="reply_content">可见回复</div>
+                    </div>
+                  </div>
+                </div>
+                <div id="Rightbar">
+                  <div id="node_sidebar">
+                    <div class="topic_content markdown_body">
+                      <p>这个节点的存在，只是为了将一类信息进行归类。</p>
+                    </div>
+                  </div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = parser.parseTopicHtml(topicId = 1221181, html = html)
+
+        assertThat(topic).isNotNull()
+        assertThat(topic!!.title).isEqualTo("受限归档主题")
+        assertThat(topic.contentRendered).isEmpty()
+        assertThat(topic.contentRendered).doesNotContain("这个节点的存在")
+        assertThat(topic.replies).hasSize(1)
+        assertThat(topic.replies.single().contentRendered).isEqualTo("可见回复")
+    }
+
+    @Test
     fun parseTopicHtml_returnsNullForRestrictedSignInPageWithTopicContent() {
         val html = """
             <html>
