@@ -27,11 +27,13 @@
 
 - Modify: app/src/test/java/app/mystery0/nodeflow/core/parser/V2exHtmlParserTest.kt
 - Modify: app/src/main/java/app/mystery0/nodeflow/core/parser/V2exHtmlParser.kt
+- Create: app/src/main/java/app/mystery0/nodeflow/core/parser/V2exHtmlPageClassifier.kt
 
 **Interfaces:**
 
 - Consumes: V2exHtmlParser.parseTopicHtml(topicId: Long, html: String): ParsedTopicHtml?
 - Produces: 方法签名不变；正文优先选择 #Main .topic_content，仅在缺少该结构时回退全局 .topic_content；真实受限登录表单返回 null。
+- Produces: internal fun Document.hasRestrictedSignInForm(): Boolean，供解析器和后续统一权限守卫共同使用。
 
 - [ ] **Step 1: 在解析器测试中增加两个回归场景**
 
@@ -106,16 +108,20 @@
     val contentElement = document.selectFirst("#Main .topic_content")
         ?: document.selectFirst(".topic_content")
 
-在 V2exHtmlParser.kt 文件末尾的私有辅助函数区域加入：
+创建 V2exHtmlPageClassifier.kt，把登录表单 DOM 分类集中在一个可供同模块复用的内部扩展函数中：
 
-    private fun Document.hasRestrictedSignInForm(): Boolean =
+    package app.mystery0.nodeflow.core.parser
+
+    import org.jsoup.nodes.Document
+
+    internal fun Document.hasRestrictedSignInForm(): Boolean =
         select("form[action='/signin']").any { form ->
             form.selectFirst("input[type=password]") != null ||
                 form.selectFirst("input[type=hidden][name=next]")
                     ?.attr("value") == "/restricted"
         }
 
-现有后续代码已经使用 contentElement，保持其余回复、分页和元数据逻辑不变。org.jsoup.nodes.Document 已在当前文件导入，无需改动导入。
+现有后续代码已经使用 contentElement，保持其余回复、分页和元数据逻辑不变。V2exHtmlParser.kt 与 V2exHtmlPageClassifier.kt 位于同一包，无需额外导入。
 
 - [ ] **Step 4: 运行解析器回归测试并确认 GREEN**
 
@@ -131,7 +137,7 @@
 
     git diff --check
     git status --short
-    git add app/src/main/java/app/mystery0/nodeflow/core/parser/V2exHtmlParser.kt app/src/test/java/app/mystery0/nodeflow/core/parser/V2exHtmlParserTest.kt
+    git add app/src/main/java/app/mystery0/nodeflow/core/parser/V2exHtmlParser.kt app/src/main/java/app/mystery0/nodeflow/core/parser/V2exHtmlPageClassifier.kt app/src/test/java/app/mystery0/nodeflow/core/parser/V2exHtmlParserTest.kt
     git commit -m "修复：限定主题正文解析范围"
 
 ---
@@ -146,7 +152,7 @@
 
 **Interfaces:**
 
-- Consumes: Response<ResponseBody>.raw().request.url、Response<ResponseBody>.bodyStringOrThrow() 和 Jsoup HTML DOM。
+- Consumes: Response<ResponseBody>.raw().request.url、Response<ResponseBody>.bodyStringOrThrow()、Jsoup HTML DOM 和 Document.hasRestrictedSignInForm()。
 - Produces: NodeFlowException.Kind.AccessDenied。
 - Produces: enum V2exHtmlAccessTarget { Topic, NodeTopics }。
 - Produces: const val V2EX_ACCESS_DENIED_MESSAGE: String。
@@ -352,6 +358,7 @@
     package app.mystery0.nodeflow.core.network
 
     import app.mystery0.nodeflow.core.common.NodeFlowException
+    import app.mystery0.nodeflow.core.parser.hasRestrictedSignInForm
     import okhttp3.ResponseBody
     import org.jsoup.Jsoup
     import retrofit2.Response
@@ -375,13 +382,7 @@
         if (deniedByUrl) throw accessDenied()
 
         val html = bodyStringOrThrow()
-        val deniedByDom = Jsoup.parse(html)
-            .select("form[action='/signin']")
-            .any { form ->
-                form.selectFirst("input[type=password]") != null ||
-                    form.selectFirst("input[type=hidden][name=next]")
-                        ?.attr("value") == "/restricted"
-            }
+        val deniedByDom = Jsoup.parse(html).hasRestrictedSignInForm()
         if (deniedByDom) throw accessDenied()
         return html
     }
