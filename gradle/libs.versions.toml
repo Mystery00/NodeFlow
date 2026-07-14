@@ -10,6 +10,7 @@ activityCompose = "1.13.0"
 kotlin = "2.4.0"
 composeBom = "2026.06.01"
 coil = "2.7.0"
+zoomimage = "1.6.0"
 coroutines = "1.11.0"
 datastore = "1.2.1"
 jsoup = "1.22.2"
@@ -50,6 +51,7 @@ androidx-room-runtime = { group = "androidx.room", name = "room-runtime", versio
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 coil-svg = { group = "io.coil-kt", name = "coil-svg", version.ref = "coil" }
+zoomimage-compose-coil2 = { group = "io.github.panpf.zoomimage", name = "zoomimage-compose-coil2", version.ref = "zoomimage" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 koin-android = { group = "io.insert-koin", name = "koin-android" }
