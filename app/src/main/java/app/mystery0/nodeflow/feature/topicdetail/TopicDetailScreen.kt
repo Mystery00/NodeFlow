@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -51,10 +52,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
+import app.mystery0.nodeflow.core.designsystem.component.NodeChip
 import app.mystery0.nodeflow.core.designsystem.component.RichHtmlText
 import app.mystery0.nodeflow.core.designsystem.component.ZoomableImageViewer
 import app.mystery0.nodeflow.core.link.V2exLink
@@ -62,7 +65,9 @@ import app.mystery0.nodeflow.core.link.V2exLinkParser
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.ReplyItem
+import app.mystery0.nodeflow.core.ui.TopicNodeChip
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
+import app.mystery0.nodeflow.core.ui.topicNodeChip
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -79,6 +84,17 @@ internal fun topicMetadataText(
     time.takeIf { it.isNotBlank() }?.let(::add)
     viewCount?.let { add("${it} 次点击") }
 }.joinToString(" · ")
+
+internal fun topicDetailNodeChip(detail: TopicDetail): TopicNodeChip? =
+    topicNodeChip(detail.topic)
+
+internal data class TopicDetailMetadataLayout(
+    val nodeChipMaxWidth: Dp,
+)
+
+internal fun topicDetailMetadataLayout(): TopicDetailMetadataLayout = TopicDetailMetadataLayout(
+    nodeChipMaxWidth = 120.dp,
+)
 
 internal fun formatTopicMetadataTime(
     epochSeconds: Long?,
@@ -264,6 +280,7 @@ private fun TopicDetailContent(
                     TopicMetadataRow(
                         detail = detail,
                         onUserClick = onUserClick,
+                        onNodeClick = onNodeClick,
                     )
                     RichHtmlText(
                         html = detail.contentRendered,
@@ -308,12 +325,15 @@ private fun TopicDetailContent(
 private fun TopicMetadataRow(
     detail: TopicDetail,
     onUserClick: (String) -> Unit,
+    onNodeClick: (String) -> Unit,
 ) {
     val username = detail.topic.author.username
     val time = formatTopicMetadataTime(detail.topic.createdAtEpochSeconds)
+    val nodeChip = topicDetailNodeChip(detail)
+    val layout = topicDetailMetadataLayout()
     val primaryColor = MaterialTheme.colorScheme.primary
-    // 整行用单个 Text 渲染，保证发帖人、时间、点击数共享同一基线并垂直居中，
-    // 仅发帖人作为可点击链接
+    // 元信息用单个 Text 渲染，保证发帖人、时间、点击数共享同一基线，
+    // 仅发帖人作为文本内的可点击链接；节点入口由末尾的 Chip 独立处理。
     val metadata = buildAnnotatedString {
         var isFirst = true
         fun appendSeparator() {
@@ -342,16 +362,29 @@ private fun TopicMetadataRow(
             append("$viewCount 次点击")
         }
     }
-    Text(
-        text = metadata,
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        softWrap = false,
-    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = metadata,
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            softWrap = false,
+        )
+        nodeChip?.let { chip ->
+            NodeChip(
+                title = chip.label,
+                onClick = { onNodeClick(chip.nodeName) },
+                modifier = Modifier.widthIn(max = layout.nodeChipMaxWidth),
+            )
+        }
+    }
 }
 
 @Composable
