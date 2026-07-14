@@ -207,12 +207,14 @@ internal fun extractHtmlImageSpecs(html: String): List<HtmlImageSpec> {
         val url = image.absUrl("src").takeIf { it.isNotBlank() } ?: return@mapNotNull null
         val width = image.imageDimension("width")
         val height = image.imageDimension("height")
+        val compactByImage = image.isCompactImage(width, height)
+        val compactByPlacement = image.isInlineImage() && !image.isExplicitContentImage()
         HtmlImageSpec(
             url = url,
             alt = image.attr("alt").takeIf { it.isNotBlank() },
             widthPx = width,
             heightPx = height,
-            compact = image.isInlineImage() || image.isCompactImage(width, height),
+            compact = compactByImage || compactByPlacement,
         )
     }
     val linkedImages = document.select("a[href]")
@@ -277,6 +279,11 @@ private fun Element.isInlineImage(): Boolean {
     return root.hasInlineTextSibling(previous = true) || root.hasInlineTextSibling(previous = false)
 }
 
+private fun Element.isExplicitContentImage(): Boolean =
+    classNames().any { className ->
+        className.equals(V2EX_EMBEDDED_IMAGE_CLASS, ignoreCase = true)
+    }
+
 private fun Element.isCompactImage(width: Int?, height: Int?): Boolean {
     val className = className().lowercase()
     val alt = attr("alt")
@@ -329,6 +336,7 @@ private const val CompactImageMaxDp = 56f
 private const val ContentImageMaxHeightDp = 360f
 private const val CompactSourceMaxPx = 96
 private const val DefaultImageAspectRatio = 16f / 9f
+private const val V2EX_EMBEDDED_IMAGE_CLASS = "embedded_image"
 private val BLOCK_TAGS = setOf("p", "div", "li", "td", "blockquote")
 private val COMPACT_IMAGE_CLASS_HINTS = listOf("emoji", "emoticon", "smilie", "smiley")
 private val IMAGE_URL_SUFFIXES = listOf(".jpg", ".jpeg", ".png", ".webp", ".gif")

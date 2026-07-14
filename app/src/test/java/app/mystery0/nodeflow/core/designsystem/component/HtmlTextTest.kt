@@ -17,10 +17,10 @@ class HtmlTextTest {
     }
 
     @Test
-    fun extractHtmlImageSpecs_marksInlineImageAsCompact() {
+    fun extractHtmlImageSpecs_marksUnknownInlineImageAsCompact() {
         val html = """
             问了我 3W<a href="https://i.imgur.com/N9E3iZ2.png">
-                <img src="https://i.imgur.com/N9E3iZ2.png" class="embedded_image" rel="noreferrer">
+                <img src="https://i.imgur.com/N9E3iZ2.png" rel="noreferrer">
             </a>。这标准还没上实木
         """.trimIndent()
 
@@ -29,6 +29,22 @@ class HtmlTextTest {
         assertThat(images).hasSize(1)
         assertThat(images.single().url).isEqualTo("https://i.imgur.com/N9E3iZ2.png")
         assertThat(images.single().compact).isTrue()
+    }
+
+    @Test
+    fun extractHtmlImageSpecs_keepsEmbeddedImageAfterReplyTextAsContentImage() {
+        val html = """
+            @<a href="/member/qbqbqbqb">qbqbqbqb</a> #8 因为他们认为 DNS 泄露不是问题
+            <a href="https://i.imgur.com/HhIXhII.png" rel="nofollow noopener">
+                <img src="https://i.imgur.com/HhIXhII.png" class="embedded_image" rel="noreferrer">
+            </a>
+        """.trimIndent()
+
+        val images = extractHtmlImageSpecs(html)
+
+        assertThat(images).hasSize(1)
+        assertThat(images.single().url).isEqualTo("https://i.imgur.com/HhIXhII.png")
+        assertThat(images.single().compact).isFalse()
     }
 
     @Test
