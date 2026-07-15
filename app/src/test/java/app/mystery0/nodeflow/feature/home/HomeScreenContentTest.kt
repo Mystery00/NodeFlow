@@ -9,6 +9,7 @@ class HomeScreenContentTest {
         val action = homeReselectAction(itemCount = 10)
 
         assertThat(action.shouldScrollToTop).isTrue()
+        assertThat(action.shouldExpandAppBar).isTrue()
         assertThat(action.shouldRefresh).isTrue()
     }
 
@@ -17,6 +18,7 @@ class HomeScreenContentTest {
         val action = homeReselectAction(itemCount = 0)
 
         assertThat(action.shouldScrollToTop).isFalse()
+        assertThat(action.shouldExpandAppBar).isFalse()
         assertThat(action.shouldRefresh).isTrue()
     }
 }

@@ -23,6 +23,7 @@
 
 - [`plans/`](plans/)：已确认的设计说明和对应实施计划。设计与计划统一放在同一目录，通过文件名中的 `-design` 区分。
 - [首页底部导航重复点击设计](plans/2026-07-15-home-bottom-bar-reselect-design.md) / [实施计划](plans/2026-07-15-home-bottom-bar-reselect.md)
+- [首页重复点击展开 App Bar 设计](plans/2026-07-15-home-reselect-app-bar-design.md) / [实施计划](plans/2026-07-15-home-reselect-app-bar.md)
 - [帖子详情节点 Chip 设计](plans/2026-07-15-topic-detail-node-chip-design.md) / [实施计划](plans/2026-07-15-topic-detail-node-chip.md)
 - [`investigations/`](investigations/)：问题调查、外部行为验证和技术研究记录。
 

@@ -45,11 +45,13 @@ import kotlinx.coroutines.launch
 
 internal data class HomeReselectAction(
     val shouldScrollToTop: Boolean,
+    val shouldExpandAppBar: Boolean,
     val shouldRefresh: Boolean,
 )
 
 internal fun homeReselectAction(itemCount: Int): HomeReselectAction = HomeReselectAction(
     shouldScrollToTop = itemCount > 0,
+    shouldExpandAppBar = itemCount > 0,
     shouldRefresh = true,
 )
 
@@ -64,13 +66,17 @@ fun HomeScreen(
     homeReselectEvents: Flow<Unit> = emptyFlow(),
     modifier: Modifier = Modifier,
 ) {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+    val topAppBarState = rememberTopAppBarState()
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topAppBarState)
     val listState = rememberLazyListState()
     LaunchedEffect(homeReselectEvents) {
         homeReselectEvents.collect {
             val action = homeReselectAction(topics.itemCount)
             if (action.shouldRefresh) {
                 onEvent(HomeUiEvent.Refresh)
+            }
+            if (action.shouldExpandAppBar) {
+                topAppBarState.heightOffset = 0f
             }
             if (action.shouldScrollToTop) {
                 launch {
