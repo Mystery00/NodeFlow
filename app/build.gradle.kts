@@ -27,9 +27,7 @@ val appVersionName: String = libs.versions.app.version.get()
 
 android {
     namespace = packageName
-    compileSdk {
-        version = release(libs.versions.android.compileSdk.get().toInt())
-    }
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
         applicationId = packageName
