@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.feature.account
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,8 +22,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
@@ -44,6 +47,13 @@ fun AccountScreen(
     onLoginClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    LaunchedEffect(state.toastMessage) {
+        state.toastMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            onEvent(AccountUiEvent.ToastShown)
+        }
+    }
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -76,6 +86,8 @@ fun AccountScreen(
             state.user != null -> AccountContent(
                 user = state.user,
                 overview = state.overview,
+                isCheckingIn = state.isCheckingIn,
+                onCheckInClick = { onEvent(AccountUiEvent.CheckIn) },
                 onLogoutClick = { onEvent(AccountUiEvent.Logout) },
                 modifier = Modifier
                     .fillMaxSize()
@@ -124,6 +136,8 @@ private fun SignedOutContent(
 private fun AccountContent(
     user: User,
     overview: AccountOverview?,
+    isCheckingIn: Boolean,
+    onCheckInClick: () -> Unit,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -152,6 +166,8 @@ private fun AccountContent(
         overview?.let {
             AccountOverviewContent(
                 overview = it,
+                isCheckingIn = isCheckingIn,
+                onCheckInClick = onCheckInClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
@@ -179,17 +195,17 @@ private fun AccountContent(
 @Composable
 private fun AccountOverviewContent(
     overview: AccountOverview,
+    isCheckingIn: Boolean,
+    onCheckInClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val unreadText = overview.unreadNotificationCount?.let { "${it.formatCount()} 条" }
-    val checkInText = overview.checkIn?.let(::formatCheckIn)
     val wealthText = overview.wealth?.let(::formatWealth)
     val rows = listOfNotNull(
         unreadText?.let { "未读提醒" to it },
-        checkInText?.let { "签到" to it },
         wealthText?.let { "财富" to it },
     )
-    if (rows.isEmpty()) return
+    if (rows.isEmpty() && overview.checkIn == null) return
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -198,9 +214,57 @@ private fun AccountOverviewContent(
         rows.forEach { (label, value) ->
             OverviewLine(label = label, value = value)
         }
+        overview.checkIn?.let { checkIn ->
+            if (usesCheckInActionLine(checkIn)) {
+                CheckInActionLine(
+                    checkIn = checkIn,
+                    isCheckingIn = isCheckingIn,
+                    onCheckInClick = onCheckInClick,
+                )
+            } else {
+                OverviewLine(label = "签到", value = formatCheckIn(checkIn))
+            }
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
     }
 }
+
+@Composable
+private fun CheckInActionLine(
+    checkIn: DailyCheckIn,
+    isCheckingIn: Boolean,
+    onCheckInClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "签到",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = formatCheckIn(checkIn),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+            Button(
+                onClick = onCheckInClick,
+                enabled = !isCheckingIn,
+            ) {
+                Text(if (isCheckingIn) "签到中…" else "签到")
+            }
+        }
+    }
+}
+
+internal fun usesCheckInActionLine(checkIn: DailyCheckIn): Boolean = checkIn.canCheckIn
 
 @Composable
 private fun OverviewLine(label: String, value: String) {

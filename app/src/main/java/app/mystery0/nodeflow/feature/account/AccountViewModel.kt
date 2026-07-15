@@ -3,6 +3,8 @@ package app.mystery0.nodeflow.feature.account
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.core.common.NodeFlowException
+import app.mystery0.nodeflow.core.model.AccountOverview
+import app.mystery0.nodeflow.domain.account.CheckInUseCase
 import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.auth.AuthRepository
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
@@ -19,12 +21,14 @@ class AccountViewModel(
     observeAuthSession: ObserveAuthSessionUseCase,
     private val getUserProfile: GetUserProfileUseCase,
     private val getAccountOverview: GetAccountOverviewUseCase,
+    private val checkIn: CheckInUseCase,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AccountUiState())
     val uiState: StateFlow<AccountUiState> = _uiState.asStateFlow()
 
     private var loadJob: Job? = null
+    private var checkInJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -35,12 +39,16 @@ class AccountViewModel(
                         user = if (session.username.isNullOrBlank()) null else it.user,
                         overview = if (session.username.isNullOrBlank()) null else it.overview,
                         errorMessage = null,
+                        toastMessage = null,
                     )
                 }
                 val username = session.username
                 if (username.isNullOrBlank() || session.cookieHeader.isNullOrBlank()) {
                     loadJob?.cancel()
-                    _uiState.update { it.copy(user = null, overview = null, isLoading = false) }
+                    checkInJob?.cancel()
+                    _uiState.update {
+                        it.copy(user = null, overview = null, isLoading = false, isCheckingIn = false)
+                    }
                 } else {
                     loadAccount(username = username, forceRefresh = false)
                 }
@@ -58,6 +66,40 @@ class AccountViewModel(
             AccountUiEvent.Logout -> viewModelScope.launch {
                 authRepository.clearSession()
             }
+            AccountUiEvent.CheckIn -> startCheckIn()
+            AccountUiEvent.ToastShown -> _uiState.update { it.copy(toastMessage = null) }
+        }
+    }
+
+    private fun startCheckIn() {
+        if (checkInJob?.isActive == true || !_uiState.value.isLoggedIn) return
+        checkInJob = viewModelScope.launch {
+            _uiState.update { it.copy(isCheckingIn = true, toastMessage = null) }
+            checkIn().fold(
+                onSuccess = { result ->
+                    val refreshedOverview = getAccountOverview().getOrNull()
+                    _uiState.update { current ->
+                        current.copy(
+                            overview = refreshedOverview
+                                ?: current.overview?.copy(checkIn = result.checkIn)
+                                ?: AccountOverview(checkIn = result.checkIn),
+                            isCheckingIn = false,
+                            toastMessage = result.rewardBronze
+                                ?.let { "签到成功，获得 $it 铜币" }
+                                ?: "签到成功",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    if (error.isAuthError()) authRepository.clearSession()
+                    _uiState.update {
+                        it.copy(
+                            isCheckingIn = false,
+                            toastMessage = error.message ?: "签到失败，请稍后重试",
+                        )
+                    }
+                },
+            )
         }
     }
 

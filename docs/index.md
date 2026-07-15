@@ -25,6 +25,7 @@
 - [首页底部导航重复点击设计](plans/2026-07-15-home-bottom-bar-reselect-design.md) / [实施计划](plans/2026-07-15-home-bottom-bar-reselect.md)
 - [首页重复点击展开 App Bar 设计](plans/2026-07-15-home-reselect-app-bar-design.md) / [实施计划](plans/2026-07-15-home-reselect-app-bar.md)
 - [帖子详情节点 Chip 设计](plans/2026-07-15-topic-detail-node-chip-design.md) / [实施计划](plans/2026-07-15-topic-detail-node-chip.md)
+- [V2EX 每日签到设计](plans/2026-07-15-v2ex-daily-check-in-design.md) / [实施计划](plans/2026-07-15-v2ex-daily-check-in.md)
 - [`investigations/`](investigations/)：问题调查、外部行为验证和技术研究记录。
 
 历史文档描述的是特定时间点的设计与实施背景。若其内容与当前源码、`AGENTS.md` 或专题文档冲突，以当前源码和现行规范为准。

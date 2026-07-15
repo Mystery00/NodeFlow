@@ -33,7 +33,12 @@ data class AccountOverview(
 data class DailyCheckIn(
     val checkedIn: Boolean,
     val continuousDays: Int? = null,
-    val redeemOnce: String? = null,
+    val canCheckIn: Boolean = false,
+)
+
+data class DailyCheckInResult(
+    val checkIn: DailyCheckIn,
+    val rewardBronze: Int? = null,
 )
 
 data class AccountWealth(

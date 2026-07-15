@@ -240,7 +240,7 @@ class V2exHtmlParserTest {
         assertThat(status).isNotNull()
         assertThat(status!!.checkedIn).isTrue()
         assertThat(status.continuousDays).isEqualTo(12)
-        assertThat(status.redeemOnce).isNull()
+        assertThat(status.canCheckIn).isFalse()
     }
 
     @Test
@@ -256,12 +256,75 @@ class V2exHtmlParserTest {
             </html>
         """.trimIndent()
 
-        val status = parser.parseDailyCheckIn(html)
+        val page = parser.parseDailyCheckInPage(html)
 
-        assertThat(status).isNotNull()
-        assertThat(status!!.checkedIn).isFalse()
-        assertThat(status.continuousDays).isEqualTo(8)
-        assertThat(status.redeemOnce).isEqualTo("84830")
+        assertThat(page).isNotNull()
+        assertThat(page!!.checkIn.checkedIn).isFalse()
+        assertThat(page.checkIn.canCheckIn).isTrue()
+        assertThat(page.checkIn.continuousDays).isEqualTo(8)
+        assertThat(page.redeemOnce).isEqualTo("84830")
+    }
+
+    @Test
+    fun isDailyCheckInSuccess_requiresClaimedStructureAndPositiveMarker() {
+        val html = """
+            <html><body>
+              <div class="cell">每日登录奖励已领取</div>
+              <input type="button" onclick="location.href = '/balance';" value="查看我的账户余额" />
+            </body></html>
+        """.trimIndent()
+
+        assertThat(parser.isDailyCheckInSuccess(html)).isTrue()
+    }
+
+    @Test
+    fun isDailyCheckInSuccess_rejectsPageWhenRedeemButtonRemains() {
+        val html = """
+            <html><body>
+              <div class="cell">领取成功</div>
+              <input type="button" onclick="location.href = '/mission/daily/redeem?once=84830';" value="领取奖励" />
+            </body></html>
+        """.trimIndent()
+
+        assertThat(parser.isDailyCheckInSuccess(html)).isFalse()
+    }
+
+    @Test
+    fun hasDailyCheckInRiskNotice_recognizesCleanBrowserPrompt() {
+        val html = """<html><body>请用一个干净安装的浏览器重试</body></html>"""
+
+        assertThat(parser.hasDailyCheckInRiskNotice(html)).isTrue()
+    }
+
+    @Test
+    fun hasDailyCheckInRiskNotice_recognizesCloudflareChallenge() {
+        val html = """<html><head><title>Just a moment...</title></head><body><div id="cf-chl-widget"></div></body></html>"""
+
+        assertThat(parser.hasDailyCheckInRiskNotice(html)).isTrue()
+    }
+
+    @Test
+    fun parseLatestDailyReward_readsRewardCellAfterDescription() {
+        val html = """
+            <html><body><table>
+              <tr><td>2026-07-15</td><td>每日登录奖励</td><td>+12</td><td>0</td><td>记录</td></tr>
+              <tr><td>2026-07-14</td><td>每日登录奖励</td><td>+8</td><td>0</td><td>记录</td></tr>
+            </table></body></html>
+        """.trimIndent()
+
+        assertThat(parser.parseLatestDailyReward(html)).isEqualTo(12)
+    }
+
+    @Test
+    fun parseLatestDailyReward_ignoresNonPositiveOrUnrelatedRows() {
+        val html = """
+            <html><body><table>
+              <tr><td>2026-07-15</td><td>主题回复</td><td>+20</td><td>0</td><td>记录</td></tr>
+              <tr><td>2026-07-14</td><td>每日登录奖励</td><td>0</td><td>0</td><td>记录</td></tr>
+            </table></body></html>
+        """.trimIndent()
+
+        assertThat(parser.parseLatestDailyReward(html)).isNull()
     }
 
     @Test

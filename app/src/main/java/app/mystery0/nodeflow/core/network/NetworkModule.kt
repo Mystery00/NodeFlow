@@ -40,6 +40,7 @@ val networkModule = module {
 
     single {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
+            redactQueryParams("once")
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BASIC
             } else {

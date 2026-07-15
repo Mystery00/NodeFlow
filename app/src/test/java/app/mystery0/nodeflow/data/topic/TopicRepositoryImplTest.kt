@@ -502,6 +502,8 @@ class TopicRepositoryImplTest {
 
         override suspend fun dailyMission(): Response<ResponseBody> = failure()
 
+        override suspend fun redeemDailyMission(once: String, referer: String): Response<ResponseBody> = failure()
+
         override suspend fun balance(): Response<ResponseBody> = failure()
     }
 

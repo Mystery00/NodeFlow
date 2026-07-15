@@ -75,4 +75,17 @@ class V2exRawApiUserAgentTest {
         val request = server.takeRequest()
         assertThat(request.getHeader("User-Agent")).isEqualTo(V2exUserAgents.MOBILE)
     }
+
+    @Test
+    fun redeemDailyMission_usesObservedPathAndReferer() = runTest {
+        server.enqueue(MockResponse().setBody(""))
+
+        api.redeemDailyMission(once = "84830")
+
+        val request = server.takeRequest()
+        assertThat(request.method).isEqualTo("GET")
+        assertThat(request.path).isEqualTo("/mission/daily/redeem?once=84830")
+        assertThat(request.getHeader("Referer")).isEqualTo("https://www.v2ex.com/mission/daily")
+        assertThat(request.getHeader("User-Agent")).isEqualTo(V2exUserAgents.MOBILE)
+    }
 }

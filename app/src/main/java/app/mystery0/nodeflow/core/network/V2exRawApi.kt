@@ -84,6 +84,12 @@ interface V2exRawApi {
     @GET("mission/daily")
     suspend fun dailyMission(): Response<ResponseBody>
 
+    @GET("mission/daily/redeem")
+    suspend fun redeemDailyMission(
+        @Query("once") once: String,
+        @Header("Referer") referer: String = "https://www.v2ex.com/mission/daily",
+    ): Response<ResponseBody>
+
     @GET("balance")
     suspend fun balance(): Response<ResponseBody>
 }

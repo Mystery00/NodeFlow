@@ -199,7 +199,9 @@ class V2exHtmlParser {
         return hasSignIn && !hasSignOut
     }
 
-    fun parseDailyCheckIn(html: String): DailyCheckIn? {
+    fun parseDailyCheckIn(html: String): DailyCheckIn? = parseDailyCheckInPage(html)?.checkIn
+
+    internal fun parseDailyCheckInPage(html: String): ParsedDailyCheckInPage? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         val checkInButton = document
             .select("input[type=button][onclick], input.button[onclick], button[onclick]")
@@ -220,11 +222,45 @@ class V2exHtmlParser {
             .select("span:contains(已连续), div.cell:contains(已连续)")
             .joinToString(" ") { it.text() }
             .let { CONTINUOUS_DAYS_REGEX.find(it)?.groupValues?.getOrNull(1)?.toIntOrNull() }
-        return DailyCheckIn(
-            checkedIn = checkedIn,
-            continuousDays = continuousDays,
+        return ParsedDailyCheckInPage(
+            checkIn = DailyCheckIn(
+                checkedIn = checkedIn,
+                continuousDays = continuousDays,
+                canCheckIn = !checkedIn && redeemOnce != null,
+            ),
             redeemOnce = redeemOnce,
         )
+    }
+
+    fun isDailyCheckInSuccess(html: String): Boolean {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val hasRedeemButton = document.select("[onclick*=mission/daily/redeem]").isNotEmpty()
+        val hasBalanceButton = document.select("[onclick*=balance]").isNotEmpty()
+        val hasPositiveMarker = DAILY_CHECK_IN_SUCCESS_MARKERS.any(document.text()::contains)
+        return !hasRedeemButton && hasBalanceButton && hasPositiveMarker
+    }
+
+    fun hasDailyCheckInRiskNotice(html: String): Boolean {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val pageContent = "${document.text()} ${document.outerHtml()}".lowercase()
+        return DAILY_CHECK_IN_RISK_MARKERS.any(pageContent::contains)
+    }
+
+    fun parseLatestDailyReward(html: String): Int? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        return document.select("tr")
+            .mapNotNull { row ->
+                val cells = row.select("th, td")
+                val descriptionIndex = cells.indexOfFirst { it.text().contains("每日登录") }
+                if (descriptionIndex < 0) return@mapNotNull null
+                cells.getOrNull(descriptionIndex + 1)
+                    ?.text()
+                    ?.let { DAILY_REWARD_REGEX.find(it)?.groupValues?.getOrNull(1) }
+                    ?.replace(",", "")
+                    ?.toIntOrNull()
+                    ?.takeIf { it > 0 }
+            }
+            .firstOrNull()
     }
 
     fun parseAccountWealth(html: String): AccountWealth? {
@@ -772,6 +808,18 @@ class V2exHtmlParser {
         val DAILY_ACTIVITY_RANK_REGEX = Regex("""Today's activity rank\s+(\d[\d,]*)""", RegexOption.IGNORE_CASE)
         val CONTINUOUS_DAYS_REGEX = Regex("""(\d+)\s*天""")
         val ONCE_REGEX = Regex("""once=(\d+)""")
+        val DAILY_REWARD_REGEX = Regex("""\+?(\d[\d,]*)""")
+        val DAILY_CHECK_IN_SUCCESS_MARKERS = listOf("每日登录奖励已领取", "已领取", "成功领取", "已成功")
+        val DAILY_CHECK_IN_RISK_MARKERS = listOf(
+            "干净安装的浏览器",
+            "clean browser",
+            "just a moment",
+            "cf-chl",
+            "cf-turnstile",
+            "challenge-platform",
+            "attention required",
+            "cloudflare",
+        )
         val NUMBER_REGEX = Regex("""\d[\d,]*""")
         val HTML_TAG_REGEX = Regex("""<[^>]+>""")
         val IMAGE_TAG_REGEX = Regex("""<img\b""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
@@ -782,3 +830,8 @@ class V2exHtmlParser {
         val V2EX_DATE_TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss xxx")
     }
 }
+
+internal data class ParsedDailyCheckInPage(
+    val checkIn: DailyCheckIn,
+    val redeemOnce: String?,
+)
