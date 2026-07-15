@@ -3,6 +3,11 @@ package app.mystery0.nodeflow.navigation
 import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Test
 
 class NavigationRouteTest {
@@ -83,5 +88,40 @@ class NavigationRouteTest {
     @Test
     fun homeBottomBarLabel_usesDefaultTextWhenNoPinnedNode() {
         assertThat(homeBottomBarLabel(null)).isEqualTo("首页")
+    }
+
+    @Test
+    fun homeBottomBarAction_reselectsHomeWhenAlreadyOnHome() {
+        assertThat(homeBottomBarAction(NodeFlowDestinations.Home))
+            .isEqualTo(HomeBottomBarAction.ReselectHome)
+    }
+
+    @Test
+    fun homeBottomBarAction_navigatesHomeFromOtherTopLevelRoute() {
+        assertThat(homeBottomBarAction(NodeFlowDestinations.NodeList))
+            .isEqualTo(HomeBottomBarAction.NavigateHome)
+    }
+
+    @Test
+    fun homeReselectRequests_preservesEveryRequestUntilConsumed() = runTest {
+        val requests = HomeReselectRequests()
+
+        requests.request()
+        requests.request()
+
+        assertThat(requests.events.take(2).toList()).hasSize(2)
+    }
+
+    @Test
+    fun homeReselectRequests_doesNotReplayConsumedRequest() = runTest {
+        val requests = HomeReselectRequests()
+        requests.request()
+        requests.events.first()
+
+        val replayed = withTimeoutOrNull(1) {
+            requests.events.first()
+        }
+
+        assertThat(replayed).isNull()
     }
 }

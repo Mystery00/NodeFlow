@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -37,6 +38,9 @@ import app.mystery0.nodeflow.feature.home.HomeViewModel
 import app.mystery0.nodeflow.feature.node.NodeListScreen
 import app.mystery0.nodeflow.feature.node.NodeListViewModel
 import coil.compose.AsyncImage
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -51,6 +55,7 @@ fun MainShell(
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
+    val homeReselectRequests = remember { HomeReselectRequests() }
 
     Scaffold(
         modifier = modifier,
@@ -60,7 +65,11 @@ fun MainShell(
                 currentRoute = currentRoute,
                 pinnedHomeNode = settings.pinnedHomeNode,
                 onHomeClick = {
-                    navController.navigateTopLevel(NodeFlowDestinations.Home)
+                    when (homeBottomBarAction(currentRoute)) {
+                        HomeBottomBarAction.NavigateHome ->
+                            navController.navigateTopLevel(NodeFlowDestinations.Home)
+                        HomeBottomBarAction.ReselectHome -> homeReselectRequests.request()
+                    }
                 },
                 onNodeClick = {
                     navController.navigateTopLevel(nodeBottomBarRoute())
@@ -86,6 +95,7 @@ fun MainShell(
                     onEvent = viewModel::onEvent,
                     onTopicClick = onTopicClick,
                     onNodeClick = onNodeClick,
+                    homeReselectEvents = homeReselectRequests.events,
                 )
             }
             composable(NodeFlowDestinations.NodeList) {
@@ -175,6 +185,28 @@ fun homeBottomBarLabel(pinnedHomeNode: PinnedHomeNode?): String =
     pinnedHomeNode?.title?.takeIf { it.isNotBlank() }
         ?: pinnedHomeNode?.name?.takeIf { it.isNotBlank() }
         ?: "首页"
+
+enum class HomeBottomBarAction {
+    NavigateHome,
+    ReselectHome,
+}
+
+internal class HomeReselectRequests {
+    private val requests = Channel<Unit>(capacity = Channel.UNLIMITED)
+
+    val events: Flow<Unit> = requests.receiveAsFlow()
+
+    fun request() {
+        check(requests.trySend(Unit).isSuccess)
+    }
+}
+
+fun homeBottomBarAction(currentRoute: String?): HomeBottomBarAction =
+    if (currentRoute == NodeFlowDestinations.Home) {
+        HomeBottomBarAction.ReselectHome
+    } else {
+        HomeBottomBarAction.NavigateHome
+    }
 
 fun nodeBottomBarRoute(): String = NodeFlowDestinations.NodeList
 
