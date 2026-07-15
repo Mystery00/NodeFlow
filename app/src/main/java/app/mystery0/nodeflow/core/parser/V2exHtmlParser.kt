@@ -4,6 +4,8 @@ import app.mystery0.nodeflow.core.model.AccountWealth
 import app.mystery0.nodeflow.core.model.DailyCheckIn
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
+import app.mystery0.nodeflow.core.model.Notification
+import app.mystery0.nodeflow.core.model.NotificationReferenceLocator
 import app.mystery0.nodeflow.core.model.ProfileReply
 import app.mystery0.nodeflow.core.model.Reply
 import app.mystery0.nodeflow.core.model.Topic
@@ -241,7 +243,13 @@ class V2exHtmlParser {
     }
 
     fun hasDailyCheckInRiskNotice(html: String): Boolean {
+        return hasAccessChallenge(html)
+    }
+
+    fun hasAccessChallenge(html: String): Boolean {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
+        // 正常业务正文可能讨论 Cloudflare 等关键词，已有通知结构时不能据此误判整页。
+        if (document.select("#Main .cell[id^=n_]").isNotEmpty()) return false
         val pageContent = "${document.text()} ${document.outerHtml()}".lowercase()
         return DAILY_CHECK_IN_RISK_MARKERS.any(pageContent::contains)
     }
@@ -261,6 +269,75 @@ class V2exHtmlParser {
                     ?.takeIf { it > 0 }
             }
             .firstOrNull()
+    }
+
+    fun parseNotifications(html: String): List<Notification> {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        return document.select("#Main .cell[id^=n_]").mapNotNull(::parseNotification)
+    }
+
+    fun isNotificationsPage(html: String): Boolean {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        val notificationCells = document.select("#Main .cell[id^=n_]")
+        if (notificationCells.isNotEmpty()) {
+            return notificationCells.all { parseNotification(it) != null }
+        }
+        val title = document.title()
+        return document.selectFirst("#Main .box") != null &&
+            (title.contains("提醒系统", ignoreCase = true) ||
+                title.contains("notifications", ignoreCase = true))
+    }
+
+    private fun parseNotification(cell: Element): Notification? {
+        val id = cell.id().removePrefix("n_").toLongOrNull() ?: return null
+        val topicLink = cell.selectFirst("a.topic-link[href^=/t/]") ?: return null
+        val topicMatch = NOTIFICATION_TOPIC_REGEX.find(topicLink.attr("href")) ?: return null
+        val topicId = topicMatch.groupValues.getOrNull(1)?.toLongOrNull() ?: return null
+        val replyFloor = topicMatch.groupValues.getOrNull(2)?.toIntOrNull()
+        val actorLink = cell.selectFirst(".fade a[href^=/member/]")
+            ?: cell.selectFirst("a[href^=/member/]")
+            ?: return null
+        val username = actorLink.attr("href")
+            .substringAfter("/member/", missingDelimiterValue = "")
+            .substringBefore('?')
+            .takeIf(String::isNotBlank)
+            ?: return null
+        val action = cell.selectFirst(".fade")
+            ?.clone()
+            ?.also { fade -> fade.select("a").remove() }
+            ?.text()
+            ?.replace(Regex("""\s*›\s*"""), "")
+            ?.replace(Regex("""\s+"""), " ")
+            ?.trim()
+            ?.takeIf(String::isNotBlank)
+            ?: return null
+        val payload = cell.selectFirst(".payload")
+        val contentRendered = payload?.html()?.trim()?.takeIf(String::isNotBlank)
+        val referenceLocator = payload?.text()?.let { text ->
+            NOTIFICATION_REFERENCE_REGEX.find(text)?.let { match ->
+                val referenceUsername = match.groupValues.getOrNull(1)?.takeIf(String::isNotBlank)
+                val floor = match.groupValues.getOrNull(2)?.toIntOrNull()
+                if (referenceUsername != null && floor != null) {
+                    NotificationReferenceLocator(username = referenceUsername, floor = floor)
+                } else {
+                    null
+                }
+            }
+        }
+        return Notification(
+            id = id,
+            actor = User(
+                username = username,
+                avatarUrl = cell.selectFirst("img.avatar[src]")?.attr("src")?.normalizeV2exUrl(),
+            ),
+            action = action,
+            topicId = topicId,
+            topicTitle = topicLink.text().trim(),
+            replyFloor = replyFloor,
+            relativeTime = cell.selectFirst(".snow")?.text()?.trim().orEmpty(),
+            contentRendered = contentRendered,
+            referenceLocator = referenceLocator,
+        )
     }
 
     fun parseAccountWealth(html: String): AccountWealth? {
@@ -809,6 +886,9 @@ class V2exHtmlParser {
         val CONTINUOUS_DAYS_REGEX = Regex("""(\d+)\s*天""")
         val ONCE_REGEX = Regex("""once=(\d+)""")
         val DAILY_REWARD_REGEX = Regex("""\+?(\d[\d,]*)""")
+        val NOTIFICATION_TOPIC_REGEX = Regex("""^/t/(\d+)(?:#reply(\d+))?""")
+        val NOTIFICATION_REFERENCE_REGEX =
+            Regex("""(?:^|\s)@([A-Za-z0-9_][A-Za-z0-9_-]{0,31})\s*#(\d{1,4})(?=$|[^A-Za-z0-9_-])""")
         val DAILY_CHECK_IN_SUCCESS_MARKERS = listOf("每日登录奖励已领取", "已领取", "成功领取", "已成功")
         val DAILY_CHECK_IN_RISK_MARKERS = listOf(
             "干净安装的浏览器",

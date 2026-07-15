@@ -71,6 +71,26 @@ class AccountViewModelTest {
     }
 
     @Test
+    fun notificationsOpened_clearsDisplayedUnreadBadge() = runTest(testDispatcher) {
+        val repository = SuccessfulOverviewRepository(unreadNotificationCount = 7)
+        val authRepository = FakeAuthRepository(
+            AuthSession(cookieHeader = "test-cookie", username = "currentUser"),
+        )
+        val viewModel = AccountViewModel(
+            observeAuthSession = ObserveAuthSessionUseCase(authRepository),
+            getUserProfile = GetUserProfileUseCase(FakeUserRepository()),
+            getAccountOverview = GetAccountOverviewUseCase(repository),
+            checkIn = CheckInUseCase(repository),
+            authRepository = authRepository,
+        )
+        advanceUntilIdle()
+
+        viewModel.onEvent(AccountUiEvent.NotificationsOpened)
+
+        assertThat(viewModel.uiState.value.overview?.unreadNotificationCount).isEqualTo(0)
+    }
+
+    @Test
     fun checkIn_ignoresRepeatedClickAndPublishesRewardMessage() = runTest(testDispatcher) {
         val repository = SuccessfulOverviewRepository()
         val authRepository = FakeAuthRepository(
@@ -252,6 +272,7 @@ class AccountViewModelTest {
     private class SuccessfulOverviewRepository(
         releaseImmediately: Boolean = false,
         private val rewardBronze: Int? = 12,
+        private val unreadNotificationCount: Int? = null,
     ) : AccountOverviewRepository {
         val releaseCheckIn = CompletableDeferred<Unit>().apply {
             if (releaseImmediately) complete(Unit)
@@ -262,6 +283,7 @@ class AccountViewModelTest {
 
         override suspend fun overview(): Result<AccountOverview> = Result.success(
             AccountOverview(
+                unreadNotificationCount = unreadNotificationCount,
                 checkIn = DailyCheckIn(
                     checkedIn = checkedIn,
                     canCheckIn = !checkedIn,

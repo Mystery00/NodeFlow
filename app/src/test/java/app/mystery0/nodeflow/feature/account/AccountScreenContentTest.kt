@@ -6,6 +6,15 @@ import org.junit.Test
 
 class AccountScreenContentTest {
     @Test
+    fun notificationBadgeText_distinguishesLoadingFailureAndUnreadCounts() {
+        assertThat(notificationBadgeText(count = null, isLoading = true)).isNull()
+        assertThat(notificationBadgeText(count = null, isLoading = false)).isEqualTo("!")
+        assertThat(notificationBadgeText(count = 0, isLoading = false)).isNull()
+        assertThat(notificationBadgeText(count = 8, isLoading = false)).isEqualTo("8")
+        assertThat(notificationBadgeText(count = 100, isLoading = false)).isEqualTo("99+")
+    }
+
+    @Test
     fun usesCheckInActionLine_returnsFalseAfterCheckedIn() {
         val checkIn = DailyCheckIn(
             checkedIn = true,

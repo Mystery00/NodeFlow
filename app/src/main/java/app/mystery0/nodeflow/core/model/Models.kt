@@ -158,8 +158,18 @@ data class ReplyReference(
 
 data class Notification(
     val id: Long,
-    val title: String,
-    val content: String,
-    val createdAtEpochSeconds: Long? = null,
-    val unread: Boolean = false,
+    val actor: User,
+    val action: String,
+    val topicId: Long,
+    val topicTitle: String,
+    val replyFloor: Int? = null,
+    val relativeTime: String,
+    val contentRendered: String? = null,
+    val referenceLocator: NotificationReferenceLocator? = null,
+    val reference: ReplyReference? = null,
+)
+
+data class NotificationReferenceLocator(
+    val username: String,
+    val floor: Int,
 )

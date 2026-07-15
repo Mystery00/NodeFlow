@@ -92,4 +92,9 @@ interface V2exRawApi {
 
     @GET("balance")
     suspend fun balance(): Response<ResponseBody>
+
+    // 通知页的移动端请求会触发“干净安装的浏览器”校验，复用现有桌面页面请求策略。
+    @Headers("User-Agent: ${V2exUserAgents.DESKTOP}")
+    @GET("notifications")
+    suspend fun notifications(@Query("p") page: Int = 1): Response<ResponseBody>
 }

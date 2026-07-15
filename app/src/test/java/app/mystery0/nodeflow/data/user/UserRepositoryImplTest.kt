@@ -139,6 +139,8 @@ class UserRepositoryImplTest {
 
         override suspend fun balance(): Response<ResponseBody> = htmlResponse("")
 
+        override suspend fun notifications(page: Int): Response<ResponseBody> = htmlResponse("")
+
         private fun htmlResponse(html: String): Response<ResponseBody> =
             Response.success(html.toResponseBody("text/html".toMediaType()))
     }

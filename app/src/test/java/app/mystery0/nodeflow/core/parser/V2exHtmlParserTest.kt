@@ -304,6 +304,24 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun hasAccessChallenge_ignoresMarkerInsideValidNotificationContent() {
+        val html = """
+            <div id="Main">
+              <div class="cell" id="n_42">
+                <a href="/member/alice"><img class="avatar" src="/avatar.png"></a>
+                <span class="fade"><a href="/member/alice">alice</a> 回复了你
+                  <a class="topic-link" href="/t/123#reply7">测试主题</a>
+                </span>
+                <span class="snow">1 小时前</span>
+                <div class="payload">这里讨论的是 Cloudflare 配置</div>
+              </div>
+            </div>
+        """.trimIndent()
+
+        assertThat(parser.hasAccessChallenge(html)).isFalse()
+    }
+
+    @Test
     fun parseLatestDailyReward_readsRewardCellAfterDescription() {
         val html = """
             <html><body><table>
@@ -325,6 +343,72 @@ class V2exHtmlParserTest {
         """.trimIndent()
 
         assertThat(parser.parseLatestDailyReward(html)).isNull()
+    }
+
+    @Test
+    fun parseNotifications_readsReplyContentTopicTimeAndReferenceLocator() {
+        val html = """
+            <html><body><div id="Main">
+              <div class="cell" id="n_12345">
+                <table><tr>
+                  <td><a href="/member/replier"><img class="avatar" src="//cdn.v2ex.com/avatar.png" /></a></td>
+                  <td>
+                    <span class="fade"><a href="/member/replier"><strong>replier</strong></a> 回复了你在主题 › <a class="topic-link" href="/t/67890#reply5">测试主题</a> 里的回复</span>
+                    <span class="snow">2 小时前</span>
+                    <div class="payload"><a href="/member/original">@original</a> #3<br />回复正文</div>
+                  </td>
+                </tr></table>
+              </div>
+            </div></body></html>
+        """.trimIndent()
+
+        val notifications = parser.parseNotifications(html)
+
+        assertThat(notifications).hasSize(1)
+        val notification = notifications.single()
+        assertThat(notification.id).isEqualTo(12345)
+        assertThat(notification.actor.username).isEqualTo("replier")
+        assertThat(notification.actor.avatarUrl).isEqualTo("https://cdn.v2ex.com/avatar.png")
+        assertThat(notification.action).isEqualTo("回复了你在主题里的回复")
+        assertThat(notification.topicId).isEqualTo(67890)
+        assertThat(notification.topicTitle).isEqualTo("测试主题")
+        assertThat(notification.replyFloor).isEqualTo(5)
+        assertThat(notification.relativeTime).isEqualTo("2 小时前")
+        assertThat(notification.contentRendered).contains("回复正文")
+        assertThat(notification.referenceLocator?.username).isEqualTo("original")
+        assertThat(notification.referenceLocator?.floor).isEqualTo(3)
+    }
+
+    @Test
+    fun parseNotifications_keepsThankNotificationWithoutPayload() {
+        val html = """
+            <html><body><div id="Main">
+              <div class="cell" id="n_7"><table><tr>
+                <td><a href="/member/helper"><img class="avatar" src="/avatar.png" /></a></td>
+                <td>
+                  <span class="fade"><a href="/member/helper">helper</a> 感谢了你在主题 › <a class="topic-link" href="/t/99#reply2">感谢主题</a> 里的回复</span>
+                  <span class="snow">12 天前</span>
+                </td>
+              </tr></table></div>
+            </div></body></html>
+        """.trimIndent()
+
+        val notification = parser.parseNotifications(html).single()
+
+        assertThat(notification.action).isEqualTo("感谢了你在主题里的回复")
+        assertThat(notification.contentRendered).isNull()
+        assertThat(notification.referenceLocator).isNull()
+    }
+
+    @Test
+    fun parseNotifications_skipsCellWithoutTopicLink() {
+        val html = """
+            <html><body><div id="Main">
+              <div class="cell" id="n_8"><span class="fade">未知提醒</span></div>
+            </div></body></html>
+        """.trimIndent()
+
+        assertThat(parser.parseNotifications(html)).isEmpty()
     }
 
     @Test

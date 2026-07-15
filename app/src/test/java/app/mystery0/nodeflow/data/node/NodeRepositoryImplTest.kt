@@ -211,5 +211,7 @@ class NodeRepositoryImplTest {
         override suspend fun redeemDailyMission(once: String, referer: String): Response<ResponseBody> = failure()
 
         override suspend fun balance(): Response<ResponseBody> = failure()
+
+        override suspend fun notifications(page: Int): Response<ResponseBody> = failure()
     }
 }

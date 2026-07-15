@@ -36,6 +36,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -125,6 +126,7 @@ fun TopicDetailScreen(
     onNodeClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     onTopicClick: (Long) -> Unit = {},
+    initialReplyFloor: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     val detail = state.detail
@@ -171,6 +173,7 @@ fun TopicDetailScreen(
                 onUserClick = onUserClick,
                 onTopicClick = onTopicClick,
                 onImageClick = { previewImageUrl = it },
+                initialReplyFloor = initialReplyFloor,
                 contentPadding = paddingValues,
             )
         }
@@ -217,11 +220,22 @@ private fun TopicDetailContent(
     onUserClick: (String) -> Unit,
     onTopicClick: (Long) -> Unit,
     onImageClick: (String) -> Unit,
+    initialReplyFloor: Int?,
     contentPadding: PaddingValues,
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     var highlightedReplyId by remember(detail.topic.id) { mutableStateOf<Long?>(null) }
+    LaunchedEffect(detail.topic.id, initialReplyFloor) {
+        val targetIndex = detail.replies.indexOfFirst { it.floor == initialReplyFloor }
+        if (targetIndex >= 0) {
+            val replyId = detail.replies[targetIndex].id
+            listState.scrollToItem(index = targetIndex + 1)
+            highlightedReplyId = replyId
+            delay(1400)
+            if (highlightedReplyId == replyId) highlightedReplyId = null
+        }
+    }
     // 正文与回复里的 v2ex 链接优先在 app 内打开，无法识别的返回 false 走浏览器
     val openV2exUrl: (String) -> Boolean = { url ->
         when (val link = V2exLinkParser.parse(url)) {

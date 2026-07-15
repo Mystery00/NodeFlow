@@ -50,6 +50,7 @@ fun MainShell(
     onNodeClick: (String) -> Unit,
     onSettingsClick: () -> Unit,
     onLoginClick: () -> Unit,
+    onNotificationClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
@@ -115,6 +116,7 @@ fun MainShell(
                     onEvent = viewModel::onEvent,
                     onSettingsClick = onSettingsClick,
                     onLoginClick = onLoginClick,
+                    onNotificationClick = onNotificationClick,
                 )
             }
         }

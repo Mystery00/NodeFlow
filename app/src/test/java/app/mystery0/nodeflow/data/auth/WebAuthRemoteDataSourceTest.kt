@@ -277,6 +277,8 @@ class WebAuthRemoteDataSourceTest {
 
         override suspend fun balance(): Response<ResponseBody> = htmlResponse("")
 
+        override suspend fun notifications(page: Int): Response<ResponseBody> = htmlResponse("")
+
         override suspend fun signInTwoFactor(
             next: String,
             fields: Map<String, String>,

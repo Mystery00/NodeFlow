@@ -77,6 +77,9 @@ fun NodeFlowNavHost(
                 onLoginClick = {
                     navController.navigate(NodeFlowDestinations.Auth)
                 },
+                onNotificationClick = {
+                    navController.navigate(NodeFlowDestinations.Notification)
+                },
             )
         }
         composable(NodeFlowDestinations.Settings) {
@@ -110,8 +113,14 @@ fun NodeFlowNavHost(
         }
         composable(
             route = NodeFlowDestinations.TopicRoute,
-            arguments = listOf(navArgument("topicId") { type = NavType.LongType }),
-        ) {
+            arguments = listOf(
+                navArgument("topicId") { type = NavType.LongType },
+                navArgument("replyFloor") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                },
+            ),
+        ) { backStackEntry ->
             val viewModel: TopicDetailViewModel = koinViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
             TopicDetailScreen(
@@ -127,6 +136,9 @@ fun NodeFlowNavHost(
                 onTopicClick = { topicId ->
                     navController.navigate(NodeFlowDestinations.topic(topicId))
                 },
+                initialReplyFloor = backStackEntry.arguments
+                    ?.getInt("replyFloor")
+                    ?.takeIf { it > 0 },
             )
         }
         composable(
@@ -159,10 +171,17 @@ fun NodeFlowNavHost(
         }
         composable(NodeFlowDestinations.Notification) {
             val viewModel: NotificationViewModel = koinViewModel()
-            val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val notifications = viewModel.notifications.collectAsLazyPagingItems()
             NotificationScreen(
-                state = state,
+                notifications = notifications,
                 onEvent = viewModel::onEvent,
+                onBackClick = { navController.popBackStack() },
+                onUserClick = { username ->
+                    navController.navigate(NodeFlowDestinations.profile(username))
+                },
+                onTopicClick = { topicId, replyFloor ->
+                    navController.navigate(NodeFlowDestinations.topic(topicId, replyFloor))
+                },
             )
         }
         composable(NodeFlowDestinations.Editor) {

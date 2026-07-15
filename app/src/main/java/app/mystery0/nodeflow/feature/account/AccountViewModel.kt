@@ -67,6 +67,11 @@ class AccountViewModel(
                 authRepository.clearSession()
             }
             AccountUiEvent.CheckIn -> startCheckIn()
+            AccountUiEvent.NotificationsOpened -> _uiState.update { current ->
+                current.copy(
+                    overview = current.overview?.copy(unreadNotificationCount = 0),
+                )
+            }
             AccountUiEvent.ToastShown -> _uiState.update { it.copy(toastMessage = null) }
         }
     }

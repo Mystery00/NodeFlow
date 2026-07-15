@@ -505,6 +505,8 @@ class TopicRepositoryImplTest {
         override suspend fun redeemDailyMission(once: String, referer: String): Response<ResponseBody> = failure()
 
         override suspend fun balance(): Response<ResponseBody> = failure()
+
+        override suspend fun notifications(page: Int): Response<ResponseBody> = failure()
     }
 
     private class AccessDeniedV2exRawApi : FailingV2exRawApi() {

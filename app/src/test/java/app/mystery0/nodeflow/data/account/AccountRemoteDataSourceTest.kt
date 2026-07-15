@@ -311,6 +311,10 @@ class AccountRemoteDataSourceTest {
             return htmlResponse(balanceHtml)
         }
 
+        override suspend fun notifications(page: Int): Response<ResponseBody> = emptyResponse()
+
+        private fun emptyResponse(): Response<ResponseBody> = htmlResponse("")
+
         private fun htmlResponse(
             html: String,
             finalUrl: String? = null,

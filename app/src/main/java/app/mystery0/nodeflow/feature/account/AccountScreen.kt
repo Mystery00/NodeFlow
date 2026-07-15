@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,6 +48,7 @@ fun AccountScreen(
     onEvent: (AccountUiEvent) -> Unit,
     onSettingsClick: () -> Unit,
     onLoginClick: () -> Unit,
+    onNotificationClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -61,6 +65,25 @@ fun AccountScreen(
                 title = { Text("我的") },
                 actions = {
                     if (state.isLoggedIn) {
+                        IconButton(
+                            onClick = {
+                                onEvent(AccountUiEvent.NotificationsOpened)
+                                onNotificationClick()
+                            },
+                        ) {
+                            BadgedBox(
+                                badge = {
+                                    notificationBadgeText(
+                                        count = state.overview?.unreadNotificationCount,
+                                        isLoading = state.isLoading,
+                                    )?.let {
+                                        Badge { Text(it) }
+                                    }
+                                },
+                            ) {
+                                Icon(Icons.Outlined.Notifications, contentDescription = "通知")
+                            }
+                        }
                         IconButton(onClick = { onEvent(AccountUiEvent.Refresh) }) {
                             Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                         }
@@ -199,10 +222,8 @@ private fun AccountOverviewContent(
     onCheckInClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val unreadText = overview.unreadNotificationCount?.let { "${it.formatCount()} 条" }
     val wealthText = overview.wealth?.let(::formatWealth)
     val rows = listOfNotNull(
-        unreadText?.let { "未读提醒" to it },
         wealthText?.let { "财富" to it },
     )
     if (rows.isEmpty() && overview.checkIn == null) return
@@ -265,6 +286,14 @@ private fun CheckInActionLine(
 }
 
 internal fun usesCheckInActionLine(checkIn: DailyCheckIn): Boolean = checkIn.canCheckIn
+
+internal fun notificationBadgeText(count: Int?, isLoading: Boolean): String? = when {
+    count == null && isLoading -> null
+    count == null -> "!"
+    count <= 0 -> null
+    count > 99 -> "99+"
+    else -> count.toString()
+}
 
 @Composable
 private fun OverviewLine(label: String, value: String) {

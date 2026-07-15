@@ -51,6 +51,12 @@ class NavigationRouteTest {
     }
 
     @Test
+    fun topic_includesReplyFloorWhenProvided() {
+        assertThat(NodeFlowDestinations.topic(topicId = 1226527, replyFloor = 18))
+            .isEqualTo("topic/1226527?replyFloor=18")
+    }
+
+    @Test
     fun nodeBottomBarRoute_targetsNodeListInsteadOfDefaultNodeDetail() {
         assertThat(nodeBottomBarRoute()).isEqualTo(NodeFlowDestinations.NodeList)
     }
