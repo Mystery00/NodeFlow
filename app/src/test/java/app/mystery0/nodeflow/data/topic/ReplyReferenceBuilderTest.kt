@@ -106,6 +106,44 @@ class ReplyReferenceBuilderTest {
     }
 
     @Test
+    fun withReferencePreviews_fallsBackToUsernameWhenFloorAuthorMismatches() {
+        val replies = listOf(
+            Reply(
+                id = 101,
+                topicId = 1,
+                floor = 1,
+                author = User(username = "alice"),
+                content = "alice first reply",
+                contentRendered = "alice first reply",
+            ),
+            Reply(
+                id = 102,
+                topicId = 1,
+                floor = 2,
+                author = User(username = "bob"),
+                content = "bob reply",
+                contentRendered = "bob reply",
+            ),
+            Reply(
+                id = 103,
+                topicId = 1,
+                floor = 3,
+                author = User(username = "carol"),
+                content = "@alice #2 楼层号写错了",
+                contentRendered = """<a href="/member/alice">@alice</a> #2 楼层号写错了""",
+            ),
+        )
+
+        val enriched = replies.withReferencePreviews()
+
+        val reference = enriched[2].reference
+        assertThat(reference).isNotNull()
+        assertThat(reference!!.replyId).isEqualTo(101)
+        assertThat(reference.floor).isEqualTo(1)
+        assertThat(reference.author.username).isEqualTo("alice")
+    }
+
+    @Test
     fun withReferencePreviews_ignoresUnknownOrFutureFloor() {
         val replies = listOf(
             Reply(

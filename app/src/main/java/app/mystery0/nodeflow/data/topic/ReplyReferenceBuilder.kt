@@ -9,18 +9,18 @@ internal fun List<Reply>.withReferencePreviews(): List<Reply> {
     val repliesByFloor = associateBy { it.floor }
     return map { reply ->
         val referenceCandidate = reply.firstReferenceCandidate()
-        val referencedReply = when {
-            referenceCandidate?.floor != null -> referenceCandidate.floor
-                .takeIf { floor -> floor in 1 until reply.floor }
+        // 楼层号优先；楼层不存在或作者与被 @ 的人对不上时，忽略楼层号，退回按用户名向前找最近一条回复
+        val referencedReply = referenceCandidate?.let { candidate ->
+            candidate.floor
+                ?.takeIf { floor -> floor in 1 until reply.floor }
                 ?.let(repliesByFloor::get)
                 ?.takeIf { referencedReply ->
-                    referencedReply.author.username.equals(referenceCandidate.username, ignoreCase = true)
+                    referencedReply.author.username.equals(candidate.username, ignoreCase = true)
                 }
-            referenceCandidate != null -> takeWhile { it.floor < reply.floor }
-                .lastOrNull { previousReply ->
-                    previousReply.author.username.equals(referenceCandidate.username, ignoreCase = true)
-                }
-            else -> null
+                ?: takeWhile { it.floor < reply.floor }
+                    .lastOrNull { previousReply ->
+                        previousReply.author.username.equals(candidate.username, ignoreCase = true)
+                    }
         }
         if (referencedReply == null) {
             reply
