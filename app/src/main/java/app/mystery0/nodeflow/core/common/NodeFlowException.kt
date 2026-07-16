@@ -8,6 +8,7 @@ class NodeFlowException(
     enum class Kind {
         Network,
         Http,
+        NotFound,
         EmptyBody,
         Parse,
         AccessDenied,
@@ -19,3 +20,7 @@ class NodeFlowException(
 fun Throwable.isAccessDenied(): Boolean =
     this is NodeFlowException &&
         kind == NodeFlowException.Kind.AccessDenied
+
+fun Throwable.isNotFound(): Boolean =
+    this is NodeFlowException &&
+        kind == NodeFlowException.Kind.NotFound

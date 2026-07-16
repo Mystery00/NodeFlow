@@ -11,4 +11,5 @@ data class ProfileUiState(
     val recentTopics: List<Topic> = emptyList(),
     val recentReplies: List<ProfileReply> = emptyList(),
     val errorMessage: String? = null,
+    val userNotFound: Boolean = false,
 )

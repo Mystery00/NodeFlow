@@ -36,12 +36,7 @@ suspend fun <T> safeNetworkCall(block: suspend () -> T): T {
 }
 
 fun Response<ResponseBody>.bodyStringOrThrow(): String {
-    if (!isSuccessful) {
-        throw NodeFlowException(
-            kind = NodeFlowException.Kind.Http,
-            message = "请求失败：HTTP ${code()}",
-        )
-    }
+    if (!isSuccessful) throw httpError()
     return body()?.string()
         ?: throw NodeFlowException(
             kind = NodeFlowException.Kind.EmptyBody,
@@ -50,15 +45,16 @@ fun Response<ResponseBody>.bodyStringOrThrow(): String {
 }
 
 fun Response<ResponseBody>.bodyBytesOrThrow(): ByteArray {
-    if (!isSuccessful) {
-        throw NodeFlowException(
-            kind = NodeFlowException.Kind.Http,
-            message = "请求失败：HTTP ${code()}",
-        )
-    }
+    if (!isSuccessful) throw httpError()
     return body()?.bytes()
         ?: throw NodeFlowException(
             kind = NodeFlowException.Kind.EmptyBody,
             message = "服务器返回空内容",
         )
 }
+
+private fun Response<ResponseBody>.httpError(): NodeFlowException =
+    NodeFlowException(
+        kind = if (code() == 404) NodeFlowException.Kind.NotFound else NodeFlowException.Kind.Http,
+        message = "请求失败：HTTP ${code()}",
+    )

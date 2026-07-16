@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.PersonOff
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -30,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.designsystem.component.NodeChip
@@ -69,6 +71,11 @@ fun ProfileScreen(
     ) { paddingValues ->
         when {
             state.isLoading -> LoadingContent(paddingValues = paddingValues)
+            state.userNotFound && state.user == null -> EmptyContent(
+                message = "该用户不存在，或账号已被停用",
+                paddingValues = paddingValues,
+                icon = Icons.Outlined.PersonOff,
+            )
             state.errorMessage != null && state.user == null -> ErrorContent(
                 message = state.errorMessage,
                 onRetry = { onEvent(ProfileUiEvent.Retry) },

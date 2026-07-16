@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.feature.profile
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.mystery0.nodeflow.core.common.isNotFound
 import app.mystery0.nodeflow.core.common.toUserMessage
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
 import app.mystery0.nodeflow.domain.user.GetUserRecentActivityUseCase
@@ -35,7 +36,7 @@ class ProfileViewModel(
 
     private fun load(forceRefresh: Boolean) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = it.user == null, errorMessage = null) }
+            _uiState.update { it.copy(isLoading = it.user == null, errorMessage = null, userNotFound = false) }
             val userDeferred = async { getUserProfile(username, forceRefresh) }
             val activityDeferred = async { getUserRecentActivity(username) }
             val userResult = userDeferred.await()
@@ -51,6 +52,7 @@ class ProfileViewModel(
                             recentTopics = topics,
                             recentReplies = replies,
                             errorMessage = null,
+                            userNotFound = false,
                         )
                     },
                     onFailure = { error ->
@@ -59,6 +61,7 @@ class ProfileViewModel(
                             recentTopics = topics,
                             recentReplies = replies,
                             errorMessage = error.toUserMessage(),
+                            userNotFound = error.isNotFound(),
                         )
                     },
                 )
