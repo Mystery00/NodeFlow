@@ -32,6 +32,7 @@ class SettingsStore(
                             ?.takeIf { it.isNotBlank() },
                     )
                 },
+            customImageHosts = decodeCustomImageHosts(preferences[Keys.customImageHosts]),
         )
     }
 
@@ -64,11 +65,28 @@ class SettingsStore(
         }
     }
 
+    suspend fun setCustomImageHosts(hosts: List<String>) {
+        context.nodeFlowDataStore.edit { preferences ->
+            if (hosts.isEmpty()) {
+                preferences.remove(Keys.customImageHosts)
+            } else {
+                preferences[Keys.customImageHosts] = encodeCustomImageHosts(hosts)
+            }
+        }
+    }
+
     private object Keys {
         val themeMode = stringPreferencesKey("theme_mode")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
         val pinnedHomeNodeName = stringPreferencesKey("pinned_home_node_name")
         val pinnedHomeNodeTitle = stringPreferencesKey("pinned_home_node_title")
         val pinnedHomeNodeAvatarUrl = stringPreferencesKey("pinned_home_node_avatar_url")
+        val customImageHosts = stringPreferencesKey("custom_image_hosts")
     }
 }
+
+/** 域名列表 ↔ DataStore 字符串的序列化，换行分隔。 */
+internal fun encodeCustomImageHosts(hosts: List<String>): String = hosts.joinToString("\n")
+
+internal fun decodeCustomImageHosts(raw: String?): List<String> =
+    raw.orEmpty().split('\n').map(String::trim).filter(String::isNotEmpty)

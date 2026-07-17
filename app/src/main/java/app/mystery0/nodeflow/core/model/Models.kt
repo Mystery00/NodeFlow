@@ -10,6 +10,7 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.System,
     val dynamicColor: Boolean = true,
     val pinnedHomeNode: PinnedHomeNode? = null,
+    val customImageHosts: List<String> = emptyList(),
 )
 
 data class PinnedHomeNode(
