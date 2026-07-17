@@ -64,6 +64,28 @@ class V2exLinkParserTest {
         assertThat(V2exLinkParser.parse("mailto:someone@example.com")).isNull()
         assertThat(V2exLinkParser.parse("not a url")).isNull()
         assertThat(V2exLinkParser.parse("")).isNull()
-        assertThat(V2exLinkParser.parse("/t/123")).isNull()
+    }
+
+    @Test
+    fun parse_siteRelativePaths() {
+        // 站内内容中的链接是相对路径，如回复里的 <a href="/t/1226857">
+        assertThat(V2exLinkParser.parse("/t/1226857"))
+            .isEqualTo(V2exLink.Topic(1226857))
+        assertThat(V2exLinkParser.parse("/t/1226857#reply3"))
+            .isEqualTo(V2exLink.Topic(1226857))
+        assertThat(V2exLinkParser.parse("/go/python"))
+            .isEqualTo(V2exLink.Node("python"))
+        assertThat(V2exLinkParser.parse("/member/Livid"))
+            .isEqualTo(V2exLink.Member("Livid"))
+    }
+
+    @Test
+    fun parse_rejectsNonSitePathForms() {
+        // 协议相对地址带 authority，不能当站内路径
+        assertThat(V2exLinkParser.parse("//evil.com/t/123")).isNull()
+        // 非 / 开头的相对片段无法确定基准，不识别
+        assertThat(V2exLinkParser.parse("t/123")).isNull()
+        assertThat(V2exLinkParser.parse("/settings")).isNull()
+        assertThat(V2exLinkParser.parse("/t/abc")).isNull()
     }
 }

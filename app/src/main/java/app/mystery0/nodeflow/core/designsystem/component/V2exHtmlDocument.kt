@@ -23,6 +23,8 @@ internal fun buildV2exHtmlDocument(
                 script.remove()
             }
         }
+        // 纯文本站内主题链接先转成 <a>，随后与既有链接一起补 target/rel
+        body().linkifyPlainV2exTopicLinks()
         select("a[href]").forEach { link ->
             link.attr("target", "_blank")
             link.attr("rel", "noopener noreferrer")

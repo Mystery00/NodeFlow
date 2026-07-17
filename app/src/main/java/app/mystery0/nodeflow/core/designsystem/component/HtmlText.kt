@@ -49,7 +49,7 @@ fun HtmlText(
     val context = LocalContext.current
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val linkColor = MaterialTheme.colorScheme.primary.toArgb()
-    val contentHtml = remember(html) { htmlWithoutImages(html) }
+    val contentHtml = remember(html) { htmlWithoutImages(linkifyV2exTopicReferences(html)) }
     val images = remember(html) { extractHtmlImageSpecs(html) }
     Column(modifier = modifier) {
         AndroidView(

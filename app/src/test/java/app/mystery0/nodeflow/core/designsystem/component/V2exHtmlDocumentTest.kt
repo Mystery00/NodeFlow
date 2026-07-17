@@ -38,6 +38,28 @@ class V2exHtmlDocumentTest {
     }
 
     @Test
+    fun buildV2exHtmlDocument_linkifiesPlainTopicReferenceWithTargetBlank() {
+        val document = buildV2exHtmlDocument(
+            bodyHtml = "/t/1226857 <br> 有讨论的，和楼主观点相反",
+            colors = V2exHtmlColors(
+                text = "#111111",
+                secondaryText = "#666666",
+                link = "#0066cc",
+                background = "#ffffff",
+                codeBackground = "#f3f4f6",
+                quoteBackground = "#f7f8fa",
+                border = "#dddddd",
+            ),
+        )
+
+        assertThat(document).contains("""href="https://www.v2ex.com/t/1226857"""")
+        // 新生成的链接与既有链接一样走 target=_blank，交给 shouldOverrideUrlLoading 路由
+        assertThat(document).contains(
+            """<a href="https://www.v2ex.com/t/1226857" target="_blank" rel="noopener noreferrer">/t/1226857</a>""",
+        )
+    }
+
+    @Test
     fun buildV2exHtmlDocument_containsMarginsWithFlowRoot() {
         // markdown 包装层里首尾元素的外边距若塌陷逃逸出 .nodeflow-content，
         // getBoundingClientRect 会漏掉这部分高度，导致正文底部被截断

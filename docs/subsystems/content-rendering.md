@@ -11,7 +11,10 @@
 
 - 优先复用 `HtmlText`、`RichHtmlText`、`V2exHtmlDocument` 等现有渲染管线。
 - `v2ex.com` 与 `www.v2ex.com` 的主题、节点和用户链接优先应用内导航，其他链接交给浏览器。
-- 外部深链和内容点击共用 `V2exLinkParser`，相对 URL 基于正确的 V2EX 地址解析。
+- 外部深链和内容点击共用 `V2exLinkParser`，相对 URL 基于正确的 V2EX 地址解析；
+  站内内容里的相对路径锚点（如回复中的 `<a href="/t/1226857">`）同样按站内链接识别。
+- 纯文本形式的主题引用（如 `/t/123`、`v2ex.com/t/123`）在渲染前由
+  `linkifyV2exTopicReferences` 转为绝对地址链接，已有链接和代码块不做二次识别。
 - 不在可执行 WebView 环境中注入未经校验的任意 HTML 或脚本。
 
 ## 图片
