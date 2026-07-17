@@ -40,7 +40,8 @@ fun RichHtmlText(
     val currentOnImageClick = rememberUpdatedState(onImageClick)
     val currentOnUrlClick = rememberUpdatedState(onUrlClick)
     val colorScheme = MaterialTheme.colorScheme
-    val htmlDocument = remember(html, colorScheme) {
+    val customImageHosts = LocalCustomImageHosts.current
+    val htmlDocument = remember(html, colorScheme, customImageHosts) {
         buildV2exHtmlDocument(
             bodyHtml = html,
             colors = V2exHtmlColors(
@@ -52,6 +53,7 @@ fun RichHtmlText(
                 quoteBackground = colorScheme.surfaceVariant.copy(alpha = 0.34f).toCssColor(),
                 border = colorScheme.outlineVariant.copy(alpha = 0.72f).toCssColor(),
             ),
+            customImageHosts = customImageHosts,
         )
     }
     var contentHeight by remember(htmlDocument) { mutableStateOf(1.dp) }

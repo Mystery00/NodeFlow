@@ -1,6 +1,8 @@
 package app.mystery0.nodeflow.core.designsystem.component
 
+import app.mystery0.nodeflow.core.link.ImageHostMatcher
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
 
 internal data class V2exHtmlColors(
     val text: String,
@@ -15,6 +17,7 @@ internal data class V2exHtmlColors(
 internal fun buildV2exHtmlDocument(
     bodyHtml: String,
     colors: V2exHtmlColors,
+    customImageHosts: Collection<String> = emptySet(),
 ): String {
     val content = Jsoup.parseBodyFragment(bodyHtml, V2EX_BASE_URL).apply {
         select("script").forEach { script ->
@@ -25,6 +28,16 @@ internal fun buildV2exHtmlDocument(
         }
         // 纯文本站内主题链接先转成 <a>，随后与既有链接一起补 target/rel
         body().linkifyPlainV2exTopicLinks()
+        // 命中自定义图床域名的锚点后插入同 URL 的 <img>，
+        // 由注入脚本接管占位、失败重试与点击预览；锚点保留可点击
+        select("a[href]")
+            .filter { link ->
+                link.select("img").isEmpty() &&
+                    ImageHostMatcher.shouldLoadAsImage(link.absUrl("href"), customImageHosts)
+            }
+            .forEach { link ->
+                link.after(Element("img").attr("src", link.absUrl("href")))
+            }
         select("a[href]").forEach { link ->
             link.attr("target", "_blank")
             link.attr("rel", "noopener noreferrer")

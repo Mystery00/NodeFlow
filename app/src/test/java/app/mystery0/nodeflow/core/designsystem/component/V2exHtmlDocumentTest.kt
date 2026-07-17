@@ -60,6 +60,45 @@ class V2exHtmlDocumentTest {
     }
 
     @Test
+    fun buildV2exHtmlDocument_insertsImgAfterCustomHostAnchor() {
+        val document = buildV2exHtmlDocument(
+            bodyHtml = """<p><a href="https://img.example.com/abc">https://img.example.com/abc</a></p>""",
+            colors = V2exHtmlColors(
+                text = "#111111",
+                secondaryText = "#666666",
+                link = "#0066cc",
+                background = "#ffffff",
+                codeBackground = "#f3f4f6",
+                quoteBackground = "#f7f8fa",
+                border = "#dddddd",
+            ),
+            customImageHosts = setOf("example.com"),
+        )
+
+        // 锚点保留可点击，其后插入同 URL 的 <img> 交给现有脚本管理
+        assertThat(document).contains(""">https://img.example.com/abc</a>""")
+        assertThat(document).contains("""<img src="https://img.example.com/abc"""")
+    }
+
+    @Test
+    fun buildV2exHtmlDocument_withoutCustomHostsDoesNotInsertImg() {
+        val document = buildV2exHtmlDocument(
+            bodyHtml = """<p><a href="https://img.example.com/abc">link</a></p>""",
+            colors = V2exHtmlColors(
+                text = "#111111",
+                secondaryText = "#666666",
+                link = "#0066cc",
+                background = "#ffffff",
+                codeBackground = "#f3f4f6",
+                quoteBackground = "#f7f8fa",
+                border = "#dddddd",
+            ),
+        )
+
+        assertThat(document).doesNotContain("<img")
+    }
+
+    @Test
     fun buildV2exHtmlDocument_containsMarginsWithFlowRoot() {
         // markdown 包装层里首尾元素的外边距若塌陷逃逸出 .nodeflow-content，
         // getBoundingClientRect 会漏掉这部分高度，导致正文底部被截断
