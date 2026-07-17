@@ -21,6 +21,8 @@
 
 DataStore 保存用户设置和会话相关状态。新增字段应明确默认值、升级兼容、清理方式和是否允许系统备份。Cookie 的具体约束参见[网络、访问控制与登录](network-auth.md)。
 
+- 自定义图床域名列表存于 `custom_image_hosts`（换行分隔字符串），经 `AppSettings.customImageHosts` 暴露。
+
 ## 排障入口
 
 数据不一致时依次检查：Repository 数据策略、LocalDataSource、DAO 查询、Entity/领域模型映射、Migration、schema、Dispatcher 以及缓存失败是否被错误提升为主请求失败。
