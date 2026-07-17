@@ -15,7 +15,8 @@
   站内内容里的相对路径锚点（如回复中的 `<a href="/t/1226857">`）同样按站内链接识别。
 - 纯文本形式的主题引用（如 `/t/123`、`v2ex.com/t/123`）在渲染前由
   `linkifyV2exTopicReferences` 转为绝对地址链接，已有链接和代码块不做二次识别。
-- 用户可在设置中配置自定义图床域名（`ImageHostMatcher` + `LocalCustomImageHosts`）；
+- 图床域名识别（`ImageHostMatcher` + `LocalCustomImageHosts`）：内置常用图床
+  （`BUILT_IN_IMAGE_HOSTS`：i.imgur.com、i.v2ex.co）与用户在设置中配置的域名取并集；
   命中域名的链接在回复（`HtmlText`）与正文（`RichHtmlText`）中按图片尝试加载，
   失败回退现有占位，原链接保留可点击。
 - 不在可执行 WebView 环境中注入未经校验的任意 HTML 或脚本。

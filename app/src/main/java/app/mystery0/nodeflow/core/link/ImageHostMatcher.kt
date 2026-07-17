@@ -7,6 +7,12 @@ import java.net.URI
  * 仅 http/https URL 参与匹配。
  */
 object ImageHostMatcher {
+    /** 内置支持的常用图床域名，无需用户手动添加；与用户配置取并集参与匹配。 */
+    val BUILT_IN_IMAGE_HOSTS: Set<String> = setOf(
+        "i.imgur.com",
+        "i.v2ex.co",
+    )
+
     // 合法主机名：字母数字与连字符组成的标签，点分隔；单标签（如 localhost）也允许
     private val HOST_REGEX =
         Regex("""^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$""")

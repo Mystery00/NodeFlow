@@ -113,7 +113,7 @@ fun SettingsScreen(
             ListItem(
                 headlineContent = { Text("自定义图床域名") },
                 supportingContent = {
-                    Text("命中这些域名的链接将尝试按图片加载")
+                    Text("已内置 i.imgur.com、i.v2ex.co；命中这些域名的链接将尝试按图片加载")
                 },
                 trailingContent = {
                     Button(onClick = { showAddImageHostDialog = true }) {

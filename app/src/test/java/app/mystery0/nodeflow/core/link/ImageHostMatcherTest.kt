@@ -40,6 +40,13 @@ class ImageHostMatcherTest {
     }
 
     @Test
+    fun builtInHosts_containCommonImageHosts() {
+        // 内置图床无需用户手动添加，锁定内容防止误删
+        assertThat(ImageHostMatcher.BUILT_IN_IMAGE_HOSTS)
+            .containsExactly("i.imgur.com", "i.v2ex.co")
+    }
+
+    @Test
     fun shouldLoadAsImage_rejectsNonHttpAndLookalikes() {
         val hosts = setOf("example.com")
         assertThat(ImageHostMatcher.shouldLoadAsImage("ftp://example.com/a", hosts)).isFalse()

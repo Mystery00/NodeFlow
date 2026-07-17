@@ -23,4 +23,12 @@ class CustomImageHostsLogicTest {
         assertThat(addCustomImageHost(listOf("example.com"), "HTTPS://EXAMPLE.COM/"))
             .isEqualTo(AddImageHostResult.Duplicate)
     }
+
+    @Test
+    fun add_rejectsBuiltInHosts() {
+        assertThat(addCustomImageHost(emptyList(), "i.imgur.com"))
+            .isEqualTo(AddImageHostResult.Duplicate)
+        assertThat(addCustomImageHost(emptyList(), "https://i.v2ex.co/"))
+            .isEqualTo(AddImageHostResult.Duplicate)
+    }
 }
