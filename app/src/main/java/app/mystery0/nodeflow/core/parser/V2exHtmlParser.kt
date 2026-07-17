@@ -610,6 +610,23 @@ class V2exHtmlParser {
         }
     }
 
+    /** 在记事本列表页中定位 V2EX_Polish 数据 note，返回 note id；找不到返回 null。 */
+    fun parsePolishNoteId(html: String): Long? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        return document.select("a[href^=/notes/]")
+            .firstOrNull { it.text().startsWith(PolishMemberTagParser.NOTE_PREFIX) }
+            ?.attr("href")
+            ?.substringAfterLast('/')
+            ?.toLongOrNull()
+    }
+
+    /** 提取 note 编辑页 textarea 的完整原文（Jsoup 已做实体解码）；无 textarea 返回 null。 */
+    fun parseNoteEditContent(html: String): String? =
+        Jsoup.parse(html, V2EX_BASE_URL)
+            .selectFirst("textarea")
+            ?.wholeText()
+            ?.takeIf { it.isNotBlank() }
+
     private fun parseNodePlane(box: Element): NodePlane? {
         val header = box.selectFirst("div.header") ?: return null
         val title = header.ownText().trim().takeIf { it.isNotBlank() } ?: return null

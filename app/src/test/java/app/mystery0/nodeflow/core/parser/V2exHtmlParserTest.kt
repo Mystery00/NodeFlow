@@ -1125,4 +1125,38 @@ class V2exHtmlParserTest {
         assertThat(user.memberNumber).isEqualTo(243339)
         assertThat(user.dailyActivityRank).isEqualTo(6695)
     }
+
+    @Test
+    fun parsePolishNoteId_findsNoteByPrefix() {
+        val html = """
+            <div class="box">
+              <div class="inner"><span class="bigger"><a href="/notes/11" class="black">普通笔记</a></span></div>
+              <div class="inner"><span class="bigger"><a href="/notes/67331" class="black">V2EX_Polish_settings{&#34;settings-sync&#34;:{&#34;version&#34;:46（截断</a></span></div>
+            </div>
+        """.trimIndent()
+
+        assertThat(parser.parsePolishNoteId(html)).isEqualTo(67331L)
+    }
+
+    @Test
+    fun parsePolishNoteId_returnsNullWhenAbsent() {
+        val html = """<div><a href="/notes/11" class="black">普通笔记</a></div>"""
+        assertThat(parser.parsePolishNoteId(html)).isNull()
+        assertThat(parser.parsePolishNoteId("<html><body>空页面</body></html>")).isNull()
+    }
+
+    @Test
+    fun parseNoteEditContent_extractsTextareaWithEntitiesDecoded() {
+        val html = """
+            <form><textarea class="mle" name="content">V2EX_Polish_settings{&#34;member-tag&#34;:{}}</textarea></form>
+        """.trimIndent()
+
+        assertThat(parser.parseNoteEditContent(html))
+            .isEqualTo("""V2EX_Polish_settings{"member-tag":{}}""")
+    }
+
+    @Test
+    fun parseNoteEditContent_returnsNullWithoutTextarea() {
+        assertThat(parser.parseNoteEditContent("<html><body>无</body></html>")).isNull()
+    }
 }
