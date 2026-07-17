@@ -31,6 +31,7 @@ fun ReplyItem(
     reply: Reply,
     modifier: Modifier = Modifier,
     highlighted: Boolean = false,
+    isTopicAuthor: Boolean = false,
     onReferenceClick: (ReplyReference) -> Unit = {},
     onImageClick: (String) -> Unit = {},
     onUrlClick: (String) -> Boolean = { false },
@@ -65,11 +66,20 @@ fun ReplyItem(
                 )
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = reply.author.username,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = reply.author.username,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (isTopicAuthor) {
+                            Spacer(Modifier.width(6.dp))
+                            TopicAuthorBadge()
+                        }
+                    }
                     val time = formatEpochSeconds(reply.createdAtEpochSeconds)
                     Text(
                         text = if (time.isBlank()) "#${reply.floor}" else "#${reply.floor} · $time",
@@ -107,6 +117,32 @@ fun ReplyItem(
         )
     }
 }
+
+/** 楼主标识：与用户名并排的小徽标。 */
+@Composable
+private fun TopicAuthorBadge(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.extraSmall,
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Text(
+            text = "楼主",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+        )
+    }
+}
+
+/**
+ * 回复是否来自楼主。V2EX 用户名不区分大小写；
+ * 作者名解析失败为空时不能与空用户名误判为同一人。
+ */
+fun isReplyFromTopicAuthor(replyUsername: String, topicAuthorUsername: String): Boolean =
+    replyUsername.isNotBlank() &&
+            topicAuthorUsername.isNotBlank() &&
+            replyUsername.trim().equals(topicAuthorUsername.trim(), ignoreCase = true)
 
 internal fun memberUsernameFromUrl(url: String): String? {
     val cleanUrl = url

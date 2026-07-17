@@ -68,6 +68,7 @@ import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.ReplyItem
 import app.mystery0.nodeflow.core.ui.TopicNodeChip
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
+import app.mystery0.nodeflow.core.ui.isReplyFromTopicAuthor
 import app.mystery0.nodeflow.core.ui.topicNodeChip
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -314,6 +315,10 @@ private fun TopicDetailContent(
                 ReplyItem(
                     reply = reply,
                     highlighted = highlightedReplyId == reply.id,
+                    isTopicAuthor = isReplyFromTopicAuthor(
+                        replyUsername = reply.author.username,
+                        topicAuthorUsername = detail.topic.author.username,
+                    ),
                     onImageClick = onImageClick,
                     onUrlClick = openV2exUrl,
                     onReferenceClick = { reference ->
