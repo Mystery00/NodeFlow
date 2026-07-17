@@ -97,4 +97,11 @@ interface V2exRawApi {
     @Headers("User-Agent: ${V2exUserAgents.DESKTOP}")
     @GET("notifications")
     suspend fun notifications(@Query("p") page: Int = 1): Response<ResponseBody>
+
+    // 记事本页面用于读取 V2EX_Polish 插件同步的用户标签数据
+    @GET("notes")
+    suspend fun notesHtml(): Response<ResponseBody>
+
+    @GET("notes/edit/{id}")
+    suspend fun noteEditHtml(@Path("id") id: Long): Response<ResponseBody>
 }
