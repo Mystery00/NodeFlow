@@ -5,6 +5,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,7 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.HtmlText
+import app.mystery0.nodeflow.core.designsystem.component.LocalMemberTags
 import app.mystery0.nodeflow.core.designsystem.component.UserAvatar
+import app.mystery0.nodeflow.core.designsystem.component.memberTagsFor
 import app.mystery0.nodeflow.core.model.Reply
 import app.mystery0.nodeflow.core.model.ReplyReference
 
@@ -66,18 +70,24 @@ fun ReplyItem(
                 )
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    val memberTags = memberTagsFor(LocalMemberTags.current, reply.author.username)
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.Center,
+                    ) {
                         Text(
                             text = reply.author.username,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
                         )
                         if (isTopicAuthor) {
-                            Spacer(Modifier.width(6.dp))
                             TopicAuthorBadge()
+                        }
+                        memberTags.forEach { tag ->
+                            MemberTagChip(tag)
                         }
                     }
                     val time = formatEpochSeconds(reply.createdAtEpochSeconds)

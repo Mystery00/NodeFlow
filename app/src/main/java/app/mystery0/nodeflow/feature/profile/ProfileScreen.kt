@@ -34,10 +34,13 @@ import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
+import app.mystery0.nodeflow.core.designsystem.component.LocalMemberTags
 import app.mystery0.nodeflow.core.designsystem.component.NodeChip
 import app.mystery0.nodeflow.core.designsystem.component.UserAvatar
+import app.mystery0.nodeflow.core.designsystem.component.memberTagsFor
 import app.mystery0.nodeflow.core.model.ProfileReply
 import app.mystery0.nodeflow.core.model.User
+import app.mystery0.nodeflow.core.ui.MemberTagChips
 import app.mystery0.nodeflow.core.ui.TopicListItem
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
 
@@ -171,6 +174,10 @@ private fun ProfileHeader(user: User) {
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
         )
+        val memberTags = memberTagsFor(LocalMemberTags.current, user.username)
+        if (memberTags.isNotEmpty()) {
+            MemberTagChips(tags = memberTags)
+        }
         user.tagline?.takeIf { it.isNotBlank() }?.let {
             Text(
                 text = it,

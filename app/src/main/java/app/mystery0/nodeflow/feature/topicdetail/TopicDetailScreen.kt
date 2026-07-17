@@ -56,6 +56,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
+import app.mystery0.nodeflow.core.designsystem.component.LocalMemberTags
+import app.mystery0.nodeflow.core.designsystem.component.memberTagsFor
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.designsystem.component.NodeChip
@@ -64,6 +66,7 @@ import app.mystery0.nodeflow.core.designsystem.component.ZoomableImageViewer
 import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.link.V2exLinkParser
 import app.mystery0.nodeflow.core.model.TopicDetail
+import app.mystery0.nodeflow.core.ui.MemberTagChips
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.ReplyItem
 import app.mystery0.nodeflow.core.ui.TopicNodeChip
@@ -297,6 +300,13 @@ private fun TopicDetailContent(
                         onUserClick = onUserClick,
                         onNodeClick = onNodeClick,
                     )
+                    val authorTags = memberTagsFor(
+                        LocalMemberTags.current,
+                        detail.topic.author.username,
+                    )
+                    if (authorTags.isNotEmpty()) {
+                        MemberTagChips(tags = authorTags)
+                    }
                     RichHtmlText(
                         html = detail.contentRendered,
                         onImageClick = onImageClick,
