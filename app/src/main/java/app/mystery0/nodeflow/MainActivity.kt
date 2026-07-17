@@ -5,10 +5,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.mystery0.nodeflow.core.designsystem.component.LocalCustomImageHosts
 import app.mystery0.nodeflow.core.designsystem.theme.NodeFlowTheme
 import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.link.V2exLinkParser
@@ -25,12 +28,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             val appViewModel: AppViewModel = koinViewModel()
             val settings = appViewModel.settings.collectAsStateWithLifecycle()
+            val customImageHosts = remember(settings.value.customImageHosts) {
+                settings.value.customImageHosts.toSet()
+            }
             NodeFlowTheme(settings = settings.value) {
-                NodeFlowNavHost(
-                    settings = settings.value,
-                    deepLink = pendingDeepLink,
-                    onDeepLinkConsumed = { pendingDeepLink = null },
-                )
+                CompositionLocalProvider(LocalCustomImageHosts provides customImageHosts) {
+                    NodeFlowNavHost(
+                        settings = settings.value,
+                        deepLink = pendingDeepLink,
+                        onDeepLinkConsumed = { pendingDeepLink = null },
+                    )
+                }
             }
         }
     }
