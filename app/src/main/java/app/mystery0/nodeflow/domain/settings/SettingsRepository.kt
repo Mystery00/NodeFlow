@@ -11,5 +11,6 @@ interface SettingsRepository {
     suspend fun setDynamicColor(enabled: Boolean)
     suspend fun setPinnedHomeNode(node: PinnedHomeNode?)
     suspend fun setCustomImageHosts(hosts: List<String>)
+    suspend fun setShowMemberTags(enabled: Boolean)
     suspend fun clearCache()
 }

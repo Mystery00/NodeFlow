@@ -96,6 +96,10 @@ class HomeViewModelTest {
             settingsFlow.value = settingsFlow.value.copy(customImageHosts = hosts)
         }
 
+        override suspend fun setShowMemberTags(enabled: Boolean) {
+            settingsFlow.value = settingsFlow.value.copy(showMemberTags = enabled)
+        }
+
         override suspend fun clearCache() = Unit
     }
 

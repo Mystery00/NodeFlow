@@ -21,4 +21,8 @@ class UpdateSettingsUseCase(
     suspend fun setCustomImageHosts(hosts: List<String>) {
         repository.setCustomImageHosts(hosts)
     }
+
+    suspend fun setShowMemberTags(enabled: Boolean) {
+        repository.setShowMemberTags(enabled)
+    }
 }

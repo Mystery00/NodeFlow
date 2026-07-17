@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.mystery0.nodeflow.core.designsystem.component.LocalCustomImageHosts
+import app.mystery0.nodeflow.core.designsystem.component.LocalMemberTags
 import app.mystery0.nodeflow.core.designsystem.component.effectiveImageHosts
 import app.mystery0.nodeflow.core.designsystem.theme.NodeFlowTheme
 import app.mystery0.nodeflow.core.link.V2exLink
@@ -32,8 +33,12 @@ class MainActivity : ComponentActivity() {
             val customImageHosts = remember(settings.value.customImageHosts) {
                 effectiveImageHosts(settings.value.customImageHosts)
             }
+            val memberTags = appViewModel.memberTags.collectAsStateWithLifecycle()
             NodeFlowTheme(settings = settings.value) {
-                CompositionLocalProvider(LocalCustomImageHosts provides customImageHosts) {
+                CompositionLocalProvider(
+                    LocalCustomImageHosts provides customImageHosts,
+                    LocalMemberTags provides memberTags.value,
+                ) {
                     NodeFlowNavHost(
                         settings = settings.value,
                         deepLink = pendingDeepLink,

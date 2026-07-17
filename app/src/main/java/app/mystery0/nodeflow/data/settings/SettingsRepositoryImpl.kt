@@ -34,6 +34,10 @@ class SettingsRepositoryImpl(
         settingsStore.setCustomImageHosts(hosts)
     }
 
+    override suspend fun setShowMemberTags(enabled: Boolean) {
+        settingsStore.setShowMemberTags(enabled)
+    }
+
     override suspend fun clearCache() {
         topicRepository.clearCache()
         nodeRepository.clearCache()

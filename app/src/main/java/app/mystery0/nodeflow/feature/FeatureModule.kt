@@ -16,7 +16,7 @@ import org.koin.dsl.module
 
 val featureModule = module {
     viewModel {
-        AppViewModel(get())
+        AppViewModel(get(), get(), get())
     }
 
     viewModel {
