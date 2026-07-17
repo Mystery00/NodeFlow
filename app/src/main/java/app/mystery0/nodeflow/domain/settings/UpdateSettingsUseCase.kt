@@ -17,4 +17,8 @@ class UpdateSettingsUseCase(
     suspend fun setPinnedHomeNode(node: PinnedHomeNode?) {
         repository.setPinnedHomeNode(node)
     }
+
+    suspend fun setCustomImageHosts(hosts: List<String>) {
+        repository.setCustomImageHosts(hosts)
+    }
 }

@@ -30,6 +30,10 @@ class SettingsRepositoryImpl(
         settingsStore.setPinnedHomeNode(node)
     }
 
+    override suspend fun setCustomImageHosts(hosts: List<String>) {
+        settingsStore.setCustomImageHosts(hosts)
+    }
+
     override suspend fun clearCache() {
         topicRepository.clearCache()
         nodeRepository.clearCache()

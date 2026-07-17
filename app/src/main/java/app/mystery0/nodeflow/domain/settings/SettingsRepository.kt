@@ -10,5 +10,6 @@ interface SettingsRepository {
     suspend fun setThemeMode(themeMode: ThemeMode)
     suspend fun setDynamicColor(enabled: Boolean)
     suspend fun setPinnedHomeNode(node: PinnedHomeNode?)
+    suspend fun setCustomImageHosts(hosts: List<String>)
     suspend fun clearCache()
 }

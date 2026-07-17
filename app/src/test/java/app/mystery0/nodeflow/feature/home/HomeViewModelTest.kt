@@ -92,6 +92,10 @@ class HomeViewModelTest {
             settingsFlow.value = settingsFlow.value.copy(pinnedHomeNode = node)
         }
 
+        override suspend fun setCustomImageHosts(hosts: List<String>) {
+            settingsFlow.value = settingsFlow.value.copy(customImageHosts = hosts)
+        }
+
         override suspend fun clearCache() = Unit
     }
 
