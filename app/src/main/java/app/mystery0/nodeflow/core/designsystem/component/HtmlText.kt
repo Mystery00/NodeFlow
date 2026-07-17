@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
+import app.mystery0.nodeflow.core.link.ImageHostMatcher
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
@@ -49,8 +50,9 @@ fun HtmlText(
     val context = LocalContext.current
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val linkColor = MaterialTheme.colorScheme.primary.toArgb()
+    val customImageHosts = LocalCustomImageHosts.current
     val contentHtml = remember(html) { htmlWithoutImages(linkifyV2exTopicReferences(html)) }
-    val images = remember(html) { extractHtmlImageSpecs(html) }
+    val images = remember(html, customImageHosts) { extractHtmlImageSpecs(html, customImageHosts) }
     Column(modifier = modifier) {
         AndroidView(
             modifier = Modifier.fillMaxWidth(),
@@ -201,7 +203,10 @@ internal fun htmlWithoutImages(html: String): String {
     return document.body().html()
 }
 
-internal fun extractHtmlImageSpecs(html: String): List<HtmlImageSpec> {
+internal fun extractHtmlImageSpecs(
+    html: String,
+    customImageHosts: Collection<String> = emptySet(),
+): List<HtmlImageSpec> {
     val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
     val imageSpecs = document.select("img[src]").mapNotNull { image ->
         val url = image.absUrl("src").takeIf { it.isNotBlank() } ?: return@mapNotNull null
@@ -220,7 +225,9 @@ internal fun extractHtmlImageSpecs(html: String): List<HtmlImageSpec> {
     val linkedImages = document.select("a[href]")
         .filter { link -> link.select("img[src]").isEmpty() }
         .mapNotNull { link ->
-            val url = link.absUrl("href").takeIf { it.isImageUrl() } ?: return@mapNotNull null
+            val url = link.absUrl("href")
+                .takeIf { it.isImageUrl() || ImageHostMatcher.shouldLoadAsImage(it, customImageHosts) }
+                ?: return@mapNotNull null
             HtmlImageSpec(
                 url = url,
                 alt = link.text().takeIf { it.isNotBlank() },

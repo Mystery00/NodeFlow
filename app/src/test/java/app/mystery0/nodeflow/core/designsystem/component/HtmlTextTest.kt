@@ -94,4 +94,32 @@ class HtmlTextTest {
         assertThat(isZoomableHtmlImage(compact = false)).isTrue()
         assertThat(isZoomableHtmlImage(compact = true)).isFalse()
     }
+
+    @Test
+    fun extractHtmlImageSpecs_treatsCustomHostAnchorAsImage() {
+        val html = """<a href="https://img.example.com/abc">https://img.example.com/abc</a>"""
+
+        val specs = extractHtmlImageSpecs(html, customImageHosts = setOf("example.com"))
+
+        assertThat(specs).hasSize(1)
+        assertThat(specs[0].url).isEqualTo("https://img.example.com/abc")
+        assertThat(specs[0].compact).isFalse()
+    }
+
+    @Test
+    fun extractHtmlImageSpecs_ignoresAnchorNotMatchingCustomHosts() {
+        val html = """<a href="https://other.com/abc">link</a>"""
+
+        assertThat(extractHtmlImageSpecs(html, customImageHosts = setOf("example.com"))).isEmpty()
+    }
+
+    @Test
+    fun extractHtmlImageSpecs_withoutCustomHostsKeepsLegacyBehavior() {
+        val html = """<a href="https://other.com/pic.png">pic</a>"""
+
+        val specs = extractHtmlImageSpecs(html)
+
+        assertThat(specs).hasSize(1)
+        assertThat(specs[0].url).isEqualTo("https://other.com/pic.png")
+    }
 }
