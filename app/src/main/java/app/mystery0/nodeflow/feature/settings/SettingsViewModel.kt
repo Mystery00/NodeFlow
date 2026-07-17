@@ -36,6 +36,24 @@ class SettingsViewModel(
             is SettingsUiEvent.DynamicColorChanged -> viewModelScope.launch {
                 updateSettings.setDynamicColor(event.enabled)
             }
+            is SettingsUiEvent.AddCustomImageHost -> viewModelScope.launch {
+                when (val result = addCustomImageHost(
+                    current = _uiState.value.settings.customImageHosts,
+                    input = event.input,
+                )) {
+                    is AddImageHostResult.Added ->
+                        updateSettings.setCustomImageHosts(result.hosts)
+                    AddImageHostResult.Invalid ->
+                        _uiState.update { it.copy(message = "无效的图床域名") }
+                    AddImageHostResult.Duplicate ->
+                        _uiState.update { it.copy(message = "该域名已存在") }
+                }
+            }
+            is SettingsUiEvent.RemoveCustomImageHost -> viewModelScope.launch {
+                updateSettings.setCustomImageHosts(
+                    _uiState.value.settings.customImageHosts - event.host,
+                )
+            }
             SettingsUiEvent.ClearCache -> viewModelScope.launch {
                 _uiState.update { it.copy(isClearingCache = true, message = null) }
                 runCatching { clearCache() }

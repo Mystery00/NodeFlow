@@ -13,14 +13,15 @@ object ImageHostMatcher {
 
     /** 用户输入 → 归一化域名；非法输入返回 null。 */
     fun normalizeHost(input: String): String? {
+        // 先转小写再剥前缀，避免 HTTPS:// 这类大写 scheme 漏剥
         val stripped = input.trim()
+            .lowercase()
             .removePrefix("https://")
             .removePrefix("http://")
             .substringBefore('/')
             .substringBefore('?')
             .substringBefore('#')
             .substringBefore(':')
-            .lowercase()
         return stripped.takeIf { it.isNotEmpty() && HOST_REGEX.matches(it) }
     }
 

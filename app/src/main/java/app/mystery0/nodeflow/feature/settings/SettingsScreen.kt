@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -19,15 +22,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -100,6 +108,42 @@ fun SettingsScreen(
                 },
             )
             HorizontalDivider()
+            SettingsSectionTitle("内容浏览")
+            var showAddImageHostDialog by remember { mutableStateOf(false) }
+            ListItem(
+                headlineContent = { Text("自定义图床域名") },
+                supportingContent = {
+                    Text("命中这些域名的链接将尝试按图片加载")
+                },
+                trailingContent = {
+                    Button(onClick = { showAddImageHostDialog = true }) {
+                        Icon(Icons.Outlined.Add, contentDescription = null)
+                        Text("添加")
+                    }
+                },
+            )
+            state.settings.customImageHosts.forEach { host ->
+                ListItem(
+                    headlineContent = { Text(host) },
+                    trailingContent = {
+                        IconButton(
+                            onClick = { onEvent(SettingsUiEvent.RemoveCustomImageHost(host)) },
+                        ) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "删除 $host")
+                        }
+                    },
+                )
+            }
+            if (showAddImageHostDialog) {
+                AddImageHostDialog(
+                    onConfirm = { input ->
+                        onEvent(SettingsUiEvent.AddCustomImageHost(input))
+                        showAddImageHostDialog = false
+                    },
+                    onDismiss = { showAddImageHostDialog = false },
+                )
+            }
+            HorizontalDivider()
             SettingsSectionTitle("数据")
             ListItem(
                 headlineContent = { Text("清除缓存") },
@@ -139,6 +183,38 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun AddImageHostDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var input by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("添加图床域名") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("输入域名（如 img.example.com），将同时匹配其子域名。")
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    singleLine = true,
+                    placeholder = { Text("example.com") },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = input.isNotBlank(),
+                onClick = { onConfirm(input) },
+            ) { Text("添加") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
 }
 
 @Composable
