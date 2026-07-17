@@ -116,6 +116,8 @@ class NotificationRemoteDataSourceTest {
         override suspend fun dailyMission() = emptyResponse()
         override suspend fun redeemDailyMission(once: String, referer: String) = emptyResponse()
         override suspend fun balance() = emptyResponse()
+        override suspend fun notesHtml() = emptyResponse()
+        override suspend fun noteEditHtml(id: Long) = emptyResponse()
 
         private fun emptyResponse(): Response<ResponseBody> = Response.success("".toResponseBody())
 

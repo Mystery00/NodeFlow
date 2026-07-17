@@ -173,6 +173,10 @@ class NodeRemoteDataSourceTest {
 
         override suspend fun notifications(page: Int): Response<ResponseBody> = htmlResponse("")
 
+        override suspend fun notesHtml(): Response<ResponseBody> = htmlResponse("")
+
+        override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = htmlResponse("")
+
         private fun htmlResponse(
             html: String,
             finalUrl: String? = null,

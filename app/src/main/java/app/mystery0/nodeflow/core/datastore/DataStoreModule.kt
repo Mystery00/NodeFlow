@@ -11,4 +11,8 @@ val dataStoreModule = module {
     single {
         SettingsStore(androidContext())
     }
+
+    single {
+        MemberTagStore(androidContext())
+    }
 }

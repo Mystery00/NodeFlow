@@ -313,6 +313,10 @@ class AccountRemoteDataSourceTest {
 
         override suspend fun notifications(page: Int): Response<ResponseBody> = emptyResponse()
 
+        override suspend fun notesHtml(): Response<ResponseBody> = emptyResponse()
+
+        override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = emptyResponse()
+
         private fun emptyResponse(): Response<ResponseBody> = htmlResponse("")
 
         private fun htmlResponse(

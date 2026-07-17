@@ -4,6 +4,9 @@ import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.account.CheckInUseCase
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.auth.SaveAuthSessionUseCase
+import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagSyncedAtUseCase
+import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagsUseCase
+import app.mystery0.nodeflow.domain.membertag.RefreshMemberTagsUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeUseCase
@@ -81,5 +84,17 @@ val domainModule = module {
 
     factory {
         SaveAuthSessionUseCase(get())
+    }
+
+    factory {
+        ObserveMemberTagsUseCase(get())
+    }
+
+    factory {
+        ObserveMemberTagSyncedAtUseCase(get())
+    }
+
+    factory {
+        RefreshMemberTagsUseCase(get())
     }
 }

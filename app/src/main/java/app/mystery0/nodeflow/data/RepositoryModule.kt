@@ -1,8 +1,13 @@
 package app.mystery0.nodeflow.data
 
 import app.mystery0.nodeflow.core.common.IO_DISPATCHER
+import app.mystery0.nodeflow.core.datastore.SessionStore
 import app.mystery0.nodeflow.data.account.AccountOverviewRepositoryImpl
 import app.mystery0.nodeflow.data.auth.AuthRepositoryImpl
+import app.mystery0.nodeflow.data.membertag.DataStoreMemberTagCache
+import app.mystery0.nodeflow.data.membertag.MemberTagRemoteDataSource
+import app.mystery0.nodeflow.data.membertag.MemberTagRepositoryImpl
+import app.mystery0.nodeflow.domain.membertag.MemberTagRepository
 import app.mystery0.nodeflow.data.node.NodeRepositoryImpl
 import app.mystery0.nodeflow.data.notification.NotificationRepositoryImpl
 import app.mystery0.nodeflow.data.settings.SettingsRepositoryImpl
@@ -36,7 +41,7 @@ val repositoryModule = module {
     }
 
     single<AuthRepository> {
-        AuthRepositoryImpl(get(), get(), get(), get(named(IO_DISPATCHER)))
+        AuthRepositoryImpl(get(), get(), get(), get(), get(named(IO_DISPATCHER)))
     }
 
     single<AccountOverviewRepository> {
@@ -45,5 +50,19 @@ val repositoryModule = module {
 
     single<NotificationRepository> {
         NotificationRepositoryImpl(get(), get(), get(named(IO_DISPATCHER)))
+    }
+
+    single {
+        MemberTagRemoteDataSource(get(), get())
+    }
+
+    single<MemberTagRepository> {
+        val remote = get<MemberTagRemoteDataSource>()
+        MemberTagRepositoryImpl(
+            sessionFlow = get<SessionStore>().session,
+            cache = DataStoreMemberTagCache(get()),
+            fetchRemoteTags = { remote.fetchMemberTags() },
+            ioDispatcher = get(named(IO_DISPATCHER)),
+        )
     }
 }
