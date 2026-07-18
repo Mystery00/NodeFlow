@@ -19,6 +19,9 @@
   （`BUILT_IN_IMAGE_HOSTS`：i.imgur.com、i.v2ex.co）与用户在设置中配置的域名取并集；
   命中域名的链接在回复（`HtmlText`）与正文（`RichHtmlText`）中按图片尝试加载，
   失败回退现有占位，原链接保留可点击。
+- Polish 用户标签（`PolishMemberTagParser` + `LocalMemberTags`）：从登录用户记事本中
+  前缀为 `V2EX_Polish_settings` 的记事解析 `member-tag` 数据，缓存后在回复列表、
+  帖子作者行与用户主页以 `MemberTagChip` 展示；匹配仅查本地缓存，不在浏览路径发起网络请求。
 - 不在可执行 WebView 环境中注入未经校验的任意 HTML 或脚本。
 
 ## 图片

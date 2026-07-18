@@ -22,6 +22,11 @@
 DataStore 保存用户设置和会话相关状态。新增字段应明确默认值、升级兼容、清理方式和是否允许系统备份。Cookie 的具体约束参见[网络、访问控制与登录](network-auth.md)。
 
 - 自定义图床域名列表存于 `custom_image_hosts`（换行分隔字符串），经 `AppSettings.customImageHosts` 暴露。
+- Polish 用户标签缓存存于 `polish_member_tags`（用户名→标签列表的 JSON）与
+  `polish_member_tags_synced_at`（秒级时间戳），由 `MemberTagStore` 管理；
+  展示开关存于 `polish_member_tags_enabled`，经 `AppSettings.showMemberTags` 暴露。
+  标签仅在应用启动（1 小时 TTL 内跳过）与设置页手动同步时拉取，浏览帖子只读本地缓存；
+  退出登录时缓存随会话一并清除。
 
 ## 排障入口
 

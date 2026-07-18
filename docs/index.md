@@ -29,7 +29,7 @@
 - [通知中心设计](plans/2026-07-15-notification-center-design.md) / [实施计划](plans/2026-07-15-notification-center.md)
 - [用户主页 404 友好占位设计](plans/2026-07-16-profile-user-not-found-design.md)
 - [自定义图床域名设计](plans/2026-07-17-custom-image-host-design.md) / [实施计划](plans/2026-07-17-custom-image-host.md)
-- [V2EX_Polish 用户标签兼容设计](plans/2026-07-17-polish-member-tag-design.md)
+- [V2EX_Polish 用户标签兼容设计](plans/2026-07-17-polish-member-tag-design.md) / [实施计划](plans/2026-07-17-polish-member-tag.md)
 - [`investigations/`](investigations/)：问题调查、外部行为验证和技术研究记录。
 - [V2EX_Polish 用户标签数据格式调查](investigations/2026-07-17-v2ex-polish-member-tag-format.md)
 
