@@ -118,6 +118,8 @@ class NotificationRemoteDataSourceTest {
         override suspend fun balance() = emptyResponse()
         override suspend fun notesHtml() = emptyResponse()
         override suspend fun noteEditHtml(id: Long) = emptyResponse()
+        override suspend fun noteEditSubmit(id: Long, content: String) = emptyResponse()
+        override suspend fun noteNewSubmit(content: String) = emptyResponse()
 
         private fun emptyResponse(): Response<ResponseBody> = Response.success("".toResponseBody())
 

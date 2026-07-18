@@ -2,6 +2,7 @@ package app.mystery0.nodeflow.core.network
 
 import okhttp3.ResponseBody
 import retrofit2.Response
+import retrofit2.http.Field
 import retrofit2.http.FieldMap
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
@@ -104,4 +105,16 @@ interface V2exRawApi {
 
     @GET("notes/edit/{id}")
     suspend fun noteEditHtml(@Path("id") id: Long): Response<ResponseBody>
+
+    // 记事编辑/新建表单仅一个 content 字段，用于写回 Polish 用户标签
+    @FormUrlEncoded
+    @POST("notes/edit/{id}")
+    suspend fun noteEditSubmit(
+        @Path("id") id: Long,
+        @Field("content") content: String,
+    ): Response<ResponseBody>
+
+    @FormUrlEncoded
+    @POST("notes/new")
+    suspend fun noteNewSubmit(@Field("content") content: String): Response<ResponseBody>
 }

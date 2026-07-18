@@ -317,6 +317,12 @@ class AccountRemoteDataSourceTest {
 
         override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = emptyResponse()
 
+        override suspend fun noteEditSubmit(id: Long, content: String): Response<ResponseBody> =
+            emptyResponse()
+
+        override suspend fun noteNewSubmit(content: String): Response<ResponseBody> =
+            emptyResponse()
+
         private fun emptyResponse(): Response<ResponseBody> = htmlResponse("")
 
         private fun htmlResponse(

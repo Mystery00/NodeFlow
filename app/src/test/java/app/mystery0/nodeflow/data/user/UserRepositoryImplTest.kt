@@ -145,6 +145,12 @@ class UserRepositoryImplTest {
 
         override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = htmlResponse("")
 
+        override suspend fun noteEditSubmit(id: Long, content: String): Response<ResponseBody> =
+            htmlResponse("")
+
+        override suspend fun noteNewSubmit(content: String): Response<ResponseBody> =
+            htmlResponse("")
+
         private fun htmlResponse(html: String): Response<ResponseBody> =
             Response.success(html.toResponseBody("text/html".toMediaType()))
     }
