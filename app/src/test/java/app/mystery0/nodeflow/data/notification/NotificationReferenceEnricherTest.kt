@@ -13,16 +13,16 @@ import org.junit.Test
 
 class NotificationReferenceEnricherTest {
     @Test
-    fun enrichNotificationReferences_loadsEachTopicOnceAndBuildsExcerpt() = runTest {
-        var loadCalls = 0
+    fun enrichNotificationReferences_loadsRequestedFloorsAndBuildsExcerpt() = runTest {
+        val requests = mutableListOf<Pair<Long, Int>>()
         val notifications = listOf(notification(1), notification(2))
 
-        val enriched = enrichNotificationReferences(notifications) {
-            loadCalls += 1
+        val enriched = enrichNotificationReferences(notifications) { topicId, floor ->
+            requests += topicId to floor
             Result.success(topicDetail())
         }
 
-        assertThat(loadCalls).isEqualTo(1)
+        assertThat(requests).containsExactly(99L to 3, 99L to 3).inOrder()
         assertThat(enriched).hasSize(2)
         assertThat(enriched.first().reference?.floor).isEqualTo(3)
         assertThat(enriched.first().reference?.author?.username).isEqualTo("original")
@@ -35,9 +35,25 @@ class NotificationReferenceEnricherTest {
             referenceLocator = NotificationReferenceLocator(username = "someoneElse", floor = 3),
         )
 
-        val enriched = enrichNotificationReferences(listOf(notification)) { Result.success(topicDetail()) }
+        val enriched = enrichNotificationReferences(listOf(notification)) { _, _ ->
+            Result.success(topicDetail())
+        }
 
         assertThat(enriched.single().reference).isNull()
+    }
+
+    @Test
+    fun enrichNotificationReferences_skipsTopicAfterFirstFailureInBatch() = runTest {
+        var loadCalls = 0
+        val notifications = listOf(notification(1), notification(2))
+
+        val enriched = enrichNotificationReferences(notifications) { _, _ ->
+            loadCalls += 1
+            Result.failure(IllegalStateException("load failed"))
+        }
+
+        assertThat(loadCalls).isEqualTo(1)
+        assertThat(enriched.map { it.reference }).containsExactly(null, null)
     }
 
     private fun notification(id: Long) = Notification(

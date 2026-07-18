@@ -32,6 +32,7 @@
 - [V2EX_Polish 用户标签兼容设计](plans/2026-07-17-polish-member-tag-design.md) / [实施计划](plans/2026-07-17-polish-member-tag.md)
 - [V2EX_Polish 用户标签编辑设计](plans/2026-07-18-polish-member-tag-edit-design.md) / [实施计划](plans/2026-07-18-polish-member-tag-edit.md)
 - [V2EX 创建回复设计](plans/2026-07-18-v2ex-create-reply-design.md) / [实施计划](plans/2026-07-18-v2ex-create-reply.md)
+- [主题详情回复按需分页设计](plans/2026-07-18-topic-detail-reply-paging-design.md) / [实施计划](plans/2026-07-18-topic-detail-reply-paging.md)
 - [`investigations/`](investigations/)：问题调查、外部行为验证和技术研究记录。
 - [V2EX_Polish 用户标签数据格式调查](investigations/2026-07-17-v2ex-polish-member-tag-format.md)
 

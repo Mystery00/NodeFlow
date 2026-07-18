@@ -1,15 +1,18 @@
 package app.mystery0.nodeflow.feature.topicdetail
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.paging.PagingData
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.Node
+import app.mystery0.nodeflow.core.model.Reply
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.network.V2EX_ACCESS_DENIED_MESSAGE
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
+import app.mystery0.nodeflow.domain.topic.TopicDetailPager
+import app.mystery0.nodeflow.domain.topic.TopicDetailSnapshot
 import app.mystery0.nodeflow.domain.topic.TopicRepository
+import androidx.paging.PagingData
 import com.google.common.truth.Truth.assertThat
 import java.util.ArrayDeque
 import kotlinx.coroutines.CompletableDeferred
@@ -42,13 +45,25 @@ class TopicDetailViewModelTest {
     }
 
     @Test
+    fun initialLoad_mapsSnapshotAndOnlyCallsLoadFirst() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        val viewModel = viewModel(pager)
+
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isLoading).isFalse()
+        assertThat(state.detail?.replies).hasSize(100)
+        assertThat(state.hasMoreReplies).isTrue()
+        assertThat(pager.calls).containsExactly("loadFirst(false)")
+    }
+
+    @Test
     fun initialLoad_showsAccessDeniedAsFullPageState() = runTest(testDispatcher) {
-        val repository = FakeTopicRepository(
-            responses = ArrayDeque(
-                listOf(Result.failure<TopicDetail>(accessDenied())),
-            ),
-        )
-        val viewModel = viewModel(repository)
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.failure(accessDenied())
+        val viewModel = viewModel(pager)
 
         advanceUntilIdle()
 
@@ -57,115 +72,230 @@ class TopicDetailViewModelTest {
         assertThat(state.isRefreshing).isFalse()
         assertThat(state.detail).isNull()
         assertThat(state.errorMessage).isEqualTo(V2EX_ACCESS_DENIED_MESSAGE)
-        assertThat(repository.requests).containsExactly(1221181L to false)
     }
 
     @Test
-    fun refresh_clearsExistingDetailWhenAccessIsDenied() = runTest(testDispatcher) {
-        val original = topicDetail()
-        val repository = FakeTopicRepository(
-            responses = ArrayDeque(
-                listOf(
-                    Result.success(original),
-                    Result.failure<TopicDetail>(accessDenied()),
-                ),
-            ),
-        )
-        val viewModel = viewModel(repository)
+    fun deepLinkFloor_catchesUpWhenFloorNotLoaded() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.loadUntilFloorResults +=
+            Result.success(snapshot(replies = replies(1..250), hasMore = false))
+        val viewModel = viewModel(pager, replyFloor = 250)
+
         advanceUntilIdle()
-        assertThat(viewModel.uiState.value.detail).isEqualTo(original)
+
+        val state = viewModel.uiState.value
+        assertThat(pager.calls).containsExactly("loadFirst(false)", "loadUntilFloor(250)").inOrder()
+        assertThat(state.detail?.replies).hasSize(250)
+        assertThat(state.hasMoreReplies).isFalse()
+        // 深链定位由界面按 initialReplyFloor 执行，不设置 replyFloorTarget
+        assertThat(state.replyFloorTarget).isNull()
+    }
+
+    @Test
+    fun deepLinkFloor_skipsCatchUpWhenFloorAlreadyLoaded() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        val viewModel = viewModel(pager, replyFloor = 50)
+
+        advanceUntilIdle()
+
+        assertThat(pager.calls).containsExactly("loadFirst(false)")
+        assertThat(viewModel.uiState.value.detail?.replies).hasSize(100)
+    }
+
+    @Test
+    fun loadMore_appendsNextPageAndTogglesLoadingFlag() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        val next = CompletableDeferred<Result<TopicDetailSnapshot>>()
+        pager.deferredLoadNext += next
+        val viewModel = viewModel(pager)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.LoadMoreReplies)
+        runCurrent()
+        assertThat(viewModel.uiState.value.isLoadingMore).isTrue()
+
+        next.complete(Result.success(snapshot(replies = replies(1..200), hasMore = false)))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isLoadingMore).isFalse()
+        assertThat(state.detail?.replies).hasSize(200)
+        assertThat(state.hasMoreReplies).isFalse()
+    }
+
+    @Test
+    fun loadMore_failureWritesLoadMoreErrorAndKeepsDetail() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.loadNextResults += Result.failure(networkError())
+        val viewModel = viewModel(pager)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.LoadMoreReplies)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isLoadingMore).isFalse()
+        assertThat(state.loadMoreError).isEqualTo("网络连接失败，请稍后重试")
+        assertThat(state.detail?.replies).hasSize(100)
+        assertThat(state.errorMessage).isNull()
+    }
+
+    @Test
+    fun loadMore_ignoredWhenNoMoreReplies() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..3), hasMore = false))
+        val viewModel = viewModel(pager)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.LoadMoreReplies)
+        advanceUntilIdle()
+
+        assertThat(pager.calls).containsExactly("loadFirst(false)")
+    }
+
+    @Test
+    fun refresh_reloadsLoadedPagesAndKeepsScrollData() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.refreshResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        val viewModel = viewModel(pager)
+        advanceUntilIdle()
 
         viewModel.onEvent(TopicDetailUiEvent.Refresh)
         advanceUntilIdle()
 
-        val state = viewModel.uiState.value
-        assertThat(state.isLoading).isFalse()
-        assertThat(state.isRefreshing).isFalse()
-        assertThat(state.detail).isNull()
-        assertThat(state.errorMessage).isEqualTo(V2EX_ACCESS_DENIED_MESSAGE)
-        assertThat(repository.requests).containsExactly(
-            1221181L to false,
-            1221181L to true,
-        ).inOrder()
+        assertThat(pager.calls).containsExactly("loadFirst(false)", "refreshLoaded()").inOrder()
+        assertThat(viewModel.uiState.value.detail?.replies).hasSize(100)
     }
 
     @Test
     fun refresh_keepsExistingDetailWhenOtherFailureOccurs() = runTest(testDispatcher) {
-        val original = topicDetail()
-        val networkError = NodeFlowException(
-            kind = NodeFlowException.Kind.Network,
-            message = "网络连接失败，请稍后重试",
-        )
-        val repository = FakeTopicRepository(
-            responses = ArrayDeque(
-                listOf(
-                    Result.success(original),
-                    Result.failure<TopicDetail>(networkError),
-                ),
-            ),
-        )
-        val viewModel = viewModel(repository)
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.refreshResults += Result.failure(networkError())
+        val viewModel = viewModel(pager)
         advanceUntilIdle()
 
         viewModel.onEvent(TopicDetailUiEvent.Refresh)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertThat(state.detail).isEqualTo(original)
+        assertThat(state.detail?.replies).hasSize(100)
         assertThat(state.errorMessage).isEqualTo("网络连接失败，请稍后重试")
     }
 
     @Test
-    fun replyCreated_forcesRefreshAndPublishesFloorTarget() = runTest(testDispatcher) {
-        val detail = topicDetail()
-        val repository = FakeTopicRepository(
-            responses = ArrayDeque(listOf(Result.success(detail), Result.success(detail))),
-        )
-        val viewModel = viewModel(repository)
+    fun refresh_clearsExistingDetailWhenAccessIsDenied() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.refreshResults += Result.failure(accessDenied())
+        val viewModel = viewModel(pager)
         advanceUntilIdle()
 
-        viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(8))
+        viewModel.onEvent(TopicDetailUiEvent.Refresh)
         advanceUntilIdle()
 
-        assertThat(repository.requests.last()).isEqualTo(1221181L to true)
-        assertThat(viewModel.uiState.value.replyFloorTarget).isEqualTo(8)
+        val state = viewModel.uiState.value
+        assertThat(state.detail).isNull()
+        assertThat(state.hasMoreReplies).isFalse()
+        assertThat(state.errorMessage).isEqualTo(V2EX_ACCESS_DENIED_MESSAGE)
+    }
+
+    @Test
+    fun retry_withoutDetailForcesFirstLoad() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.failure(networkError())
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        val viewModel = viewModel(pager)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.Retry)
+        advanceUntilIdle()
+
+        assertThat(pager.calls).containsExactly("loadFirst(false)", "loadFirst(true)").inOrder()
+        assertThat(viewModel.uiState.value.detail?.replies).hasSize(100)
+    }
+
+    @Test
+    fun replyCreated_catchesUpToFloorAndPublishesFloorTarget() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.loadUntilFloorResults +=
+            Result.success(snapshot(replies = replies(1..208), hasMore = false))
+        val viewModel = viewModel(pager)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(208))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(pager.calls).containsExactly("loadFirst(false)", "loadUntilFloor(208)").inOrder()
+        assertThat(state.detail?.replies).hasSize(208)
+        assertThat(state.replyFloorTarget).isEqualTo(208)
         viewModel.onEvent(TopicDetailUiEvent.ReplyFloorTargetConsumed)
         assertThat(viewModel.uiState.value.replyFloorTarget).isNull()
     }
 
     @Test
-    fun olderRefreshResult_doesNotOverwriteNewerReplyRefresh() = runTest(testDispatcher) {
-        fun detail(title: String): TopicDetail {
-            val source = topicDetail()
-            return source.copy(topic = source.topic.copy(title = title))
-        }
-        val initial = CompletableDeferred(Result.success(detail("初始")))
-        val older = CompletableDeferred<Result<TopicDetail>>()
-        val newer = CompletableDeferred<Result<TopicDetail>>()
-        val repository = DeferredTopicRepository(ArrayDeque(listOf(initial, older, newer)))
-        val viewModel = viewModel(repository)
+    fun replyCreated_midFailureFallsBackToLoadedPrefix() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.loadUntilFloorResults += Result.failure(networkError())
+        // 失败后 ViewModel 会用 loadFirst(false) 同步已加载前缀
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..200), hasMore = true))
+        val viewModel = viewModel(pager)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(250))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.detail?.replies).hasSize(200)
+        assertThat(state.errorMessage).isEqualTo("网络连接失败，请稍后重试")
+        assertThat(state.replyFloorTarget).isEqualTo(250)
+    }
+
+    @Test
+    fun olderRefreshResult_doesNotOverwriteNewerReplyCatchUp() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..10), hasMore = true))
+        val olderRefresh = CompletableDeferred<Result<TopicDetailSnapshot>>()
+        pager.deferredRefresh += olderRefresh
+        val newerCatchUp = CompletableDeferred<Result<TopicDetailSnapshot>>()
+        pager.deferredLoadUntilFloor += newerCatchUp
+        val viewModel = viewModel(pager)
         advanceUntilIdle()
 
         viewModel.onEvent(TopicDetailUiEvent.Refresh)
         runCurrent()
-        viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(8))
+        viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(11))
         runCurrent()
-        newer.complete(Result.success(detail("新回复")))
+        newerCatchUp.complete(Result.success(snapshot(replies = replies(1..11), hasMore = false)))
         runCurrent()
-        older.complete(Result.success(detail("旧刷新")))
+        olderRefresh.complete(Result.success(snapshot(replies = replies(1..10), hasMore = true)))
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.detail!!.topic.title).isEqualTo("新回复")
-        assertThat(viewModel.uiState.value.replyFloorTarget).isEqualTo(8)
+        val state = viewModel.uiState.value
+        assertThat(state.detail?.replies).hasSize(11)
+        assertThat(state.replyFloorTarget).isEqualTo(11)
     }
 
-    private fun viewModel(repository: TopicRepository): TopicDetailViewModel =
-        TopicDetailViewModel(
-            savedStateHandle = SavedStateHandle(
-                mapOf("topicId" to 1221181L),
-            ),
-            getTopicDetail = GetTopicDetailUseCase(repository),
-        )
+    private fun viewModel(
+        pager: TopicDetailPager,
+        replyFloor: Int? = null,
+    ): TopicDetailViewModel = TopicDetailViewModel(
+        savedStateHandle = SavedStateHandle(
+            buildMap {
+                put("topicId", 1221181L)
+                replyFloor?.let { put("replyFloor", it) }
+            },
+        ),
+        getTopicDetailPager = GetTopicDetailUseCase(SinglePagerRepository(pager)),
+    )
 
     private fun accessDenied(): NodeFlowException =
         NodeFlowException(
@@ -173,54 +303,94 @@ class TopicDetailViewModelTest {
             message = V2EX_ACCESS_DENIED_MESSAGE,
         )
 
-    private fun topicDetail(): TopicDetail =
-        TopicDetail(
-            topic = Topic(
-                id = 1221181,
-                title = "受限归档主题",
-                url = "https://www.v2ex.com/t/1221181",
-                node = Node(name = "flamewar", title = "水深火热"),
-                author = User(username = "alice"),
-                replyCount = 0,
-            ),
-            content = "真实正文",
-            contentRendered = "<p>真实正文</p>",
-            replies = emptyList(),
+    private fun networkError(): NodeFlowException =
+        NodeFlowException(
+            kind = NodeFlowException.Kind.Network,
+            message = "网络连接失败，请稍后重试",
         )
 
-    private class FakeTopicRepository(
-        private val responses: ArrayDeque<Result<TopicDetail>>,
-    ) : TopicRepository {
-        val requests = mutableListOf<Pair<Long, Boolean>>()
-
-        override suspend fun latestTopics(
-            forceRefresh: Boolean,
-        ): Result<List<Topic>> = Result.success(emptyList())
-
-        override fun latestTopicsPaging(): Flow<PagingData<Topic>> =
-            flowOf(PagingData.empty())
-
-        override suspend fun topicDetail(
-            topicId: Long,
-            forceRefresh: Boolean,
-        ): Result<TopicDetail> {
-            requests += topicId to forceRefresh
-            return responses.removeFirst()
-        }
-
-        override suspend fun clearCache() = Unit
+    private fun replies(range: IntRange): List<Reply> = range.map { floor ->
+        Reply(
+            id = floor.toLong(),
+            topicId = 1221181,
+            floor = floor,
+            author = User(username = "user$floor"),
+            content = "回复 $floor",
+            contentRendered = "<p>回复 $floor</p>",
+        )
     }
 
-    private class DeferredTopicRepository(
-        private val responses: ArrayDeque<CompletableDeferred<Result<TopicDetail>>>,
+    private fun snapshot(
+        replies: List<Reply>,
+        hasMore: Boolean,
+    ): TopicDetailSnapshot = TopicDetailSnapshot(
+        detail = TopicDetail(
+            topic = Topic(
+                id = 1221181,
+                title = "分页主题",
+                url = "https://www.v2ex.com/t/1221181",
+                node = Node(name = "python", title = "Python"),
+                author = User(username = "alice"),
+                replyCount = replies.size,
+            ),
+            content = "",
+            contentRendered = "<p>正文</p>",
+            replies = replies,
+        ),
+        loadedPageCount = (replies.size + 99) / 100,
+        totalPageCount = if (hasMore) (replies.size + 99) / 100 + 1 else (replies.size + 99) / 100,
+        hasMore = hasMore,
+    )
+
+    private class FakeTopicDetailPager : TopicDetailPager {
+        val calls = mutableListOf<String>()
+        val loadFirstResults = ArrayDeque<Result<TopicDetailSnapshot>>()
+        val loadNextResults = ArrayDeque<Result<TopicDetailSnapshot>>()
+        val loadUntilFloorResults = ArrayDeque<Result<TopicDetailSnapshot>>()
+        val refreshResults = ArrayDeque<Result<TopicDetailSnapshot>>()
+        val deferredLoadNext = ArrayDeque<CompletableDeferred<Result<TopicDetailSnapshot>>>()
+        val deferredLoadUntilFloor = ArrayDeque<CompletableDeferred<Result<TopicDetailSnapshot>>>()
+        val deferredRefresh = ArrayDeque<CompletableDeferred<Result<TopicDetailSnapshot>>>()
+
+        override suspend fun loadFirst(forceRefresh: Boolean): Result<TopicDetailSnapshot> {
+            calls += "loadFirst($forceRefresh)"
+            return loadFirstResults.removeFirst()
+        }
+
+        override suspend fun loadNext(): Result<TopicDetailSnapshot> {
+            calls += "loadNext()"
+            deferredLoadNext.pollFirst()?.let { return it.await() }
+            return loadNextResults.removeFirst()
+        }
+
+        override suspend fun loadUntilFloor(floor: Int): Result<TopicDetailSnapshot> {
+            calls += "loadUntilFloor($floor)"
+            deferredLoadUntilFloor.pollFirst()?.let { return it.await() }
+            return loadUntilFloorResults.removeFirst()
+        }
+
+        override suspend fun loadUntilLastPage(): Result<TopicDetailSnapshot> {
+            calls += "loadUntilLastPage()"
+            error("loadUntilLastPage not expected in these tests")
+        }
+
+        override suspend fun refreshLoaded(): Result<TopicDetailSnapshot> {
+            calls += "refreshLoaded()"
+            deferredRefresh.pollFirst()?.let { return it.await() }
+            return refreshResults.removeFirst()
+        }
+    }
+
+    /** ViewModel 只通过 UseCase 获取 pager，这里用固定实例满足接口。 */
+    private class SinglePagerRepository(
+        private val pager: TopicDetailPager,
     ) : TopicRepository {
         override suspend fun latestTopics(forceRefresh: Boolean): Result<List<Topic>> =
             Result.success(emptyList())
 
         override fun latestTopicsPaging(): Flow<PagingData<Topic>> = flowOf(PagingData.empty())
 
-        override suspend fun topicDetail(topicId: Long, forceRefresh: Boolean): Result<TopicDetail> =
-            responses.removeFirst().await()
+        override fun topicDetailPager(topicId: Long): TopicDetailPager = pager
 
         override suspend fun clearCache() = Unit
     }

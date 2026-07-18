@@ -8,4 +8,7 @@ data class TopicDetailUiState(
     val detail: TopicDetail? = null,
     val errorMessage: String? = null,
     val replyFloorTarget: Int? = null,
+    val hasMoreReplies: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val loadMoreError: String? = null,
 )

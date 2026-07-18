@@ -44,6 +44,12 @@ class TopicRepositoryImplTest {
         ioDispatcher = dispatcher,
     )
 
+    /** 旧 topicDetail 语义现在由 pager 的首屏加载承载；每次调用创建新 pager，与旧的按次请求等价。 */
+    private suspend fun TopicRepositoryImpl.topicDetail(
+        topicId: Long,
+        forceRefresh: Boolean,
+    ): Result<TopicDetail> = topicDetailPager(topicId).loadFirst(forceRefresh).map { it.detail }
+
     @Test
     fun topicDetail_failsWhenRemoteFailsAndCacheHasNoReplies() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -353,9 +359,10 @@ class TopicRepositoryImplTest {
         assertThat((accessDeniedResult.exceptionOrNull() as NodeFlowException).kind)
             .isEqualTo(NodeFlowException.Kind.AccessDenied)
         assertThat(recoveredResult.getOrThrow().contentRendered).contains("最新正文")
-        assertThat(olderInvocation.isFailure).isTrue()
-        assertThat(olderInvocation.exceptionOrNull())
-            .isInstanceOf(CancellationException::class.java)
+        // 分页实现的失败回退读取的是回退时刻的最新缓存，较早失败只能拿到恢复后的
+        // “最新正文”，绝不会把拒绝前捕获的旧缓存重新变成结果
+        assertThat(olderInvocation.getOrThrow().getOrThrow().contentRendered)
+            .contains("最新正文")
         assertThat(TopicLocalDataSource(dao).topicDetail(1221181)?.contentRendered)
             .contains("最新正文")
     }

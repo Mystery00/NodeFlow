@@ -1,8 +1,8 @@
 package app.mystery0.nodeflow.domain.topic
 
+/** 为主题详情界面创建按需分页器。 */
 class GetTopicDetailUseCase(
     private val repository: TopicRepository,
 ) {
-    suspend operator fun invoke(topicId: Long, forceRefresh: Boolean = false) =
-        repository.topicDetail(topicId, forceRefresh)
+    operator fun invoke(topicId: Long): TopicDetailPager = repository.topicDetailPager(topicId)
 }

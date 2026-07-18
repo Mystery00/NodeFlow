@@ -525,7 +525,7 @@ class V2exHtmlParser {
         .mapNotNull { it.text().trim().takeIf(String::isNotBlank) }
         .firstOrNull()
 
-    fun parseTopicHtml(topicId: Long, html: String): ParsedTopicHtml? {
+    fun parseTopicHtml(topicId: Long, html: String, floorOffset: Int = 0): ParsedTopicHtml? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         if (document.hasRestrictedSignInForm()) return null
         val contentElement = document.selectFirst("#Main .topic_content")
@@ -551,7 +551,7 @@ class V2exHtmlParser {
             ?.attr("title")
             ?.parseV2exDateTime()
         val jsonLdElements = document.parseJsonLdElements()
-        val replies = replyElements.parseTopicReplies(topicId)
+        val replies = replyElements.parseTopicReplies(topicId, floorOffset)
         val pageCount = document.selectFirst("input.page_input")
             ?.attr("max")
             ?.toIntOrNull()
@@ -575,18 +575,21 @@ class V2exHtmlParser {
             tags = document.select("a.tag[href^=/tag/]")
                 .mapNotNull { it.ownText().trim().ifBlank { it.text().trim() }.takeIf(String::isNotBlank) }
                 .distinct(),
+            replyCount = document.select("div.cell span.gray")
+                .firstNotNullOfOrNull { TOTAL_REPLY_COUNT_REGEX.find(it.text())?.groupValues?.get(1)?.toIntOrNull() },
             pageCount = pageCount,
             replies = replies,
         )
     }
 
-    private fun List<Element>.parseTopicReplies(topicId: Long): List<Reply> =
+    private fun List<Element>.parseTopicReplies(topicId: Long, floorOffset: Int): List<Reply> =
         mapIndexedNotNull { index, element ->
             val id = element.id().removePrefix("r_").toLongOrNull() ?: return@mapIndexedNotNull null
             val contentElement = element.selectFirst(".reply_content")
             val contentRendered = contentElement?.html().orEmpty()
             val contentText = contentElement?.replyPlainText().orEmpty()
-            val floor = element.selectFirst("span.no")?.text()?.firstInt() ?: (index + 1)
+            // 兜底楼层带上页偏移，保证第 2 页起 span.no 缺失时不会从 1 重新计数
+            val floor = element.selectFirst("span.no")?.text()?.firstInt() ?: (floorOffset + index + 1)
             val username = element.selectFirst("strong a[href^=/member/]")?.text()?.trim()
                 ?: element.selectFirst("a[href^=/member/]")?.text()?.trim()
                 ?: ""
@@ -953,6 +956,7 @@ class V2exHtmlParser {
         val viewCount: Int? = null,
         val hotReplyCount: Int? = null,
         val tags: List<String> = emptyList(),
+        val replyCount: Int? = null,
         val pageCount: Int = 1,
         val replies: List<Reply> = emptyList(),
     )
@@ -1004,6 +1008,7 @@ class V2exHtmlParser {
         val TOPIC_ID_REGEX = Regex("""/t/(\d+)""")
         val REPLY_COUNT_REGEX = Regex("""#reply(\d+)""")
         val REPLY_ROW_ID_REGEX = Regex("""r_\d+""")
+        val TOTAL_REPLY_COUNT_REGEX = Regex("""(\d+)\s*条回复""")
         val NODE_COUNT_REGEX = Regex("""(\d+)""")
         val VIEW_COUNT_REGEX = Regex("""(\d[\d,]*)\s+views""")
         val MEMBER_NUMBER_REGEX = Regex("""V2EX\s+member\s+#(\d[\d,]*)""", RegexOption.IGNORE_CASE)

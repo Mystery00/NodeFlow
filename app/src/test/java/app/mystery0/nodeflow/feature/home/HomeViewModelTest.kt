@@ -114,8 +114,8 @@ class HomeViewModelTest {
             return flowOf(PagingData.empty())
         }
 
-        override suspend fun topicDetail(topicId: Long, forceRefresh: Boolean): Result<TopicDetail> =
-            error("不应在首页测试中加载主题详情")
+        override fun topicDetailPager(topicId: Long): app.mystery0.nodeflow.domain.topic.TopicDetailPager =
+            error("不应在首页测试中创建主题详情分页器")
 
         override suspend fun clearCache() = Unit
     }

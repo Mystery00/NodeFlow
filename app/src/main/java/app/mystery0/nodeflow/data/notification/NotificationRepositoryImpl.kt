@@ -5,6 +5,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import app.mystery0.nodeflow.core.model.Notification
 import app.mystery0.nodeflow.domain.notification.NotificationRepository
+import app.mystery0.nodeflow.domain.topic.TopicDetailPager
 import app.mystery0.nodeflow.domain.topic.TopicRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -28,8 +29,12 @@ class NotificationRepositoryImpl(
                     withContext(ioDispatcher) { remoteDataSource.notifications(page) }
                 },
                 enrichReferences = { notifications ->
-                    enrichNotificationReferences(notifications) { topicId ->
-                        topicRepository.topicDetail(topicId)
+                    // 同批次内同主题复用同一 pager，不同楼层靠 pager 增量补页
+                    val pagers = mutableMapOf<Long, TopicDetailPager>()
+                    enrichNotificationReferences(notifications) { topicId, floor ->
+                        pagers.getOrPut(topicId) { topicRepository.topicDetailPager(topicId) }
+                            .loadUntilFloor(floor)
+                            .map { it.detail }
                     }
                 },
             )

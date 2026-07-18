@@ -6,24 +6,29 @@ import app.mystery0.nodeflow.core.model.TopicDetail
 import kotlinx.coroutines.CancellationException
 import org.jsoup.Jsoup
 
+/**
+ * 为通知补全被引用回复的摘要。
+ *
+ * [loadRepliesUntilFloor] 按（主题, 楼层）加载至少覆盖目标楼层的回复前缀；
+ * 同一批次内某主题一旦加载失败，其余指向该主题的通知不再重试。
+ */
 internal suspend fun enrichNotificationReferences(
     notifications: List<Notification>,
-    loadTopic: suspend (Long) -> Result<TopicDetail>,
+    loadRepliesUntilFloor: suspend (topicId: Long, floor: Int) -> Result<TopicDetail>,
 ): List<Notification> {
-    val details = mutableMapOf<Long, TopicDetail?>()
+    val failedTopics = mutableSetOf<Long>()
     return notifications.map { notification ->
         val locator = notification.referenceLocator ?: return@map notification
-        val detail = if (details.containsKey(notification.topicId)) {
-            details[notification.topicId]
-        } else {
-            val loaded = try {
-                loadTopic(notification.topicId).getOrNull()
-            } catch (error: CancellationException) {
-                throw error
-            }
-            details[notification.topicId] = loaded
-            loaded
-        } ?: return@map notification
+        if (notification.topicId in failedTopics) return@map notification
+        val detail = try {
+            loadRepliesUntilFloor(notification.topicId, locator.floor).getOrNull()
+        } catch (error: CancellationException) {
+            throw error
+        }
+        if (detail == null) {
+            failedTopics += notification.topicId
+            return@map notification
+        }
         val reply = detail.replies.firstOrNull { reply ->
             reply.floor == locator.floor &&
                 reply.author.username.equals(locator.username, ignoreCase = true)

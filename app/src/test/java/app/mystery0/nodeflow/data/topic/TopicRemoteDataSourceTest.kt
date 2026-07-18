@@ -96,7 +96,7 @@ class TopicRemoteDataSourceTest {
     }
 
     @Test
-    fun topicDetail_parsesRepliesFromHtmlAndMergesPagesWithoutJsonApi() = runTest {
+    fun topicDetailPage_parsesTopicMetadataOnFirstPage() = runTest {
         val api = FakeV2exRawApi(
             topicHtmlPages = mapOf(
                 null to """
@@ -116,36 +116,24 @@ class TopicRemoteDataSourceTest {
                       <input class="page_input" type="number" max="2" />
                     </body></html>
                 """.trimIndent(),
-                2 to """
-                    <html><body>
-                      <div class="topic_content"><p>正文内容</p></div>
-                      <div id="r_2" class="cell"><table><tr><td>
-                        <div class="fr"><span class="no">2</span></div>
-                        <strong><a href="/member/carol" class="dark">carol</a></strong>
-                        <span class="ago" title="2026-07-01 12:00:00 +08:00">now</span>
-                        <div class="reply_content">第二层</div>
-                      </td></tr></table></div>
-                    </body></html>
-                """.trimIndent(),
             ),
         )
         val dataSource = TopicRemoteDataSource(api, json, parser)
 
-        val detail = dataSource.topicDetail(topicId = 1000)
+        val page = requireNotNull(dataSource.topicDetailPage(topicId = 1000, page = 1, floorOffset = 0))
 
         assertThat(api.topicJsonCalls).isEqualTo(0)
         assertThat(api.repliesJsonCalls).isEqualTo(0)
-        assertThat(api.topicHtmlRequests).containsExactly(null, 2).inOrder()
-        assertThat(detail.contentRendered).contains("正文内容")
-        assertThat(detail.topic.node.name).isEqualTo("python")
-        assertThat(detail.topic.author.username).isEqualTo("alice")
-        assertThat(detail.topic.replyCount).isEqualTo(2)
-        assertThat(detail.replies.map { it.author.username }).containsExactly("bob", "carol").inOrder()
-        assertThat(detail.replies.map { it.floor }).containsExactly(1, 2).inOrder()
+        assertThat(api.topicHtmlRequests).containsExactly(null)
+        assertThat(page.contentRendered).contains("正文内容")
+        assertThat(page.nodeName).isEqualTo("python")
+        assertThat(page.authorName).isEqualTo("alice")
+        assertThat(page.pageCount).isEqualTo(2)
+        assertThat(page.replies.single().author.username).isEqualTo("bob")
     }
 
     @Test
-    fun topicDetail_usesParsedHtmlWhenTopicBodyIsEmptyWithoutJsonApi() = runTest {
+    fun topicDetailPage_usesParsedHtmlWhenTopicBodyIsEmptyWithoutJsonApi() = runTest {
         val api = FakeV2exRawApi(
             topicHtmlPages = mapOf(
                 null to """
@@ -186,18 +174,18 @@ class TopicRemoteDataSourceTest {
         )
         val dataSource = TopicRemoteDataSource(api, json, parser)
 
-        val detail = dataSource.topicDetail(topicId = 1221181)
+        val page = requireNotNull(dataSource.topicDetailPage(topicId = 1221181, page = 1, floorOffset = 0))
 
         assertThat(api.topicJsonCalls).isEqualTo(0)
         assertThat(api.repliesJsonCalls).isEqualTo(0)
         assertThat(api.topicHtmlRequests).containsExactly(null)
-        assertThat(detail.topic.title).isEqualTo("正文为空的归档主题")
-        assertThat(detail.contentRendered).isEmpty()
-        assertThat(detail.replies.single().contentRendered).isEqualTo("HTML 可见回复")
+        assertThat(page.title).isEqualTo("正文为空的归档主题")
+        assertThat(page.contentRendered).isEmpty()
+        assertThat(page.replies.single().contentRendered).isEqualTo("HTML 可见回复")
     }
 
     @Test
-    fun topicDetail_fallsBackToJsonWhenHtmlIsNotTopicPage() = runTest {
+    fun jsonTopicDetailFallback_parsesJsonDetail() = runTest {
         val api = FakeV2exRawApi(
             topicHtmlPages = mapOf(
                 null to """
@@ -218,7 +206,7 @@ class TopicRemoteDataSourceTest {
         )
         val dataSource = TopicRemoteDataSource(api, json, parser)
 
-        val detail = dataSource.topicDetail(topicId = 2000)
+        val detail = dataSource.jsonTopicDetailFallback(topicId = 2000)
 
         assertThat(api.topicJsonCalls).isEqualTo(1)
         assertThat(api.repliesJsonCalls).isEqualTo(1)
@@ -227,14 +215,14 @@ class TopicRemoteDataSourceTest {
     }
 
     @Test
-    fun topicDetail_doesNotFallBackToJsonWhenFinalUrlIsRestricted() = runTest {
+    fun topicDetailPage_throwsAccessDeniedWhenFinalUrlIsRestricted() = runTest {
         assertTopicAccessDeniedWithoutJson(
             finalUrl = "https://www.v2ex.com/restricted",
         )
     }
 
     @Test
-    fun topicDetail_doesNotFallBackToJsonWhenFinalUrlIsSignIn() = runTest {
+    fun topicDetailPage_throwsAccessDeniedWhenFinalUrlIsSignIn() = runTest {
         assertTopicAccessDeniedWithoutJson(
             finalUrl = "https://www.v2ex.com/signin?next=%2Frestricted",
         )
@@ -267,7 +255,7 @@ class TopicRemoteDataSourceTest {
         val dataSource = TopicRemoteDataSource(api, json, parser)
 
         val result = runCatching {
-            dataSource.topicDetail(topicId = 1221181)
+            dataSource.topicDetailPage(topicId = 1221181, page = 1, floorOffset = 0)
         }
 
         val error = result.exceptionOrNull() as NodeFlowException
@@ -276,6 +264,85 @@ class TopicRemoteDataSourceTest {
         assertThat(api.topicJsonCalls).isEqualTo(0)
         assertThat(api.repliesJsonCalls).isEqualTo(0)
         assertThat(api.topicHtmlRequests).containsExactly(null)
+    }
+
+    @Test
+    fun topicDetailPage_requestsGivenPageAndAppliesFloorOffset() = runTest {
+        val api = FakeV2exRawApi(
+            topicHtmlPages = mapOf(
+                2 to """
+                    <html><body>
+                      <h1>分页主题</h1>
+                      <div id="r_201" class="cell">
+                        <strong><a href="/member/alice">alice</a></strong>
+                        <div class="reply_content">第二页第一条</div>
+                      </div>
+                      <div id="r_202" class="cell">
+                        <strong><a href="/member/bob">bob</a></strong>
+                        <div class="reply_content">第二页第二条</div>
+                      </div>
+                      <input class="page_input" type="number" max="3" />
+                    </body></html>
+                """.trimIndent(),
+            ),
+        )
+        val dataSource = TopicRemoteDataSource(api, json, parser)
+
+        val page = requireNotNull(dataSource.topicDetailPage(topicId = 1000, page = 2, floorOffset = 100))
+
+        assertThat(api.topicHtmlRequests).containsExactly(2)
+        assertThat(api.topicJsonCalls).isEqualTo(0)
+        assertThat(page.pageCount).isEqualTo(3)
+        assertThat(page.replies.map { it.floor }).containsExactly(101, 102).inOrder()
+    }
+
+    @Test
+    fun topicDetailPage_firstPageOmitsPageQuery() = runTest {
+        val api = FakeV2exRawApi(
+            topicHtmlPages = mapOf(
+                null to """
+                    <html><body>
+                      <h1>第一页主题</h1>
+                      <div class="topic_content"><p>正文内容</p></div>
+                      <div class="cell"><span class="gray">42 条回复</span></div>
+                      <div id="r_1" class="cell">
+                        <span class="no">1</span>
+                        <strong><a href="/member/bob">bob</a></strong>
+                        <div class="reply_content">第一层</div>
+                      </div>
+                    </body></html>
+                """.trimIndent(),
+            ),
+        )
+        val dataSource = TopicRemoteDataSource(api, json, parser)
+
+        val page = requireNotNull(dataSource.topicDetailPage(topicId = 1000, page = 1, floorOffset = 0))
+
+        assertThat(api.topicHtmlRequests).containsExactly(null)
+        assertThat(page.replyCount).isEqualTo(42)
+        assertThat(page.contentRendered).contains("正文内容")
+    }
+
+    @Test
+    fun topicDetailPage_returnsNullForNonTopicHtml() = runTest {
+        val api = FakeV2exRawApi(
+            topicHtmlPages = mapOf(
+                null to """
+                    <html><body>
+                      <div class="box">
+                        <div class="header">登录 V2EX</div>
+                        <form action="/signin" method="post"><input type="text" name="u" /></form>
+                      </div>
+                    </body></html>
+                """.trimIndent(),
+            ),
+        )
+        val dataSource = TopicRemoteDataSource(api, json, parser)
+
+        val page = dataSource.topicDetailPage(topicId = 2000, page = 1, floorOffset = 0)
+
+        assertThat(page).isNull()
+        assertThat(api.topicJsonCalls).isEqualTo(0)
     }
 
     private data class NodeTopicsHtmlRequest(

@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -252,6 +253,10 @@ fun TopicDetailScreen(
                 detail = detail,
                 isRefreshing = state.isRefreshing,
                 errorMessage = state.errorMessage,
+                hasMoreReplies = state.hasMoreReplies,
+                isLoadingMore = state.isLoadingMore,
+                loadMoreError = state.loadMoreError,
+                onLoadMore = { onEvent(TopicDetailUiEvent.LoadMoreReplies) },
                 onNodeClick = onNodeClick,
                 onUserClick = onUserClick,
                 onTopicClick = onTopicClick,
@@ -349,6 +354,10 @@ private fun TopicDetailContent(
     detail: TopicDetail,
     isRefreshing: Boolean,
     errorMessage: String?,
+    hasMoreReplies: Boolean,
+    isLoadingMore: Boolean,
+    loadMoreError: String?,
+    onLoadMore: () -> Unit,
     onNodeClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     onTopicClick: (Long) -> Unit,
@@ -365,11 +374,15 @@ private fun TopicDetailContent(
     val coroutineScope = rememberCoroutineScope()
     var highlightedReplyId by remember(detail.topic.id) { mutableStateOf<Long?>(null) }
     val replyRefreshKey = if (replyFloorTarget != null) detail.replies.lastOrNull()?.id else null
+    // 按需分页下目标楼层可能在补页完成后才出现，用该布尔值的翻转重新触发定位
+    val targetFloorLoaded =
+        detail.replies.size >= (replyFloorTarget ?: initialReplyFloor ?: 0)
     LaunchedEffect(
         detail.topic.id,
         initialReplyFloor,
         replyFloorTarget,
         replyRefreshKey,
+        targetFloorLoaded,
         isRefreshing,
     ) {
         if (replyFloorTarget != null && isRefreshing) return@LaunchedEffect
@@ -463,7 +476,7 @@ private fun TopicDetailContent(
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
                 )
-                ReplySummaryRow(detail = detail)
+                ReplySummaryRow(detail = detail, hasMore = hasMoreReplies)
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
                 )
@@ -496,9 +509,67 @@ private fun TopicDetailContent(
                     },
                 )
             }
+            if (hasMoreReplies || loadMoreError != null) {
+                item(key = "reply-load-more") {
+                    ReplyLoadMoreFooter(
+                        isLoading = isLoadingMore,
+                        errorMessage = loadMoreError,
+                        onRetry = onLoadMore,
+                    )
+                }
+            }
+        }
+    }
+    // 滚动接近已加载内容尾部时自动加载下一页
+    LaunchedEffect(listState, hasMoreReplies, isLoadingMore, loadMoreError) {
+        if (!hasMoreReplies || isLoadingMore || loadMoreError != null) return@LaunchedEffect
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && lastVisible >= info.totalItemsCount - LOAD_MORE_PREFETCH_ITEMS
+        }
+            .distinctUntilChanged()
+            .collect { nearEnd ->
+                if (nearEnd) onLoadMore()
+            }
+    }
+}
+
+@Composable
+private fun ReplyLoadMoreFooter(
+    isLoading: Boolean,
+    errorMessage: String?,
+    onRetry: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        when {
+            errorMessage != null -> {
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                TextButton(onClick = onRetry) { Text("重试") }
+            }
+            isLoading -> {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Text(
+                    text = "正在加载更多回复",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
+
+private const val LOAD_MORE_PREFETCH_ITEMS = 10
 
 @Composable
 private fun TopicMetadataRow(
@@ -567,11 +638,17 @@ private fun TopicMetadataRow(
 }
 
 @Composable
-private fun ReplySummaryRow(detail: TopicDetail) {
+private fun ReplySummaryRow(detail: TopicDetail, hasMore: Boolean) {
     val replyCount = detail.topic.replyCount.takeIf { it > 0 } ?: detail.replies.size
     val summaryText = buildString {
+        if (hasMore) append("共 ")
         append(replyCount)
         append(" 条回复")
+        if (hasMore) {
+            append(" · 已加载 ")
+            append(detail.replies.size)
+            append(" 条")
+        }
         detail.hotReplyCount?.takeIf { it > 0 }?.let { count ->
             append(" · ")
             append(count)

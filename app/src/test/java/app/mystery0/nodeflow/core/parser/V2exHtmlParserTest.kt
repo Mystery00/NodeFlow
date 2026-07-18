@@ -1294,4 +1294,86 @@ class V2exHtmlParserTest {
         assertThat(parser.parseV2exProblem("""<div class="problem">请不要频繁回复</div>"""))
             .isEqualTo("请不要频繁回复")
     }
+
+    @Test
+    fun parseTopicHtml_readsTotalReplyCountFromHeader() {
+        val html = """
+            <html>
+              <body>
+                <h1>分页主题</h1>
+                <div class="topic_content">正文</div>
+                <div class="cell"><span class="gray">342 条回复 &nbsp;•&nbsp; 到目前为止</span></div>
+                <div id="r_1">
+                  <span class="no">1</span>
+                  <strong><a href="/member/alice">alice</a></strong>
+                  <div class="reply_content">第一条回复</div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = requireNotNull(parser.parseTopicHtml(topicId = 1L, html = html))
+
+        assertThat(topic.replyCount).isEqualTo(342)
+    }
+
+    @Test
+    fun parseTopicHtml_replyCountIsNullWhenHeaderMissing() {
+        val html = """
+            <html>
+              <body>
+                <h1>无回复主题</h1>
+                <div class="topic_content">正文</div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = requireNotNull(parser.parseTopicHtml(topicId = 1L, html = html))
+
+        assertThat(topic.replyCount).isNull()
+    }
+
+    @Test
+    fun parseTopicHtml_fallbackFloorUsesFloorOffset() {
+        // span.no 缺失时，第 2 页的兜底楼层应从偏移量继续，而不是从 1 重新开始
+        val html = """
+            <html>
+              <body>
+                <h1>分页主题</h1>
+                <div id="r_201">
+                  <strong><a href="/member/alice">alice</a></strong>
+                  <div class="reply_content">第二页第一条</div>
+                </div>
+                <div id="r_202">
+                  <strong><a href="/member/bob">bob</a></strong>
+                  <div class="reply_content">第二页第二条</div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = requireNotNull(parser.parseTopicHtml(topicId = 1L, html = html, floorOffset = 100))
+
+        assertThat(topic.replies.map { it.floor }).containsExactly(101, 102).inOrder()
+    }
+
+    @Test
+    fun parseTopicHtml_explicitFloorIgnoresFloorOffset() {
+        val html = """
+            <html>
+              <body>
+                <h1>分页主题</h1>
+                <div id="r_201">
+                  <span class="no">150</span>
+                  <strong><a href="/member/alice">alice</a></strong>
+                  <div class="reply_content">显式楼层</div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = requireNotNull(parser.parseTopicHtml(topicId = 1L, html = html, floorOffset = 100))
+
+        assertThat(topic.replies.single().floor).isEqualTo(150)
+    }
 }
