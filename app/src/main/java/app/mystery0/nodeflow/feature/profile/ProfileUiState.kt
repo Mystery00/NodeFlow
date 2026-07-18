@@ -12,4 +12,9 @@ data class ProfileUiState(
     val recentReplies: List<ProfileReply> = emptyList(),
     val errorMessage: String? = null,
     val userNotFound: Boolean = false,
+    /** 该用户在未过滤缓存中的标签，供编辑对话框初始值，不受展示开关影响。 */
+    val editableMemberTags: List<String> = emptyList(),
+    val isTagDialogVisible: Boolean = false,
+    val isSavingTags: Boolean = false,
+    val tagEditError: String? = null,
 )

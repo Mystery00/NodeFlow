@@ -4,12 +4,18 @@ import androidx.lifecycle.SavedStateHandle
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.model.UserRecentActivity
+import app.mystery0.nodeflow.domain.membertag.MemberTagRepository
+import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagsUseCase
+import app.mystery0.nodeflow.domain.membertag.UpdateMemberTagsForUserUseCase
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
 import app.mystery0.nodeflow.domain.user.GetUserRecentActivityUseCase
 import app.mystery0.nodeflow.domain.user.UserRepository
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -85,11 +91,72 @@ class ProfileViewModelTest {
         assertThat(state.errorMessage).isNull()
     }
 
-    private fun viewModel(repository: UserRepository): ProfileViewModel =
+    @Test
+    fun editableTags_matchUsernameCaseInsensitively() = runTest(testDispatcher) {
+        val memberTags = FakeMemberTagRepository(
+            tags = mapOf("Alice" to listOf("大佬")),
+        )
+        val viewModel = viewModel(
+            FakeUserRepository(userResult = Result.success(User(username = "alice"))),
+            memberTags,
+        )
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.editableMemberTags).containsExactly("大佬")
+    }
+
+    @Test
+    fun saveMemberTags_closesDialogOnSuccess() = runTest(testDispatcher) {
+        val memberTags = FakeMemberTagRepository()
+        val viewModel = viewModel(
+            FakeUserRepository(userResult = Result.success(User(username = "alice"))),
+            memberTags,
+        )
+        advanceUntilIdle()
+        viewModel.onEvent(ProfileUiEvent.EditMemberTags)
+
+        viewModel.onEvent(ProfileUiEvent.SaveMemberTags(listOf("大佬")))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isTagDialogVisible).isFalse()
+        assertThat(state.isSavingTags).isFalse()
+        assertThat(state.tagEditError).isNull()
+        assertThat(memberTags.lastSetTags).isEqualTo("alice" to listOf("大佬"))
+    }
+
+    @Test
+    fun saveMemberTags_keepsDialogWithErrorOnFailure() = runTest(testDispatcher) {
+        val memberTags = FakeMemberTagRepository(
+            setResult = Result.failure(
+                NodeFlowException(kind = NodeFlowException.Kind.Auth, message = "请先登录后再编辑标签"),
+            ),
+        )
+        val viewModel = viewModel(
+            FakeUserRepository(userResult = Result.success(User(username = "alice"))),
+            memberTags,
+        )
+        advanceUntilIdle()
+        viewModel.onEvent(ProfileUiEvent.EditMemberTags)
+
+        viewModel.onEvent(ProfileUiEvent.SaveMemberTags(listOf("大佬")))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isTagDialogVisible).isTrue()
+        assertThat(state.tagEditError).isEqualTo("请先登录后再编辑标签")
+    }
+
+    private fun viewModel(
+        repository: UserRepository,
+        memberTags: FakeMemberTagRepository = FakeMemberTagRepository(),
+    ): ProfileViewModel =
         ProfileViewModel(
             savedStateHandle = SavedStateHandle(mapOf("username" to "alice")),
             getUserProfile = GetUserProfileUseCase(repository),
             getUserRecentActivity = GetUserRecentActivityUseCase(repository),
+            observeMemberTags = ObserveMemberTagsUseCase(memberTags),
+            updateMemberTags = UpdateMemberTagsForUserUseCase(memberTags),
         )
 
     private fun notFound(): NodeFlowException =
@@ -107,5 +174,30 @@ class ProfileViewModelTest {
             Result.success(UserRecentActivity())
 
         override suspend fun clearCache() = Unit
+    }
+
+    private class FakeMemberTagRepository(
+        tags: Map<String, List<String>> = emptyMap(),
+        private val setResult: Result<Unit> = Result.success(Unit),
+    ) : MemberTagRepository {
+        private val state = MutableStateFlow(tags)
+
+        var lastSetTags: Pair<String, List<String>>? = null
+            private set
+
+        override fun observeTags(): Flow<Map<String, List<String>>> = state
+
+        override fun observeSyncedAt(): Flow<Long?> = state.map { null }
+
+        override suspend fun refresh(force: Boolean): Result<Unit> = Result.success(Unit)
+
+        override suspend fun setTagsForUser(
+            username: String,
+            tags: List<String>,
+            avatarUrl: String?,
+        ): Result<Unit> {
+            lastSetTags = username to tags
+            return setResult
+        }
     }
 }
