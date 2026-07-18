@@ -532,8 +532,10 @@ class V2exHtmlParser {
             ?: document.select(".topic_content")
                 .firstOrNull { element -> element.parents().none { it.id() == "node_sidebar" } }
         val replyElements = document.select("div[id]").filter { REPLY_ROW_ID_REGEX.matches(it.id()) }
-        // 登录页、404 等非主题页面既没有正文块也没有回复行，直接返回 null 交给 JSON 兜底
-        if (contentElement == null && replyElements.isEmpty()) return null
+        val topicHeader = document.select(".header:has(h1)")
+            .firstOrNull { header -> header.selectFirst("a[href^=/member/]") != null }
+        // 标题型主题可以既没有正文也没有回复；登录页、404 等页面还必须排除带作者的主题头。
+        if (contentElement == null && replyElements.isEmpty() && topicHeader == null) return null
         val title = document.selectFirst("h1")?.text()
             ?: document.selectFirst("meta[property=og:title]")?.attr("content")
             ?: "未命名主题"

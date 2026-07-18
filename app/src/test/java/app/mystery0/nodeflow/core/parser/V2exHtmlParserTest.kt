@@ -1087,6 +1087,28 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseTopicHtml_readsTitleOnlyTopicWithoutReplies() {
+        val html = """
+            <html>
+              <body>
+                <div class="header">
+                  <a href="/go/programmer">程序员</a>
+                  <h1>只有标题的主题</h1>
+                  <small class="gray"><a href="/member/author">author</a></small>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = parser.parseTopicHtml(topicId = 1228198, html = html)
+
+        assertThat(topic).isNotNull()
+        assertThat(topic!!.title).isEqualTo("只有标题的主题")
+        assertThat(topic.contentRendered).isEmpty()
+        assertThat(topic.replies).isEmpty()
+    }
+
+    @Test
     fun parseTopicHtml_usesExpandedImageUrlAsReplyPlainText() {
         val html = """
             <html><body><div id="Wrapper">

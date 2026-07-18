@@ -110,6 +110,34 @@ class ReplyRemoteDataSourceTest {
         assertThat(server.takeRequest().method).isEqualTo("GET")
     }
 
+    @Test
+    fun createReply_postsOnceForTitleOnlyTopicWithoutExistingReplies() = runTest {
+        server.enqueue(htmlResponse(titleOnlyTopicPage(replyRows = "", includeForm = true)))
+        server.enqueue(htmlResponse(titleOnlyTopicPage(replyRows = firstReply, includeForm = false)))
+
+        val result = dataSource.createReply(42, "hello world", "tester")
+
+        assertThat(result).isEqualTo(CreateReplyResult.Success(1))
+        val requests = List(2) { server.takeRequest() }
+        assertThat(requests.map { it.method }).containsExactly("GET", "POST").inOrder()
+        assertThat(server.requestCount).isEqualTo(2)
+    }
+
+    @Test
+    fun createReply_confirmsReplyWhenServerAddsSpacesAroundLatinText() = runTest {
+        server.enqueue(htmlResponse(titleOnlyTopicPage(replyRows = "", includeForm = true)))
+        server.enqueue(htmlResponse(titleOnlyTopicPage(replyRows = spacedFirstReply, includeForm = false)))
+
+        val result = dataSource.createReply(
+            topicId = 42,
+            content = "并没有复现，一切正常，desktop和cli都是",
+            currentUsername = "tester",
+        )
+
+        assertThat(result).isEqualTo(CreateReplyResult.Success(1))
+        assertThat(server.requestCount).isEqualTo(2)
+    }
+
     private fun htmlResponse(body: String) = MockResponse()
         .setResponseCode(200)
         .addHeader("Content-Type", "text/html; charset=utf-8")
@@ -120,6 +148,18 @@ class ReplyRemoteDataSourceTest {
           <div class="topic_content">topic</div>
           $replyRows
           <input class="page_input" type="number" max="$pageCount" />
+          ${if (includeForm) replyForm() else ""}
+        </body></html>
+    """.trimIndent()
+
+    private fun titleOnlyTopicPage(replyRows: String, includeForm: Boolean) = """
+        <html><body>
+          <div class="header">
+            <a href="/go/programmer">程序员</a>
+            <h1>只有标题的主题</h1>
+            <small class="gray"><a href="/member/author">author</a></small>
+          </div>
+          $replyRows
           ${if (includeForm) replyForm() else ""}
         </body></html>
     """.trimIndent()
@@ -140,6 +180,16 @@ class ReplyRemoteDataSourceTest {
     private val newReply: String
         get() = """
         <div id="r_101"><span class="no">2</span><strong><a href="/member/tester">tester</a></strong><div class="reply_content">hello world</div></div>
+    """.trimIndent()
+
+    private val firstReply: String
+        get() = """
+        <div id="r_101"><span class="no">1</span><strong><a href="/member/tester">tester</a></strong><div class="reply_content">hello world</div></div>
+    """.trimIndent()
+
+    private val spacedFirstReply: String
+        get() = """
+        <div id="r_101"><span class="no">1</span><strong><a href="/member/tester">tester</a></strong><div class="reply_content">并没有复现，一切正常，desktop 和 cli 都是</div></div>
     """.trimIndent()
 
     private val secondPageOldReply: String

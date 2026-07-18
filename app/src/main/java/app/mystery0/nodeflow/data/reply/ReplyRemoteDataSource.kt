@@ -118,8 +118,11 @@ class ReplyRemoteDataSource(
             }
         }
 
-    private fun normalizeReplyContent(value: String): String =
-        value.replace(Regex("\\s+"), " ").trim()
+    private fun normalizeReplyContent(value: String): String {
+        val normalizedWhitespace = value.replace(Regex("\\s+"), " ").trim()
+        // V2EX 会在汉字与拉丁字母或数字之间自动补空格，确认回复时忽略这种展示差异。
+        return normalizedWhitespace.replace(CJK_LATIN_BOUNDARY_SPACE, "")
+    }
 
     private fun failure(reason: ReplyFailureReason, message: String) =
         CreateReplyResult.Failure(reason, message)
@@ -135,4 +138,10 @@ class ReplyRemoteDataSource(
         kind = NodeFlowException.Kind.Auth,
         message = "登录状态已失效，请重新登录",
     )
+
+    private companion object {
+        val CJK_LATIN_BOUNDARY_SPACE = Regex(
+            """(?<=[\p{IsHan}]) (?=[A-Za-z0-9])|(?<=[A-Za-z0-9]) (?=[\p{IsHan}])""",
+        )
+    }
 }
