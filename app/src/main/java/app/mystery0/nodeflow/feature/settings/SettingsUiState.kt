@@ -6,4 +6,6 @@ data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
     val isClearingCache: Boolean = false,
     val message: String? = null,
+    val memberTagSyncedAtEpochSeconds: Long? = null,
+    val isSyncingMemberTags: Boolean = false,
 )

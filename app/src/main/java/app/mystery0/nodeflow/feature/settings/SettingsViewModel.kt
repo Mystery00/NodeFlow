@@ -2,6 +2,8 @@ package app.mystery0.nodeflow.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagSyncedAtUseCase
+import app.mystery0.nodeflow.domain.membertag.RefreshMemberTagsUseCase
 import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
@@ -14,8 +16,10 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     observeSettings: ObserveSettingsUseCase,
+    observeMemberTagSyncedAt: ObserveMemberTagSyncedAtUseCase,
     private val updateSettings: UpdateSettingsUseCase,
     private val clearCache: ClearCacheUseCase,
+    private val refreshMemberTags: RefreshMemberTagsUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -24,6 +28,11 @@ class SettingsViewModel(
         viewModelScope.launch {
             observeSettings().collectLatest { settings ->
                 _uiState.update { it.copy(settings = settings) }
+            }
+        }
+        viewModelScope.launch {
+            observeMemberTagSyncedAt().collectLatest { syncedAt ->
+                _uiState.update { it.copy(memberTagSyncedAtEpochSeconds = syncedAt) }
             }
         }
     }
@@ -53,6 +62,19 @@ class SettingsViewModel(
                 updateSettings.setCustomImageHosts(
                     _uiState.value.settings.customImageHosts - event.host,
                 )
+            }
+            is SettingsUiEvent.MemberTagVisibilityChanged -> viewModelScope.launch {
+                updateSettings.setShowMemberTags(event.enabled)
+            }
+            SettingsUiEvent.SyncMemberTags -> viewModelScope.launch {
+                _uiState.update { it.copy(isSyncingMemberTags = true, message = null) }
+                val result = refreshMemberTags(force = true)
+                _uiState.update {
+                    it.copy(
+                        isSyncingMemberTags = false,
+                        message = if (result.isSuccess) "用户标签已同步" else "用户标签同步失败",
+                    )
+                }
             }
             SettingsUiEvent.ClearCache -> viewModelScope.launch {
                 _uiState.update { it.copy(isClearingCache = true, message = null) }

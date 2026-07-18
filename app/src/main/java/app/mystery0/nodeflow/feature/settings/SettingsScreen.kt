@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.BuildConfig
 import app.mystery0.nodeflow.core.model.ThemeMode
+import app.mystery0.nodeflow.core.ui.formatEpochSeconds
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,6 +144,30 @@ fun SettingsScreen(
                     onDismiss = { showAddImageHostDialog = false },
                 )
             }
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text("Polish 用户标签") },
+                supportingContent = {
+                    val syncedText = state.memberTagSyncedAtEpochSeconds
+                        ?.let { "上次同步：${formatEpochSeconds(it)}" }
+                        ?: "未同步"
+                    Text("展示 V2EX_Polish 插件为用户打的标签 · $syncedText")
+                },
+                trailingContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            enabled = !state.isSyncingMemberTags,
+                            onClick = { onEvent(SettingsUiEvent.SyncMemberTags) },
+                        ) { Text(if (state.isSyncingMemberTags) "同步中" else "同步") }
+                        Switch(
+                            checked = state.settings.showMemberTags,
+                            onCheckedChange = {
+                                onEvent(SettingsUiEvent.MemberTagVisibilityChanged(it))
+                            },
+                        )
+                    }
+                },
+            )
             HorizontalDivider()
             SettingsSectionTitle("数据")
             ListItem(

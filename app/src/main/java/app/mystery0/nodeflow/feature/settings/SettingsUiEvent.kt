@@ -7,6 +7,8 @@ sealed interface SettingsUiEvent {
     data class DynamicColorChanged(val enabled: Boolean) : SettingsUiEvent
     data class AddCustomImageHost(val input: String) : SettingsUiEvent
     data class RemoveCustomImageHost(val host: String) : SettingsUiEvent
+    data class MemberTagVisibilityChanged(val enabled: Boolean) : SettingsUiEvent
+    data object SyncMemberTags : SettingsUiEvent
     data object ClearCache : SettingsUiEvent
     data object MessageShown : SettingsUiEvent
 }
