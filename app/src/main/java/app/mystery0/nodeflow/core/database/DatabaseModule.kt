@@ -6,6 +6,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import app.mystery0.nodeflow.core.database.dao.NodeDao
 import app.mystery0.nodeflow.core.database.dao.TopicDao
 import app.mystery0.nodeflow.core.database.dao.UserDao
+import app.mystery0.nodeflow.core.database.dao.ReplyDraftDao
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -15,7 +16,7 @@ val databaseModule = module {
             androidContext(),
             NodeFlowDatabase::class.java,
             "nodeflow.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .fallbackToDestructiveMigration(false)
             .build()
     }
@@ -30,6 +31,10 @@ val databaseModule = module {
 
     single<UserDao> {
         get<NodeFlowDatabase>().userDao()
+    }
+
+    single<ReplyDraftDao> {
+        get<NodeFlowDatabase>().replyDraftDao()
     }
 }
 
@@ -70,5 +75,39 @@ private val MIGRATION_2_3 = object : Migration(2, 3) {
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS index_node_plane_nodes_planeName ON node_plane_nodes(planeName)")
         db.execSQL("CREATE INDEX IF NOT EXISTS index_node_plane_nodes_nodeName ON node_plane_nodes(nodeName)")
+    }
+}
+
+internal val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS reply_drafts (
+                topicId INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                selectionStart INTEGER NOT NULL,
+                selectionEnd INTEGER NOT NULL,
+                updatedAtEpochMillis INTEGER NOT NULL,
+                PRIMARY KEY(topicId)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS reply_draft_images (
+                imageId TEXT NOT NULL,
+                topicId INTEGER NOT NULL,
+                originalUrl TEXT NOT NULL,
+                detailUrl TEXT NOT NULL,
+                originalFileName TEXT NOT NULL,
+                createdAtEpochMillis INTEGER NOT NULL,
+                PRIMARY KEY(imageId),
+                FOREIGN KEY(topicId) REFERENCES reply_drafts(topicId) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS index_reply_draft_images_topicId ON reply_draft_images(topicId)",
+        )
     }
 }

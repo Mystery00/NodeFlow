@@ -16,6 +16,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -36,6 +41,9 @@ fun ReplyItem(
     modifier: Modifier = Modifier,
     highlighted: Boolean = false,
     isTopicAuthor: Boolean = false,
+    showDirectReplyAction: Boolean = false,
+    onMoreClick: () -> Unit = {},
+    onReplyClick: () -> Unit = {},
     onReferenceClick: (ReplyReference) -> Unit = {},
     onImageClick: (String) -> Unit = {},
     onUrlClick: (String) -> Boolean = { false },
@@ -96,6 +104,18 @@ fun ReplyItem(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                IconButton(
+                    onClick = if (showDirectReplyAction) onReplyClick else onMoreClick,
+                ) {
+                    if (showDirectReplyAction) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.Reply,
+                            contentDescription = "回复 @${reply.author.username} #${reply.floor}",
+                        )
+                    } else {
+                        Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作")
+                    }
                 }
             }
             reply.reference?.let { reference ->

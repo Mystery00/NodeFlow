@@ -15,11 +15,13 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.jsoup.nodes.TextNode
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -455,6 +457,74 @@ class V2exHtmlParser {
         return (imageSources + linkedImages).distinct()
     }
 
+    fun parseReplyForm(
+        topicId: Long,
+        html: String,
+        baseUrl: String = V2EX_BASE_URL,
+    ): ParsedReplyForm? {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        if (document.hasRestrictedSignInForm() || hasAccessChallenge(html)) return null
+        val expectedAction = "${baseUrl.trimEnd('/')}/t/$topicId"
+        val form = document.select("form[method]").firstOrNull { form ->
+            form.attr("method").equals("post", ignoreCase = true) &&
+                form.absUrl("action") == expectedAction &&
+                form.selectFirst("textarea[name]") != null
+        } ?: return null
+        val textarea = form.selectFirst("textarea[name]") ?: return null
+        return ParsedReplyForm(
+            actionUrl = expectedAction,
+            contentField = textarea.attr("name"),
+            maxLength = textarea.attr("maxlength")
+                .toIntOrNull()
+                ?.takeIf { it > 0 }
+                ?: DEFAULT_REPLY_MAX_LENGTH,
+            hiddenFields = form.select("input[type=hidden][name]")
+                .associate { input -> input.attr("name") to input.attr("value") },
+        )
+    }
+
+    fun parseImageUploadPage(html: String): ParsedImageUploadPage {
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        return when {
+            hasSignInEntry(html) || document.selectFirst("form[action=/signin]") != null ->
+                ParsedImageUploadPage.AuthenticationRequired
+            document.selectFirst("form[action=/i/upload] input[type=file][name=qqfile]") != null ->
+                ParsedImageUploadPage.Available
+            else -> ParsedImageUploadPage.PermissionDenied
+        }
+    }
+
+    fun parseImageUploadResponse(body: String): ParsedImageUploadResponse? {
+        val root = runCatching {
+            JsonLdParser.parseToJsonElement(body) as? JsonObject
+        }.getOrNull() ?: return null
+        val successValue = root["success"] as? JsonPrimitive ?: return null
+        val succeeded = successValue.booleanOrNull == true ||
+            successValue.contentOrNull.equals("true", ignoreCase = true)
+        if (!succeeded) return null
+        val imageId = root.stringValue("name") ?: return null
+        val uri = root.stringValue("uri") ?: return null
+        val originalUrl = root.stringValue("url_o")
+            ?.normalizeV2exUrl()
+            ?.takeIf { url ->
+                runCatching {
+                    val parsed = java.net.URI(url)
+                    parsed.scheme == "https" && parsed.host == "i.v2ex.co"
+                }.getOrDefault(false)
+            }
+            ?: return null
+        return ParsedImageUploadResponse(
+            imageId = imageId,
+            originalUrl = originalUrl,
+            detailUrl = "$V2EX_BASE_URL/i/$uri",
+        )
+    }
+
+    fun parseV2exProblem(html: String): String? = Jsoup.parse(html, V2EX_BASE_URL)
+        .select(".problem, #problem")
+        .mapNotNull { it.text().trim().takeIf(String::isNotBlank) }
+        .firstOrNull()
+
     fun parseTopicHtml(topicId: Long, html: String): ParsedTopicHtml? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         if (document.hasRestrictedSignInForm()) return null
@@ -513,7 +583,7 @@ class V2exHtmlParser {
             val id = element.id().removePrefix("r_").toLongOrNull() ?: return@mapIndexedNotNull null
             val contentElement = element.selectFirst(".reply_content")
             val contentRendered = contentElement?.html().orEmpty()
-            val contentText = contentElement?.text().orEmpty()
+            val contentText = contentElement?.replyPlainText().orEmpty()
             val floor = element.selectFirst("span.no")?.text()?.firstInt() ?: (index + 1)
             val username = element.selectFirst("strong a[href^=/member/]")?.text()?.trim()
                 ?: element.selectFirst("a[href^=/member/]")?.text()?.trim()
@@ -533,6 +603,22 @@ class V2exHtmlParser {
                 thanks = element.parseReplyThanks(),
             )
         }
+
+    private fun Element.replyPlainText(): String {
+        val clone = clone()
+        clone.select("a:has(img[src])").forEach { anchor ->
+            val image = anchor.selectFirst("img[src]") ?: return@forEach
+            val url = anchor.attr("href").normalizeV2exUrl()
+                ?: image.attr("src").normalizeV2exUrl()
+                ?: return@forEach
+            anchor.replaceWith(TextNode(url))
+        }
+        clone.select("img[src]").forEach { image ->
+            val url = image.attr("src").normalizeV2exUrl() ?: return@forEach
+            image.replaceWith(TextNode(url))
+        }
+        return clone.text()
+    }
 
     private fun Element.parseReplyThanks(): Int =
         select("span.small.fade")
@@ -888,8 +974,28 @@ class V2exHtmlParser {
         val title: String,
     )
 
+    data class ParsedReplyForm(
+        val actionUrl: String,
+        val contentField: String,
+        val maxLength: Int,
+        val hiddenFields: Map<String, String>,
+    )
+
+    enum class ParsedImageUploadPage {
+        Available,
+        AuthenticationRequired,
+        PermissionDenied,
+    }
+
+    data class ParsedImageUploadResponse(
+        val imageId: String,
+        val originalUrl: String,
+        val detailUrl: String,
+    )
+
     private companion object {
         const val V2EX_BASE_URL = "https://www.v2ex.com"
+        const val DEFAULT_REPLY_MAX_LENGTH = 10_000
         const val VIEW_ACTION = "https://schema.org/ViewAction"
         const val LIKE_ACTION = "https://schema.org/LikeAction"
         val JsonLdParser = Json { ignoreUnknownKeys = true }

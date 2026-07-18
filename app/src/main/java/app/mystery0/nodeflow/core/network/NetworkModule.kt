@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
+import org.koin.core.qualifier.named
 import retrofit2.Retrofit
 
 val networkModule = module {
@@ -64,5 +65,19 @@ val networkModule = module {
 
     single {
         get<Retrofit>().create(V2exRawApi::class.java)
+    }
+
+    single(named("v2exWriteClient")) {
+        get<OkHttpClient>().newBuilder()
+            .retryOnConnectionFailure(false)
+            .build()
+    }
+
+    single {
+        Retrofit.Builder()
+            .baseUrl("https://www.v2ex.com/")
+            .client(get(named("v2exWriteClient")))
+            .build()
+            .create(V2exWriteApi::class.java)
     }
 }

@@ -3,7 +3,7 @@ package app.mystery0.nodeflow.feature
 import app.mystery0.nodeflow.AppViewModel
 import app.mystery0.nodeflow.feature.account.AccountViewModel
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
-import app.mystery0.nodeflow.feature.editor.EditorViewModel
+import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorViewModel
 import app.mystery0.nodeflow.feature.home.HomeViewModel
 import app.mystery0.nodeflow.feature.node.NodeListViewModel
 import app.mystery0.nodeflow.feature.node.NodeViewModel
@@ -56,6 +56,6 @@ val featureModule = module {
     }
 
     viewModel {
-        EditorViewModel()
+        ReplyEditorViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get())
     }
 }

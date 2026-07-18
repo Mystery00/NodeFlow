@@ -14,7 +14,6 @@ object NodeFlowDestinations {
     const val ProfileRoute = "profile/{username}"
     const val Auth = "auth"
     const val Notification = "notification"
-    const val Editor = "editor"
 
     fun node(nodeName: String = "python"): String = "node/${Uri.encode(nodeName)}"
     fun topic(topicId: Long, replyFloor: Int? = null): String = buildString {

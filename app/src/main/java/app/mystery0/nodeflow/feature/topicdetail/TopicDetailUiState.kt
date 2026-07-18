@@ -7,4 +7,5 @@ data class TopicDetailUiState(
     val isRefreshing: Boolean = false,
     val detail: TopicDetail? = null,
     val errorMessage: String? = null,
+    val replyFloorTarget: Int? = null,
 )

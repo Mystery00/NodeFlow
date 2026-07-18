@@ -9,6 +9,12 @@ import app.mystery0.nodeflow.data.topic.TopicLocalDataSource
 import app.mystery0.nodeflow.data.topic.TopicRemoteDataSource
 import app.mystery0.nodeflow.data.user.UserLocalDataSource
 import app.mystery0.nodeflow.data.user.UserRemoteDataSource
+import app.mystery0.nodeflow.data.reply.AndroidImageContentReader
+import app.mystery0.nodeflow.data.reply.ImageContentReader
+import app.mystery0.nodeflow.data.reply.ReplyDraftLocalDataSource
+import app.mystery0.nodeflow.data.reply.ReplyRemoteDataSource
+import app.mystery0.nodeflow.data.reply.V2exImageRemoteDataSource
+import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val dataSourceModule = module {
@@ -47,4 +53,9 @@ val dataSourceModule = module {
     single {
         NotificationRemoteDataSource(get(), get())
     }
+
+    single { ReplyRemoteDataSource(get(), get()) }
+    single { V2exImageRemoteDataSource(get(), get()) }
+    single { ReplyDraftLocalDataSource(get()) }
+    single<ImageContentReader> { AndroidImageContentReader(androidContext().contentResolver) }
 }

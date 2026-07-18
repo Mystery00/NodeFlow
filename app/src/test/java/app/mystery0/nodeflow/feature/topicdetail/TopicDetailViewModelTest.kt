@@ -12,6 +12,7 @@ import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
 import app.mystery0.nodeflow.domain.topic.TopicRepository
 import com.google.common.truth.Truth.assertThat
 import java.util.ArrayDeque
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -113,6 +115,50 @@ class TopicDetailViewModelTest {
         assertThat(state.errorMessage).isEqualTo("网络连接失败，请稍后重试")
     }
 
+    @Test
+    fun replyCreated_forcesRefreshAndPublishesFloorTarget() = runTest(testDispatcher) {
+        val detail = topicDetail()
+        val repository = FakeTopicRepository(
+            responses = ArrayDeque(listOf(Result.success(detail), Result.success(detail))),
+        )
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(8))
+        advanceUntilIdle()
+
+        assertThat(repository.requests.last()).isEqualTo(1221181L to true)
+        assertThat(viewModel.uiState.value.replyFloorTarget).isEqualTo(8)
+        viewModel.onEvent(TopicDetailUiEvent.ReplyFloorTargetConsumed)
+        assertThat(viewModel.uiState.value.replyFloorTarget).isNull()
+    }
+
+    @Test
+    fun olderRefreshResult_doesNotOverwriteNewerReplyRefresh() = runTest(testDispatcher) {
+        fun detail(title: String): TopicDetail {
+            val source = topicDetail()
+            return source.copy(topic = source.topic.copy(title = title))
+        }
+        val initial = CompletableDeferred(Result.success(detail("初始")))
+        val older = CompletableDeferred<Result<TopicDetail>>()
+        val newer = CompletableDeferred<Result<TopicDetail>>()
+        val repository = DeferredTopicRepository(ArrayDeque(listOf(initial, older, newer)))
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.Refresh)
+        runCurrent()
+        viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(8))
+        runCurrent()
+        newer.complete(Result.success(detail("新回复")))
+        runCurrent()
+        older.complete(Result.success(detail("旧刷新")))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.detail!!.topic.title).isEqualTo("新回复")
+        assertThat(viewModel.uiState.value.replyFloorTarget).isEqualTo(8)
+    }
+
     private fun viewModel(repository: TopicRepository): TopicDetailViewModel =
         TopicDetailViewModel(
             savedStateHandle = SavedStateHandle(
@@ -161,6 +207,20 @@ class TopicDetailViewModelTest {
             requests += topicId to forceRefresh
             return responses.removeFirst()
         }
+
+        override suspend fun clearCache() = Unit
+    }
+
+    private class DeferredTopicRepository(
+        private val responses: ArrayDeque<CompletableDeferred<Result<TopicDetail>>>,
+    ) : TopicRepository {
+        override suspend fun latestTopics(forceRefresh: Boolean): Result<List<Topic>> =
+            Result.success(emptyList())
+
+        override fun latestTopicsPaging(): Flow<PagingData<Topic>> = flowOf(PagingData.empty())
+
+        override suspend fun topicDetail(topicId: Long, forceRefresh: Boolean): Result<TopicDetail> =
+            responses.removeFirst().await()
 
         override suspend fun clearCache() = Unit
     }

@@ -2,9 +2,22 @@ package app.mystery0.nodeflow.feature.topicdetail
 
 import android.content.ClipData
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,9 +27,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -24,12 +42,17 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -37,15 +60,21 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment.Companion.BottomEnd
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -66,6 +95,7 @@ import app.mystery0.nodeflow.core.designsystem.component.ZoomableImageViewer
 import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.link.V2exLinkParser
 import app.mystery0.nodeflow.core.model.TopicDetail
+import app.mystery0.nodeflow.core.model.Reply
 import app.mystery0.nodeflow.core.ui.MemberTagChips
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.ReplyItem
@@ -75,6 +105,12 @@ import app.mystery0.nodeflow.core.ui.isReplyFromTopicAuthor
 import app.mystery0.nodeflow.core.ui.topicNodeChip
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorBottomSheet
+import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorUiEvent
+import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorUiState
+import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 
 private const val SecondsPerMinute = 60L
 private const val SecondsPerHour = 60L * SecondsPerMinute
@@ -121,7 +157,7 @@ internal fun formatTopicMetadataTime(
     return formatEpochSeconds(epochSeconds, nowEpochSeconds)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TopicDetailScreen(
     state: TopicDetailUiState,
@@ -131,13 +167,56 @@ fun TopicDetailScreen(
     onUserClick: (String) -> Unit,
     onTopicClick: (Long) -> Unit = {},
     initialReplyFloor: Int? = null,
+    replyEditorState: ReplyEditorUiState = ReplyEditorUiState(),
+    onReplyEditorEvent: (ReplyEditorUiEvent) -> Unit = {},
+    onLoginClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val detail = state.detail
     var previewImageUrl by remember { mutableStateOf<String?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+    val listState = rememberLazyListState()
+    var replyFabVisible by remember { mutableStateOf(true) }
+    var previousPosition by remember { mutableStateOf(ScrollPosition(0, 0)) }
+    var selectedReply by remember { mutableStateOf<Reply?>(null) }
+    val imagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri: Uri? ->
+        uri?.let { onReplyEditorEvent(ReplyEditorUiEvent.ImageSelected(it.toString())) }
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val imeVisible = WindowInsets.isImeVisible
+    DisposableEffect(lifecycleOwner, onReplyEditorEvent) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                onReplyEditorEvent(ReplyEditorUiEvent.FlushDraft)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(listState, replyEditorState.isOpen) {
+        if (replyEditorState.isOpen) return@LaunchedEffect
+        snapshotFlow { ScrollPosition(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) }
+            .distinctUntilChanged()
+            .collect { current ->
+                replyFabVisible = replyFabVisibleAfterScroll(previousPosition, current, replyFabVisible)
+                previousPosition = current
+            }
+    }
+    BackHandler(enabled = replyEditorState.isOpen) {
+        if (imeVisible) {
+            keyboardController?.hide()
+            focusManager.clearFocus()
+        } else {
+            onReplyEditorEvent(ReplyEditorUiEvent.Close)
+        }
+    }
+    Box(modifier = modifier.fillMaxSize()) {
     Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("主题详情") },
@@ -178,8 +257,58 @@ fun TopicDetailScreen(
                 onTopicClick = onTopicClick,
                 onImageClick = { previewImageUrl = it },
                 initialReplyFloor = initialReplyFloor,
+                replyFloorTarget = state.replyFloorTarget,
+                onReplyFloorTargetConsumed = {
+                    onEvent(TopicDetailUiEvent.ReplyFloorTargetConsumed)
+                },
                 contentPadding = paddingValues,
+                listState = listState,
+                replyEditorOpen = replyEditorState.isOpen,
+                onReplyMoreClick = { selectedReply = it },
+                onDirectReplyClick = {
+                    onReplyEditorEvent(
+                        ReplyEditorUiEvent.OpenFloorReply(it.author.username, it.floor),
+                    )
+                },
             )
+        }
+    }
+        AnimatedVisibility(
+            visible = detail != null && replyFabVisible && !replyEditorState.isOpen,
+            modifier = Modifier.align(BottomEnd).navigationBarsPadding().padding(20.dp),
+            enter = slideInVertically { it / 2 } + fadeIn() + scaleIn(),
+            exit = slideOutVertically { it / 2 } + fadeOut() + scaleOut(),
+        ) {
+            FloatingActionButton(onClick = { onReplyEditorEvent(ReplyEditorUiEvent.OpenTopicReply) }) {
+                Icon(Icons.AutoMirrored.Outlined.Reply, contentDescription = "回复主题")
+            }
+        }
+        ReplyEditorBottomSheet(
+            state = replyEditorState,
+            onEvent = onReplyEditorEvent,
+            onPickImage = {
+                imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onLoginClick = onLoginClick,
+        )
+    }
+    selectedReply?.let { reply ->
+        ModalBottomSheet(onDismissRequest = { selectedReply = null }) {
+            Button(
+                onClick = {
+                    selectedReply = null
+                    onReplyEditorEvent(
+                        ReplyEditorUiEvent.OpenFloorReply(reply.author.username, reply.floor),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            ) { Text("回复") }
+            TextButton(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            ) { Text("感谢 · 暂未开放") }
+            Spacer(Modifier.size(16.dp))
         }
     }
     previewImageUrl?.let { imageUrl ->
@@ -225,19 +354,37 @@ private fun TopicDetailContent(
     onTopicClick: (Long) -> Unit,
     onImageClick: (String) -> Unit,
     initialReplyFloor: Int?,
+    replyFloorTarget: Int?,
+    onReplyFloorTargetConsumed: () -> Unit,
     contentPadding: PaddingValues,
+    listState: LazyListState,
+    replyEditorOpen: Boolean,
+    onReplyMoreClick: (Reply) -> Unit,
+    onDirectReplyClick: (Reply) -> Unit,
 ) {
-    val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     var highlightedReplyId by remember(detail.topic.id) { mutableStateOf<Long?>(null) }
-    LaunchedEffect(detail.topic.id, initialReplyFloor) {
-        val targetIndex = detail.replies.indexOfFirst { it.floor == initialReplyFloor }
+    val replyRefreshKey = if (replyFloorTarget != null) detail.replies.lastOrNull()?.id else null
+    LaunchedEffect(
+        detail.topic.id,
+        initialReplyFloor,
+        replyFloorTarget,
+        replyRefreshKey,
+        isRefreshing,
+    ) {
+        if (replyFloorTarget != null && isRefreshing) return@LaunchedEffect
+        val targetFloor = replyFloorTarget ?: initialReplyFloor
+        val targetIndex = detail.replies.indexOfFirst { it.floor == targetFloor }
         if (targetIndex >= 0) {
             val replyId = detail.replies[targetIndex].id
             listState.scrollToItem(index = targetIndex + 1)
             highlightedReplyId = replyId
             delay(1400)
             if (highlightedReplyId == replyId) highlightedReplyId = null
+            if (replyFloorTarget != null) onReplyFloorTargetConsumed()
+        } else if (replyFloorTarget != null) {
+            if (detail.replies.isNotEmpty()) listState.scrollToItem(detail.replies.size)
+            onReplyFloorTargetConsumed()
         }
     }
     // 正文与回复里的 v2ex 链接优先在 app 内打开，无法识别的返回 false 走浏览器
@@ -330,6 +477,9 @@ private fun TopicDetailContent(
                         topicAuthorUsername = detail.topic.author.username,
                     ),
                     onImageClick = onImageClick,
+                    showDirectReplyAction = replyEditorOpen,
+                    onMoreClick = { onReplyMoreClick(reply) },
+                    onReplyClick = { onDirectReplyClick(reply) },
                     onUrlClick = openV2exUrl,
                     onReferenceClick = { reference ->
                         val targetIndex = detail.replies.indexOfFirst { it.id == reference.replyId }

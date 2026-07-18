@@ -1087,6 +1087,34 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseTopicHtml_usesExpandedImageUrlAsReplyPlainText() {
+        val html = """
+            <html><body><div id="Wrapper">
+              <div class="header">
+                <div><a href="/">V2EX</a><a href="/go/android">Android</a></div>
+                <h1>图片回复</h1>
+                <small><a href="/member/author">author</a></small>
+              </div>
+              <div class="cell"><div class="topic_content">正文</div></div>
+              <div id="r_100" class="cell"><table><tr><td>
+                <div class="fr"><span class="no">1</span></div>
+                <strong><a href="/member/tester">tester</a></strong>
+                <div class="reply_content">
+                  回复内容<br>
+                  <a href="https://i.v2ex.co/example.png"><img src="https://i.v2ex.co/example_thumbnail.png"></a>
+                </div>
+              </td></tr></table></div>
+            </div></body></html>
+        """.trimIndent()
+
+        val topic = parser.parseTopicHtml(topicId = 42, html = html)
+
+        assertThat(topic).isNotNull()
+        assertThat(topic!!.replies.single().content).contains("https://i.v2ex.co/example.png")
+        assertThat(topic.replies.single().content).doesNotContain("example_thumbnail.png")
+    }
+
+    @Test
     fun parseUserProfile_readsMemberNumberAndDailyActivityRank() {
         val html = """
             <html>
@@ -1158,5 +1186,90 @@ class V2exHtmlParserTest {
     @Test
     fun parseNoteEditContent_returnsNullWithoutTextarea() {
         assertThat(parser.parseNoteEditContent("<html><body>无</body></html>")).isNull()
+    }
+
+    @Test
+    fun parseReplyForm_readsDynamicFields() {
+        val parsed = parser.parseReplyForm(
+            topicId = 42,
+            html = """
+                <html><body>
+                  <form method="post" action="/t/42">
+                    <textarea id="reply_content" name="content" maxlength="10000"></textarea>
+                    <input type="hidden" name="once" value="redacted" />
+                    <input type="hidden" name="return_to_page" value="3" />
+                  </form>
+                </body></html>
+            """.trimIndent(),
+        )
+
+        assertThat(parsed?.actionUrl).isEqualTo("https://www.v2ex.com/t/42")
+        assertThat(parsed?.contentField).isEqualTo("content")
+        assertThat(parsed?.maxLength).isEqualTo(10_000)
+        assertThat(parsed?.hiddenFields).containsExactly(
+            "once",
+            "redacted",
+            "return_to_page",
+            "3",
+        )
+    }
+
+    @Test
+    fun parseReplyForm_rejectsOtherTopicAndSignInPage() {
+        val otherTopic = """
+            <form method="post" action="/t/43">
+              <textarea name="content"></textarea>
+            </form>
+        """.trimIndent()
+        val signIn = """
+            <form method="post" action="/signin">
+              <input type="password" name="password" />
+              <textarea name="content"></textarea>
+            </form>
+        """.trimIndent()
+
+        assertThat(parser.parseReplyForm(42, otherTopic)).isNull()
+        assertThat(parser.parseReplyForm(42, signIn)).isNull()
+    }
+
+    @Test
+    fun parseImageUploadResponse_acceptsStringSuccessAndNormalizesUrl() {
+        val parsed = parser.parseImageUploadResponse(
+            """{"success":"true","name":"sample","uri":"sample.png","url_o":"//i.v2ex.co/sample.png","url_b":"//i.v2ex.co/sampleb.png"}""",
+        )
+
+        assertThat(parsed?.imageId).isEqualTo("sample")
+        assertThat(parsed?.originalUrl).isEqualTo("https://i.v2ex.co/sample.png")
+        assertThat(parsed?.detailUrl).isEqualTo("https://www.v2ex.com/i/sample.png")
+    }
+
+    @Test
+    fun parseImageUploadResponse_rejectsFailureAndUnexpectedHost() {
+        assertThat(parser.parseImageUploadResponse("""{"success":"false","message":"quota"}"""))
+            .isNull()
+        assertThat(
+            parser.parseImageUploadResponse(
+                """{"success":true,"name":"sample","uri":"sample.png","url_o":"//example.com/sample.png"}""",
+            ),
+        ).isNull()
+    }
+
+    @Test
+    fun parseImageUploadPage_classifiesAvailableLoginAndDeniedPages() {
+        assertThat(
+            parser.parseImageUploadPage(
+                """<form action="/i/upload" method="post"><input type="file" name="qqfile" /></form>""",
+            ),
+        ).isEqualTo(V2exHtmlParser.ParsedImageUploadPage.Available)
+        assertThat(parser.parseImageUploadPage("""<a href="/signin">登录</a>"""))
+            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.AuthenticationRequired)
+        assertThat(parser.parseImageUploadPage("""<a href="/i/about">图库介绍</a>"""))
+            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.PermissionDenied)
+    }
+
+    @Test
+    fun parseV2exProblem_readsStructuredMessage() {
+        assertThat(parser.parseV2exProblem("""<div class="problem">请不要频繁回复</div>"""))
+            .isEqualTo("请不要频繁回复")
     }
 }

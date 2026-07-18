@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -25,8 +26,8 @@ import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.feature.auth.AuthScreen
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
-import app.mystery0.nodeflow.feature.editor.EditorScreen
-import app.mystery0.nodeflow.feature.editor.EditorViewModel
+import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorEffect
+import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorViewModel
 import app.mystery0.nodeflow.feature.node.NodeScreen
 import app.mystery0.nodeflow.feature.node.NodeViewModel
 import app.mystery0.nodeflow.feature.notification.NotificationScreen
@@ -37,6 +38,7 @@ import app.mystery0.nodeflow.feature.settings.SettingsScreen
 import app.mystery0.nodeflow.feature.settings.SettingsViewModel
 import app.mystery0.nodeflow.feature.topicdetail.TopicDetailScreen
 import app.mystery0.nodeflow.feature.topicdetail.TopicDetailViewModel
+import app.mystery0.nodeflow.feature.topicdetail.TopicDetailUiEvent
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -123,6 +125,21 @@ fun NodeFlowNavHost(
         ) { backStackEntry ->
             val viewModel: TopicDetailViewModel = koinViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val replyEditorViewModel: ReplyEditorViewModel = koinViewModel()
+            val replyEditorState by replyEditorViewModel.uiState.collectAsStateWithLifecycle()
+            val uriHandler = LocalUriHandler.current
+            LaunchedEffect(replyEditorViewModel, viewModel) {
+                replyEditorViewModel.effects.collect { effect ->
+                    when (effect) {
+                        ReplyEditorEffect.RequestLogin ->
+                            navController.navigate(NodeFlowDestinations.Auth)
+                        ReplyEditorEffect.OpenGallery ->
+                            uriHandler.openUri("https://www.v2ex.com/i")
+                        is ReplyEditorEffect.ReplyCreated ->
+                            viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(effect.floor))
+                    }
+                }
+            }
             TopicDetailScreen(
                 state = state,
                 onEvent = viewModel::onEvent,
@@ -139,6 +156,9 @@ fun NodeFlowNavHost(
                 initialReplyFloor = backStackEntry.arguments
                     ?.getInt("replyFloor")
                     ?.takeIf { it > 0 },
+                replyEditorState = replyEditorState,
+                onReplyEditorEvent = replyEditorViewModel::onEvent,
+                onLoginClick = { navController.navigate(NodeFlowDestinations.Auth) },
             )
         }
         composable(
@@ -183,11 +203,6 @@ fun NodeFlowNavHost(
                     navController.navigate(NodeFlowDestinations.topic(topicId, replyFloor))
                 },
             )
-        }
-        composable(NodeFlowDestinations.Editor) {
-            val viewModel: EditorViewModel = koinViewModel()
-            val state by viewModel.uiState.collectAsStateWithLifecycle()
-            EditorScreen(state = state, onEvent = viewModel::onEvent)
         }
     }
 }

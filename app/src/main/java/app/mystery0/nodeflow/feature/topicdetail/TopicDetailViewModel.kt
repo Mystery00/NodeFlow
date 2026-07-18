@@ -19,6 +19,7 @@ class TopicDetailViewModel(
     private val topicId: Long = checkNotNull(savedStateHandle["topicId"])
     private val _uiState = MutableStateFlow(TopicDetailUiState())
     val uiState: StateFlow<TopicDetailUiState> = _uiState.asStateFlow()
+    private var loadGeneration: Long = 0
 
     init {
         load(forceRefresh = false)
@@ -28,19 +29,27 @@ class TopicDetailViewModel(
         when (event) {
             TopicDetailUiEvent.Refresh -> load(forceRefresh = true)
             TopicDetailUiEvent.Retry -> load(forceRefresh = true)
+            is TopicDetailUiEvent.ReplyCreated -> {
+                _uiState.update { it.copy(replyFloorTarget = event.floor) }
+                load(forceRefresh = true)
+            }
+            TopicDetailUiEvent.ReplyFloorTargetConsumed ->
+                _uiState.update { it.copy(replyFloorTarget = null) }
         }
     }
 
     private fun load(forceRefresh: Boolean) {
+        val generation = ++loadGeneration
+        _uiState.update {
+            it.copy(
+                isLoading = it.detail == null,
+                isRefreshing = forceRefresh && it.detail != null,
+                errorMessage = null,
+            )
+        }
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoading = it.detail == null,
-                    isRefreshing = forceRefresh && it.detail != null,
-                    errorMessage = null,
-                )
-            }
             val result = getTopicDetail(topicId, forceRefresh)
+            if (generation != loadGeneration) return@launch
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { detail ->

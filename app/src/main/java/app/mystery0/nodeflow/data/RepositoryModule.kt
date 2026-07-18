@@ -20,6 +20,13 @@ import app.mystery0.nodeflow.domain.notification.NotificationRepository
 import app.mystery0.nodeflow.domain.settings.SettingsRepository
 import app.mystery0.nodeflow.domain.topic.TopicRepository
 import app.mystery0.nodeflow.domain.user.UserRepository
+import app.mystery0.nodeflow.data.reply.ImageUploadRepositoryImpl
+import app.mystery0.nodeflow.data.reply.ReplyDraftRepositoryImpl
+import app.mystery0.nodeflow.data.reply.ReplyRepositoryImpl
+import app.mystery0.nodeflow.data.reply.V2exImageRemoteDataSource
+import app.mystery0.nodeflow.domain.reply.ImageUploadRepository
+import app.mystery0.nodeflow.domain.reply.ReplyDraftRepository
+import app.mystery0.nodeflow.domain.reply.ReplyRepository
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -67,5 +74,12 @@ val repositoryModule = module {
             },
             ioDispatcher = get(named(IO_DISPATCHER)),
         )
+    }
+
+    single<ReplyRepository> { ReplyRepositoryImpl(get(), get(named(IO_DISPATCHER))) }
+    single<ReplyDraftRepository> { ReplyDraftRepositoryImpl(get(), get(named(IO_DISPATCHER))) }
+    single<ImageUploadRepository> {
+        val remote = get<V2exImageRemoteDataSource>()
+        ImageUploadRepositoryImpl(get(), remote::upload, get(named(IO_DISPATCHER)))
     }
 }

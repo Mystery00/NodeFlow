@@ -20,6 +20,13 @@ import app.mystery0.nodeflow.domain.topic.GetLatestTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
 import app.mystery0.nodeflow.domain.user.GetUserRecentActivityUseCase
+import app.mystery0.nodeflow.domain.reply.AddReplyDraftImageUseCase
+import app.mystery0.nodeflow.domain.reply.ClearReplyDraftUseCase
+import app.mystery0.nodeflow.domain.reply.CreateReplyUseCase
+import app.mystery0.nodeflow.domain.reply.GetReplyConstraintsUseCase
+import app.mystery0.nodeflow.domain.reply.LoadReplyDraftUseCase
+import app.mystery0.nodeflow.domain.reply.SaveReplyDraftUseCase
+import app.mystery0.nodeflow.domain.reply.UploadImageUseCase
 import org.koin.dsl.module
 
 val domainModule = module {
@@ -102,4 +109,12 @@ val domainModule = module {
     factory {
         UpdateMemberTagsForUserUseCase(get())
     }
+
+    factory { GetReplyConstraintsUseCase(get()) }
+    factory { CreateReplyUseCase(get()) }
+    factory { UploadImageUseCase(get()) }
+    factory { LoadReplyDraftUseCase(get()) }
+    factory { SaveReplyDraftUseCase(get()) }
+    factory { AddReplyDraftImageUseCase(get()) }
+    factory { ClearReplyDraftUseCase(get()) }
 }
