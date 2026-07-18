@@ -26,7 +26,8 @@ DataStore 保存用户设置和会话相关状态。新增字段应明确默认�
   `polish_member_tags_synced_at`（秒级时间戳），由 `MemberTagStore` 管理；
   展示开关存于 `polish_member_tags_enabled`，经 `AppSettings.showMemberTags` 暴露。
   标签仅在应用启动（1 小时 TTL 内跳过）与设置页手动同步时拉取，浏览帖子只读本地缓存；
-  退出登录时缓存随会话一并清除。
+  退出登录时缓存随会话一并清除。用户主页编辑标签走读-改-写记事本的写路径，
+  成功后以服务端回读结果更新本地缓存与同步时间。
 
 ## 排障入口
 

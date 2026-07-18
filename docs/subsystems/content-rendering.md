@@ -22,6 +22,8 @@
 - Polish 用户标签（`PolishMemberTagParser` + `LocalMemberTags`）：从登录用户记事本中
   前缀为 `V2EX_Polish_settings` 的记事解析 `member-tag` 数据，缓存后在回复列表、
   帖子作者行与用户主页以 `MemberTagChip` 展示；匹配仅查本地缓存，不在浏览路径发起网络请求。
+  用户主页提供「编辑标签」入口，保存时实时读-改-写记事本（`PolishMemberTagParser.patch`
+  仅替换 member-tag 下目标用户条目，其他插件设置原样保留），与 V2EX_Polish 插件双向兼容。
 - 不在可执行 WebView 环境中注入未经校验的任意 HTML 或脚本。
 
 ## 图片
