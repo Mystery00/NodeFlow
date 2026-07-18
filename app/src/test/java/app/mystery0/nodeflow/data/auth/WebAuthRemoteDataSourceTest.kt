@@ -283,10 +283,10 @@ class WebAuthRemoteDataSourceTest {
 
         override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun noteEditSubmit(id: Long, content: String): Response<ResponseBody> =
+        override suspend fun noteEditSubmit(id: Long, content: String, syntax: String): Response<ResponseBody> =
             htmlResponse("")
 
-        override suspend fun noteNewSubmit(content: String): Response<ResponseBody> =
+        override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> =
             htmlResponse("")
 
         override suspend fun signInTwoFactor(

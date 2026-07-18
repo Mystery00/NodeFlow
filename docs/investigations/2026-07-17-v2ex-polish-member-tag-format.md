@@ -75,3 +75,20 @@ note 原文 = 字面前缀 `V2EX_Polish_settings` + 紧跟一个 JSON 对象（�
     紧凑格式且保留键顺序），确认写路径无损。
 - 写回实现约束：保存时实时拉取最新内容做补丁，前缀/JSON 校验失败一律中止不提交；
   提交后回读编辑页校验目标标签生效。
+
+## 同步协议（2026-07-18 补充，依据插件源码 coolpace/V2EX_Polish）
+
+- 插件 `setV2P_Settings`（src/utils.ts）：每次备份写入
+  `settings-sync = { version: 远端 version + 1, lastSyncTime: Date.now() }`（毫秒），
+  初始化时 version=1；表单额外携带 `syntax=0`。
+- 插件 popup 的同步判断：`本地 version >= 远端 version` 时只提供「开始备份」
+  （本地覆盖远端）；仅当 `远端 version > 本地` 时提示「远程备份的版本较新」并提供
+  「同步至本地」。**因此第三方写回必须递增 version，否则修改不会被插件拉取，
+  且会在插件下一次备份时被本地旧数据覆盖。**
+- 插件 `isValidSettings` 仅校验设置对象中存在 `options` 键；第三方新建记事时
+  必须包含 `options`（可为空对象），否则被视为无效远端数据。
+- 本客户端写回时：version +1（缺失按 0 起步）、lastSyncTime 刷新，
+  settings-sync 内其他字段（如 lastCheckTime）原样保留。因此写回后内容必然与
+  写回前不同，早先「删除后逐字节一致」的验证结论仅适用于不动 settings-sync 的旧实现。
+- 实测（真实账号）：47 → 添加标签 → 48 → 删除标签 → 49，逐次 +1，
+  options 与 settings-sync 未知字段均保留。

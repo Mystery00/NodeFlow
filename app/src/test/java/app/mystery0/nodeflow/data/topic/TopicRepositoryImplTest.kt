@@ -512,10 +512,10 @@ class TopicRepositoryImplTest {
 
         override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = failure()
 
-        override suspend fun noteEditSubmit(id: Long, content: String): Response<ResponseBody> =
+        override suspend fun noteEditSubmit(id: Long, content: String, syntax: String): Response<ResponseBody> =
             failure()
 
-        override suspend fun noteNewSubmit(content: String): Response<ResponseBody> = failure()
+        override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> = failure()
     }
 
     private class AccessDeniedV2exRawApi : FailingV2exRawApi() {

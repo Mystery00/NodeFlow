@@ -33,7 +33,8 @@ class MemberTagRemoteDataSourceTest {
         )
         assertThat(api.editSubmitCount).isEqualTo(1)
         assertThat(api.newSubmitCount).isEqualTo(0)
-        assertThat(api.noteContent).contains("\"version\":46")
+        // 写回时同步版本号 +1，插件端才会拉取本次修改
+        assertThat(api.noteContent).contains("\"version\":47")
         assertThat(api.noteContent).contains("https://cdn.v2ex.com/b.png")
     }
 
@@ -144,13 +145,13 @@ class MemberTagRemoteDataSourceTest {
             "https://www.v2ex.com/notes/edit/$id",
         )
 
-        override suspend fun noteEditSubmit(id: Long, content: String): Response<ResponseBody> {
+        override suspend fun noteEditSubmit(id: Long, content: String, syntax: String): Response<ResponseBody> {
             editSubmitCount++
             if (!ignoreSubmits) noteContent = content
             return htmlResponse("<html><body></body></html>", "https://www.v2ex.com/notes/$id")
         }
 
-        override suspend fun noteNewSubmit(content: String): Response<ResponseBody> {
+        override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> {
             newSubmitCount++
             if (!ignoreSubmits) noteContent = content
             return htmlResponse("<html><body></body></html>", "https://www.v2ex.com/notes/$noteId")

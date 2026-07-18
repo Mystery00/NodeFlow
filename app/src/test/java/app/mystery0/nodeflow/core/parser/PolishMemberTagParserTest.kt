@@ -39,11 +39,13 @@ class PolishMemberTagParserTest {
     @Test
     fun patch_replacesTagsPreservingOtherKeysOrderAndEntryFields() {
         val content = "V2EX_Polish_settings" +
-            """{"settings-sync":{"version":46},""" +
+            """{"settings-sync":{"version":46,"lastSyncTime":1000},""" +
             """"member-tag":{"Alice":{"tags":["旧标签"],"avatar":"https://cdn.v2ex.com/a.png","note":"备注"}},""" +
             """"options":{"foo":1}}"""
 
-        val patched = PolishMemberTagParser.patch(content, "Alice", listOf("新标签", "前端"))
+        val patched = PolishMemberTagParser.patch(
+            content, "Alice", listOf("新标签", "前端"), nowEpochMillis = 5000L,
+        )
 
         assertThat(patched).isNotNull()
         assertThat(PolishMemberTagParser.parse(patched!!))
@@ -51,11 +53,38 @@ class PolishMemberTagParserTest {
         // 其他设置键与键顺序保留
         assertThat(patched.indexOf("settings-sync")).isLessThan(patched.indexOf("member-tag"))
         assertThat(patched.indexOf("member-tag")).isLessThan(patched.indexOf("options"))
-        assertThat(patched).contains("\"version\":46")
         assertThat(patched).contains("\"foo\":1")
         // 条目内未知字段与 avatar 保留
         assertThat(patched).contains("\"note\":\"备注\"")
         assertThat(patched).contains("https://cdn.v2ex.com/a.png")
+        // 同步协议：版本 +1，同步时间刷新
+        assertThat(patched).contains("\"version\":47")
+        assertThat(patched).contains("\"lastSyncTime\":5000")
+    }
+
+    @Test
+    fun patch_bumpsSyncVersionPreservingUnknownSyncFields() {
+        val content = "V2EX_Polish_settings" +
+            """{"settings-sync":{"version":3,"lastSyncTime":1000,"extra":"x"},"member-tag":{}}"""
+
+        val patched = PolishMemberTagParser.patch(
+            content, "Alice", listOf("大佬"), nowEpochMillis = 9000L,
+        )
+
+        assertThat(patched).contains("\"version\":4")
+        assertThat(patched).contains("\"lastSyncTime\":9000")
+        assertThat(patched).contains("\"extra\":\"x\"")
+    }
+
+    @Test
+    fun patch_createsSyncInfoWhenMissing() {
+        val content = "V2EX_Polish_settings{\"member-tag\":{}}"
+
+        val patched = PolishMemberTagParser.patch(
+            content, "Alice", listOf("大佬"), nowEpochMillis = 9000L,
+        )
+
+        assertThat(patched).contains("\"settings-sync\":{\"version\":1,\"lastSyncTime\":9000}")
     }
 
     @Test
@@ -146,7 +175,7 @@ class PolishMemberTagParserTest {
     @Test
     fun buildInitial_buildsMinimalNote() {
         val content = PolishMemberTagParser.buildInitial(
-            "Alice", listOf("大佬"), "https://cdn.v2ex.com/a.png",
+            "Alice", listOf("大佬"), "https://cdn.v2ex.com/a.png", nowEpochMillis = 9000L,
         )
 
         assertThat(content).isNotNull()
@@ -154,6 +183,9 @@ class PolishMemberTagParserTest {
         assertThat(PolishMemberTagParser.parse(content))
             .containsExactly("Alice", listOf("大佬"))
         assertThat(content).contains("https://cdn.v2ex.com/a.png")
+        // 插件 isValidSettings 依赖 options 键；version=1 让插件识别为可拉取的远端版本
+        assertThat(content).contains("\"options\":{}")
+        assertThat(content).contains("\"settings-sync\":{\"version\":1,\"lastSyncTime\":9000}")
     }
 
     @Test

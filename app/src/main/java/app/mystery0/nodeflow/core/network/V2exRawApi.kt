@@ -106,15 +106,19 @@ interface V2exRawApi {
     @GET("notes/edit/{id}")
     suspend fun noteEditHtml(@Path("id") id: Long): Response<ResponseBody>
 
-    // 记事编辑/新建表单仅一个 content 字段，用于写回 Polish 用户标签
+    // 记事编辑/新建表单用于写回 Polish 用户标签；syntax=0 与插件提交行为保持一致
     @FormUrlEncoded
     @POST("notes/edit/{id}")
     suspend fun noteEditSubmit(
         @Path("id") id: Long,
         @Field("content") content: String,
+        @Field("syntax") syntax: String = "0",
     ): Response<ResponseBody>
 
     @FormUrlEncoded
     @POST("notes/new")
-    suspend fun noteNewSubmit(@Field("content") content: String): Response<ResponseBody>
+    suspend fun noteNewSubmit(
+        @Field("content") content: String,
+        @Field("syntax") syntax: String = "0",
+    ): Response<ResponseBody>
 }
