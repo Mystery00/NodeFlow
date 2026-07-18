@@ -7,6 +7,7 @@ import app.mystery0.nodeflow.domain.auth.SaveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagSyncedAtUseCase
 import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagsUseCase
 import app.mystery0.nodeflow.domain.membertag.RefreshMemberTagsUseCase
+import app.mystery0.nodeflow.domain.membertag.UpdateMemberTagsForUserUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeUseCase
@@ -96,5 +97,9 @@ val domainModule = module {
 
     factory {
         RefreshMemberTagsUseCase(get())
+    }
+
+    factory {
+        UpdateMemberTagsForUserUseCase(get())
     }
 }

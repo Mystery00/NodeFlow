@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.data.membertag
 
+import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.datastore.CachedMemberTags
 import app.mystery0.nodeflow.core.datastore.MemberTagStore
 import app.mystery0.nodeflow.core.model.AuthSession
@@ -28,6 +29,11 @@ class MemberTagRepositoryImpl(
     private val sessionFlow: Flow<AuthSession>,
     private val cache: MemberTagCache,
     private val fetchRemoteTags: suspend () -> Map<String, List<String>>,
+    private val updateRemoteTags: suspend (
+        username: String,
+        tags: List<String>,
+        avatarUrl: String?,
+    ) -> Map<String, List<String>>,
     private val ioDispatcher: CoroutineDispatcher,
     private val nowEpochSeconds: () -> Long = { System.currentTimeMillis() / 1000 },
 ) : MemberTagRepository {
@@ -51,6 +57,26 @@ class MemberTagRepositoryImpl(
         runCatching {
             val tags = fetchRemoteTags()
             cache.save(tags, nowEpochSeconds())
+        }
+    }
+
+    override suspend fun setTagsForUser(
+        username: String,
+        tags: List<String>,
+        avatarUrl: String?,
+    ): Result<Unit> = withContext(ioDispatcher) {
+        val session = sessionFlow.first()
+        if (session.cookieHeader.isNullOrBlank()) {
+            return@withContext Result.failure(
+                NodeFlowException(
+                    kind = NodeFlowException.Kind.Auth,
+                    message = "请先登录后再编辑标签",
+                ),
+            )
+        }
+        runCatching {
+            val updated = updateRemoteTags(username, tags, avatarUrl)
+            cache.save(updated, nowEpochSeconds())
         }
     }
 

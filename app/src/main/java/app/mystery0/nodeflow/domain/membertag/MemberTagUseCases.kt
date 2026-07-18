@@ -19,3 +19,13 @@ class RefreshMemberTagsUseCase(
 ) {
     suspend operator fun invoke(force: Boolean = false): Result<Unit> = repository.refresh(force)
 }
+
+class UpdateMemberTagsForUserUseCase(
+    private val repository: MemberTagRepository,
+) {
+    suspend operator fun invoke(
+        username: String,
+        tags: List<String>,
+        avatarUrl: String? = null,
+    ): Result<Unit> = repository.setTagsForUser(username, tags, avatarUrl)
+}

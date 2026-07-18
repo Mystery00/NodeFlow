@@ -62,6 +62,9 @@ val repositoryModule = module {
             sessionFlow = get<SessionStore>().session,
             cache = DataStoreMemberTagCache(get()),
             fetchRemoteTags = { remote.fetchMemberTags() },
+            updateRemoteTags = { username, tags, avatarUrl ->
+                remote.updateMemberTags(username, tags, avatarUrl)
+            },
             ioDispatcher = get(named(IO_DISPATCHER)),
         )
     }
