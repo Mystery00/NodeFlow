@@ -32,6 +32,7 @@ import kotlin.math.roundToInt
 fun RichHtmlText(
     html: String,
     modifier: Modifier = Modifier,
+    backgroundColor: Color = Color.Transparent,
     onImageClick: (String) -> Unit = {},
     onUrlClick: (String) -> Boolean = { false },
 ) {
@@ -41,14 +42,19 @@ fun RichHtmlText(
     val currentOnUrlClick = rememberUpdatedState(onUrlClick)
     val colorScheme = MaterialTheme.colorScheme
     val customImageHosts = LocalCustomImageHosts.current
-    val htmlDocument = remember(html, colorScheme, customImageHosts) {
+    val cssBackgroundColor = if (backgroundColor == Color.Transparent || backgroundColor == Color.Unspecified) {
+        "transparent"
+    } else {
+        backgroundColor.toCssColor()
+    }
+    val htmlDocument = remember(html, colorScheme, customImageHosts, cssBackgroundColor) {
         buildV2exHtmlDocument(
             bodyHtml = html,
             colors = V2exHtmlColors(
                 text = colorScheme.onSurface.toCssColor(),
                 secondaryText = colorScheme.onSurfaceVariant.toCssColor(),
                 link = colorScheme.primary.toCssColor(),
-                background = colorScheme.surface.toCssColor(),
+                background = cssBackgroundColor,
                 codeBackground = colorScheme.surfaceVariant.copy(alpha = 0.42f).toCssColor(),
                 quoteBackground = colorScheme.surfaceVariant.copy(alpha = 0.34f).toCssColor(),
                 border = colorScheme.outlineVariant.copy(alpha = 0.72f).toCssColor(),

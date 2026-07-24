@@ -98,6 +98,7 @@ import app.mystery0.nodeflow.core.designsystem.component.ZoomableImageViewer
 import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.link.V2exLinkParser
 import app.mystery0.nodeflow.core.model.TopicDetail
+import app.mystery0.nodeflow.core.model.TopicAppend
 import app.mystery0.nodeflow.core.model.Reply
 import app.mystery0.nodeflow.core.ui.MemberTagChips
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
@@ -499,6 +500,13 @@ private fun TopicDetailContent(
                         onImageClick = onImageClick,
                         onUrlClick = openV2exUrl,
                     )
+                    if (detail.appends.isNotEmpty()) {
+                        TopicAppendsSection(
+                            appends = detail.appends,
+                            onImageClick = onImageClick,
+                            onUrlClick = openV2exUrl,
+                        )
+                    }
                 }
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
@@ -737,3 +745,71 @@ private fun TopicTagChip(tag: String) {
         }
     }
 }
+
+@Composable
+private fun TopicAppendsSection(
+    appends: List<TopicAppend>,
+    onImageClick: (String) -> Unit,
+    onUrlClick: (String) -> Boolean,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        appends.forEach { append ->
+            TopicAppendCard(
+                append = append,
+                onImageClick = onImageClick,
+                onUrlClick = onUrlClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TopicAppendCard(
+    append: TopicAppend,
+    onImageClick: (String) -> Unit,
+    onUrlClick: (String) -> Boolean,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            val timeText = when {
+                append.createdAtEpochSeconds != null -> formatTopicMetadataTime(append.createdAtEpochSeconds)
+                !append.relativeTime.isNullOrBlank() -> append.relativeTime
+                else -> null
+            }
+            val titleText = buildString {
+                append("第 ${append.index} 条附言")
+                if (!timeText.isNullOrBlank()) {
+                    append(" · ")
+                    append(timeText)
+                }
+            }
+            Text(
+                text = titleText,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
+            )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            )
+            RichHtmlText(
+                html = append.contentRendered,
+                onImageClick = onImageClick,
+                onUrlClick = onUrlClick,
+            )
+        }
+    }
+}
+

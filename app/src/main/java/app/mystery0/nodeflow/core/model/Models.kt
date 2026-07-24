@@ -114,6 +114,13 @@ data class Topic(
     val lastReplyBy: String? = null,
 )
 
+data class TopicAppend(
+    val index: Int,
+    val contentRendered: String,
+    val createdAtEpochSeconds: Long? = null,
+    val relativeTime: String? = null,
+)
+
 data class TopicDetail(
     val topic: Topic,
     val content: String,
@@ -124,6 +131,7 @@ data class TopicDetail(
     val tags: List<String> = emptyList(),
     val isFavorited: Boolean? = null,
     val favoriteOnce: String? = null,
+    val appends: List<TopicAppend> = emptyList(),
 )
 
 data class Reply(

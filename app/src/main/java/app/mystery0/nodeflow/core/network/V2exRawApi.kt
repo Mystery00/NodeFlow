@@ -129,7 +129,7 @@ interface V2exRawApi {
         @Path("topicId") topicId: Long,
         @Query("once") once: String,
         @Header("Referer") referer: String,
-    ): Response<ResponseBody>
+    ): Response<ResponseBody> = throw NotImplementedError()
 
     // 取消收藏主题
     @Headers("User-Agent: ${V2exUserAgents.DESKTOP}")
@@ -138,5 +138,5 @@ interface V2exRawApi {
         @Path("topicId") topicId: Long,
         @Query("once") once: String,
         @Header("Referer") referer: String,
-    ): Response<ResponseBody>
+    ): Response<ResponseBody> = throw NotImplementedError()
 }

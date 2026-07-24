@@ -1376,4 +1376,79 @@ class V2exHtmlParserTest {
 
         assertThat(topic.replies.single().floor).isEqualTo(150)
     }
+
+    @Test
+    fun parseTopicHtml_parsesSubtleAppends() {
+        val html = """
+            <html>
+              <body>
+                <div id="Main">
+                  <div class="box">
+                    <div class="header">
+                      <h1>带附言的主题</h1>
+                      <small class="gray"><a href="/member/alice">alice</a></small>
+                    </div>
+                    <div class="topic_content">正文</div>
+                    <div class="subtle">
+                      <span class="fade">第 1 条附言 &nbsp;•&nbsp; <span title="2026-07-24 15:30:00 +08:00">3 小时前</span></span>
+                      <div class="sep5"></div>
+                      <div class="topic_content">第一条附言内容</div>
+                    </div>
+                    <div class="subtle">
+                      <span class="fade">第 2 条附言 &nbsp;•&nbsp; 1 小时前</span>
+                      <div class="sep5"></div>
+                      <div class="topic_content">第二条附言内容</div>
+                    </div>
+                  </div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = requireNotNull(parser.parseTopicHtml(topicId = 1228444L, html = html))
+
+        assertThat(topic.appends).hasSize(2)
+        assertThat(topic.appends[0].index).isEqualTo(1)
+        assertThat(topic.appends[0].contentRendered).isEqualTo("第一条附言内容")
+        assertThat(topic.appends[0].createdAtEpochSeconds)
+            .isEqualTo(java.time.OffsetDateTime.parse("2026-07-24T15:30:00+08:00").toEpochSecond())
+
+        assertThat(topic.appends[1].index).isEqualTo(2)
+        assertThat(topic.appends[1].contentRendered).isEqualTo("第二条附言内容")
+        assertThat(topic.appends[1].relativeTime).isEqualTo("第 2 条附言 • 1 小时前")
+    }
+
+    @Test
+    fun parseTopicHtml_parsesEnglishSupplementSubtle() {
+        val html = """
+            <html>
+              <body>
+                <div id="Main">
+                  <div class="box">
+                    <div class="header">
+                      <h1>cursor 不支持支付宝支付订阅，还有其他方式？</h1>
+                      <small class="gray"><a href="/member/wangt981">wangt981</a></small>
+                    </div>
+                    <div class="cell">
+                      <div class="topic_content">如题，还有什么办法可以订阅！</div>
+                    </div>
+                    <div class="subtle">
+                      <span class="fade">Supplement 1 &nbsp;·&nbsp; <span title="2026-07-24 15:08:59 +08:00">6h 47m ago</span></span>
+                      <div class="sep5"></div>
+                      <div class="topic_content">感谢各位大佬建议，目前切换到新加坡代理可以，美国、日本、澳大利亚都不行！！</div>
+                    </div>
+                  </div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent()
+
+        val topic = requireNotNull(parser.parseTopicHtml(topicId = 1229541L, html = html))
+
+        assertThat(topic.appends).hasSize(1)
+        assertThat(topic.appends[0].index).isEqualTo(1)
+        assertThat(topic.appends[0].contentRendered).isEqualTo("感谢各位大佬建议，目前切换到新加坡代理可以，美国、日本、澳大利亚都不行！！")
+        assertThat(topic.appends[0].createdAtEpochSeconds)
+            .isEqualTo(java.time.OffsetDateTime.parse("2026-07-24T15:08:59+08:00").toEpochSecond())
+    }
 }

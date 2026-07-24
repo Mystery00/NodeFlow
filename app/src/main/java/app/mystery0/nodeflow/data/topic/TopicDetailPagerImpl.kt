@@ -230,6 +230,7 @@ internal class TopicDetailPagerImpl(
                 tags = header.tags,
                 isFavorited = header.isFavorited,
                 favoriteOnce = header.favoriteOnce,
+                appends = header.appends,
             ),
             loadedPageCount = loadedPageLocked(),
             totalPageCount = pageCount,

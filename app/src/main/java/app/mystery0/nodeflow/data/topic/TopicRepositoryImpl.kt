@@ -86,6 +86,7 @@ class TopicRepositoryImpl(
                     tags = p.tags,
                     isFavorited = p.isFavorited,
                     favoriteOnce = p.favoriteOnce,
+                    appends = p.appends,
                 )
             }
         }

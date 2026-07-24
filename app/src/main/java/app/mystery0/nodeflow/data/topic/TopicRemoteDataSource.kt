@@ -74,6 +74,7 @@ class TopicRemoteDataSource(
             tags = supplemental?.tags.orEmpty(),
             isFavorited = supplemental?.isFavorited,
             favoriteOnce = supplemental?.favoriteOnce,
+            appends = supplemental?.appends.orEmpty(),
         )
     }
 

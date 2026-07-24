@@ -9,6 +9,7 @@ import app.mystery0.nodeflow.core.model.NotificationReferenceLocator
 import app.mystery0.nodeflow.core.model.ProfileReply
 import app.mystery0.nodeflow.core.model.Reply
 import app.mystery0.nodeflow.core.model.Topic
+import app.mystery0.nodeflow.core.model.TopicAppend
 import app.mystery0.nodeflow.core.model.User
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -576,6 +577,19 @@ class V2exHtmlParser {
                 favoriteOnce = null
             }
         }
+        val appends = document.select("div.subtle").mapIndexedNotNull { index, subtle ->
+            val appendContent = subtle.selectFirst(".topic_content")?.html().orEmpty()
+            if (appendContent.isBlank()) return@mapIndexedNotNull null
+            val timeElement = subtle.selectFirst("span[title]")
+            val appendTime = timeElement?.attr("title")?.parseV2exDateTime()
+            val relativeTime = subtle.selectFirst("span.fade")?.text()?.trim()
+            TopicAppend(
+                index = index + 1,
+                contentRendered = appendContent,
+                createdAtEpochSeconds = appendTime,
+                relativeTime = relativeTime,
+            )
+        }
         return ParsedTopicHtml(
             id = topicId,
             title = title,
@@ -600,6 +614,7 @@ class V2exHtmlParser {
             replies = replies,
             isFavorited = isFavorited,
             favoriteOnce = favoriteOnce,
+            appends = appends,
         )
     }
 
@@ -982,6 +997,7 @@ class V2exHtmlParser {
         val replies: List<Reply> = emptyList(),
         val isFavorited: Boolean? = null,
         val favoriteOnce: String? = null,
+        val appends: List<TopicAppend> = emptyList(),
     )
 
     data class ParsedSignInChallenge(
