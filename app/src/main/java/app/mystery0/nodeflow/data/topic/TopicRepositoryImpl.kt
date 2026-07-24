@@ -4,6 +4,7 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import app.mystery0.nodeflow.core.model.Topic
+import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.domain.topic.TopicDetailPager
 import app.mystery0.nodeflow.domain.topic.TopicRepository
 import java.util.concurrent.ConcurrentHashMap
@@ -66,6 +67,29 @@ class TopicRepositoryImpl(
         ioDispatcher = ioDispatcher,
         accessState = topicAccessStates.computeIfAbsent(topicId) { TopicAccessState() },
     )
+
+    override suspend fun setFavorite(
+        topicId: Long,
+        favorite: Boolean,
+        once: String,
+    ): Result<TopicDetail?> = withContext(ioDispatcher) {
+        runCatching {
+            val parsed = remoteDataSource.setFavorite(topicId, favorite, once)
+            parsed?.let { p ->
+                TopicDetail(
+                    topic = p.toTopic(replyCount = p.replyCount ?: 0),
+                    content = "",
+                    contentRendered = p.contentRendered,
+                    replies = emptyList(),
+                    viewCount = p.viewCount,
+                    hotReplyCount = p.hotReplyCount,
+                    tags = p.tags,
+                    isFavorited = p.isFavorited,
+                    favoriteOnce = p.favoriteOnce,
+                )
+            }
+        }
+    }
 
     override suspend fun clearCache() {
         withContext(ioDispatcher) {

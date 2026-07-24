@@ -32,7 +32,7 @@ val featureModule = module {
     }
 
     viewModel {
-        TopicDetailViewModel(get(), get())
+        TopicDetailViewModel(get(), get(), get())
     }
 
     viewModel {

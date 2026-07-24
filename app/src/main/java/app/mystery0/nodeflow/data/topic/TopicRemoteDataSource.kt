@@ -72,10 +72,30 @@ class TopicRemoteDataSource(
             viewCount = supplemental?.viewCount,
             hotReplyCount = supplemental?.hotReplyCount,
             tags = supplemental?.tags.orEmpty(),
+            isFavorited = supplemental?.isFavorited,
+            favoriteOnce = supplemental?.favoriteOnce,
         )
+    }
+
+    /** 收藏或取消收藏主题。返回操作后页面解析出的最新状态（含新 once token）。 */
+    suspend fun setFavorite(
+        topicId: Long,
+        favorite: Boolean,
+        once: String,
+    ): V2exHtmlParser.ParsedTopicHtml? = safeNetworkCall {
+        val referer = "$V2EX_BASE_URL/t/$topicId"
+        val response = if (favorite) {
+            api.favoriteTopic(topicId, once, referer)
+        } else {
+            api.unfavoriteTopic(topicId, once, referer)
+        }
+        // V2EX 收藏/取消后 302 回主题页；解析响应获取新的收藏状态和 once
+        val html = response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic)
+        parser.parseTopicHtml(topicId, html)
     }
 
     private companion object {
         const val HOME_TOPICS_PAGE = 1
+        const val V2EX_BASE_URL = "https://www.v2ex.com"
     }
 }

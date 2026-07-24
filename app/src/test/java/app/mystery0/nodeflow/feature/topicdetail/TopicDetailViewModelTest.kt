@@ -284,9 +284,60 @@ class TopicDetailViewModelTest {
         assertThat(state.replyFloorTarget).isEqualTo(11)
     }
 
+    @Test
+    fun toggleFavorite_successUpdatesIsFavoritedAndFavoriteOnce() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        val initialDetail = snapshot(replies = replies(1..5), hasMore = false).detail.copy(
+            isFavorited = false,
+            favoriteOnce = "12345",
+        )
+        pager.loadFirstResults += Result.success(TopicDetailSnapshot(initialDetail, 1, 1, false))
+        val updatedDetail = initialDetail.copy(
+            isFavorited = true,
+            favoriteOnce = "67890",
+        )
+        val repository = SinglePagerRepository(pager, setFavoriteResult = Result.success(updatedDetail))
+        val viewModel = viewModel(pager, repository = repository)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.ToggleFavorite)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isTogglingFavorite).isFalse()
+        assertThat(state.detail?.isFavorited).isTrue()
+        assertThat(state.detail?.favoriteOnce).isEqualTo("67890")
+        assertThat(state.favoriteError).isNull()
+    }
+
+    @Test
+    fun toggleFavorite_failureSetsFavoriteErrorAndClearsOnConsumed() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        val initialDetail = snapshot(replies = replies(1..5), hasMore = false).detail.copy(
+            isFavorited = true,
+            favoriteOnce = "12345",
+        )
+        pager.loadFirstResults += Result.success(TopicDetailSnapshot(initialDetail, 1, 1, false))
+        val repository = SinglePagerRepository(pager, setFavoriteResult = Result.failure(networkError()))
+        val viewModel = viewModel(pager, repository = repository)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.ToggleFavorite)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isTogglingFavorite).isFalse()
+        assertThat(state.detail?.isFavorited).isTrue()
+        assertThat(state.favoriteError).isEqualTo("网络连接失败，请稍后重试")
+
+        viewModel.onEvent(TopicDetailUiEvent.FavoriteErrorConsumed)
+        assertThat(viewModel.uiState.value.favoriteError).isNull()
+    }
+
     private fun viewModel(
         pager: TopicDetailPager,
         replyFloor: Int? = null,
+        repository: SinglePagerRepository = SinglePagerRepository(pager),
     ): TopicDetailViewModel = TopicDetailViewModel(
         savedStateHandle = SavedStateHandle(
             buildMap {
@@ -294,7 +345,8 @@ class TopicDetailViewModelTest {
                 replyFloor?.let { put("replyFloor", it) }
             },
         ),
-        getTopicDetailPager = GetTopicDetailUseCase(SinglePagerRepository(pager)),
+        getTopicDetailPager = GetTopicDetailUseCase(repository),
+        setFavoriteUseCase = app.mystery0.nodeflow.domain.topic.SetFavoriteUseCase(repository),
     )
 
     private fun accessDenied(): NodeFlowException =
@@ -384,6 +436,7 @@ class TopicDetailViewModelTest {
     /** ViewModel 只通过 UseCase 获取 pager，这里用固定实例满足接口。 */
     private class SinglePagerRepository(
         private val pager: TopicDetailPager,
+        private val setFavoriteResult: Result<TopicDetail?> = Result.success(null),
     ) : TopicRepository {
         override suspend fun latestTopics(forceRefresh: Boolean): Result<List<Topic>> =
             Result.success(emptyList())
@@ -391,6 +444,12 @@ class TopicDetailViewModelTest {
         override fun latestTopicsPaging(): Flow<PagingData<Topic>> = flowOf(PagingData.empty())
 
         override fun topicDetailPager(topicId: Long): TopicDetailPager = pager
+
+        override suspend fun setFavorite(
+            topicId: Long,
+            favorite: Boolean,
+            once: String,
+        ): Result<TopicDetail?> = setFavoriteResult
 
         override suspend fun clearCache() = Unit
     }

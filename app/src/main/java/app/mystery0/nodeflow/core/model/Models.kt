@@ -122,6 +122,8 @@ data class TopicDetail(
     val viewCount: Int? = null,
     val hotReplyCount: Int? = null,
     val tags: List<String> = emptyList(),
+    val isFavorited: Boolean? = null,
+    val favoriteOnce: String? = null,
 )
 
 data class Reply(

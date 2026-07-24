@@ -121,4 +121,22 @@ interface V2exRawApi {
         @Field("content") content: String,
         @Field("syntax") syntax: String = "0",
     ): Response<ResponseBody>
+
+    // 收藏主题：V2EX 通过 GET 请求完成收藏操作，需要 once token 防 CSRF
+    @Headers("User-Agent: ${V2exUserAgents.DESKTOP}")
+    @GET("favorite/topic/{topicId}")
+    suspend fun favoriteTopic(
+        @Path("topicId") topicId: Long,
+        @Query("once") once: String,
+        @Header("Referer") referer: String,
+    ): Response<ResponseBody>
+
+    // 取消收藏主题
+    @Headers("User-Agent: ${V2exUserAgents.DESKTOP}")
+    @GET("unfavorite/topic/{topicId}")
+    suspend fun unfavoriteTopic(
+        @Path("topicId") topicId: Long,
+        @Query("once") once: String,
+        @Header("Referer") referer: String,
+    ): Response<ResponseBody>
 }

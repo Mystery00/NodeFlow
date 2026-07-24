@@ -18,6 +18,7 @@ import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.domain.topic.GetLatestTopicsUseCase
 import app.mystery0.nodeflow.domain.topic.GetLatestTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
+import app.mystery0.nodeflow.domain.topic.SetFavoriteUseCase
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
 import app.mystery0.nodeflow.domain.user.GetUserRecentActivityUseCase
 import app.mystery0.nodeflow.domain.reply.AddReplyDraftImageUseCase
@@ -40,6 +41,10 @@ val domainModule = module {
 
     factory {
         GetTopicDetailUseCase(get())
+    }
+
+    factory {
+        SetFavoriteUseCase(get())
     }
 
     factory {

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.core.common.isAccessDenied
 import app.mystery0.nodeflow.core.common.toUserMessage
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
+import app.mystery0.nodeflow.domain.topic.SetFavoriteUseCase
 import app.mystery0.nodeflow.domain.topic.TopicDetailPager
 import app.mystery0.nodeflow.domain.topic.TopicDetailSnapshot
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ import kotlinx.coroutines.launch
 class TopicDetailViewModel(
     savedStateHandle: SavedStateHandle,
     getTopicDetailPager: GetTopicDetailUseCase,
+    private val setFavoriteUseCase: SetFavoriteUseCase,
 ) : ViewModel() {
     private val topicId: Long = checkNotNull(savedStateHandle["topicId"])
     private val initialReplyFloor: Int? =
@@ -50,6 +52,42 @@ class TopicDetailViewModel(
             }
             TopicDetailUiEvent.ReplyFloorTargetConsumed ->
                 _uiState.update { it.copy(replyFloorTarget = null) }
+            TopicDetailUiEvent.ToggleFavorite -> toggleFavorite()
+            TopicDetailUiEvent.FavoriteErrorConsumed ->
+                _uiState.update { it.copy(favoriteError = null) }
+        }
+    }
+
+    private fun toggleFavorite() {
+        val detail = _uiState.value.detail ?: return
+        val currentFavorited = detail.isFavorited ?: return
+        val once = detail.favoriteOnce ?: return
+        if (_uiState.value.isTogglingFavorite) return
+        _uiState.update { it.copy(isTogglingFavorite = true, favoriteError = null) }
+        viewModelScope.launch {
+            val result = setFavoriteUseCase(topicId, !currentFavorited, once)
+            _uiState.update { current ->
+                result.fold(
+                    onSuccess = { updatedDetail ->
+                        // 只更新收藏状态和 once token，保留当前回复列表等内容
+                        val merged = current.detail?.copy(
+                            isFavorited = updatedDetail?.isFavorited ?: !currentFavorited,
+                            favoriteOnce = updatedDetail?.favoriteOnce,
+                        )
+                        current.copy(
+                            detail = merged,
+                            isTogglingFavorite = false,
+                            favoriteError = null,
+                        )
+                    },
+                    onFailure = { error ->
+                        current.copy(
+                            isTogglingFavorite = false,
+                            favoriteError = error.toUserMessage(),
+                        )
+                    },
+                )
+            }
         }
     }
 

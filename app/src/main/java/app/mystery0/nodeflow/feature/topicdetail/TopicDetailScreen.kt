@@ -38,10 +38,12 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -231,7 +233,11 @@ fun TopicDetailScreen(
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                     if (detail != null) {
-                        TopicActions(detail)
+                        TopicActions(
+                            detail = detail,
+                            isTogglingFavorite = state.isTogglingFavorite,
+                            onToggleFavorite = { onEvent(TopicDetailUiEvent.ToggleFavorite) },
+                        )
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -325,9 +331,30 @@ fun TopicDetailScreen(
 }
 
 @Composable
-private fun TopicActions(detail: TopicDetail) {
+private fun TopicActions(
+    detail: TopicDetail,
+    isTogglingFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+) {
     val context = LocalContext.current
     val url = detail.topic.url
+    // 收藏按钮：仅在登录且解析到收藏状态时显示
+    if (detail.isFavorited != null) {
+        IconButton(
+            onClick = onToggleFavorite,
+            enabled = !isTogglingFavorite && detail.favoriteOnce != null,
+        ) {
+            Icon(
+                imageVector = if (detail.isFavorited) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                contentDescription = if (detail.isFavorited) "取消收藏" else "收藏",
+                tint = if (detail.isFavorited) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+    }
     IconButton(
         onClick = {
             val systemClipboard = context.getSystemService(android.content.ClipboardManager::class.java)

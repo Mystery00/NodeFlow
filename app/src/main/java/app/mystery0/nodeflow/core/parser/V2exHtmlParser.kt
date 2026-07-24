@@ -557,6 +557,25 @@ class V2exHtmlParser {
             ?.toIntOrNull()
             ?.coerceAtLeast(1)
             ?: 1
+        // 解析收藏/取消收藏链接
+        val favoriteLink = document.selectFirst("a[href^=/unfavorite/topic/$topicId]")
+        val unfavoriteLink = document.selectFirst("a[href^=/favorite/topic/$topicId]")
+        val isFavorited: Boolean?
+        val favoriteOnce: String?
+        when {
+            favoriteLink != null -> {
+                isFavorited = true
+                favoriteOnce = ONCE_REGEX.find(favoriteLink.attr("href"))?.groupValues?.get(1)
+            }
+            unfavoriteLink != null -> {
+                isFavorited = false
+                favoriteOnce = ONCE_REGEX.find(unfavoriteLink.attr("href"))?.groupValues?.get(1)
+            }
+            else -> {
+                isFavorited = null
+                favoriteOnce = null
+            }
+        }
         return ParsedTopicHtml(
             id = topicId,
             title = title,
@@ -579,6 +598,8 @@ class V2exHtmlParser {
                 .firstNotNullOfOrNull { TOTAL_REPLY_COUNT_REGEX.find(it.text())?.groupValues?.get(1)?.toIntOrNull() },
             pageCount = pageCount,
             replies = replies,
+            isFavorited = isFavorited,
+            favoriteOnce = favoriteOnce,
         )
     }
 
@@ -959,6 +980,8 @@ class V2exHtmlParser {
         val replyCount: Int? = null,
         val pageCount: Int = 1,
         val replies: List<Reply> = emptyList(),
+        val isFavorited: Boolean? = null,
+        val favoriteOnce: String? = null,
     )
 
     data class ParsedSignInChallenge(

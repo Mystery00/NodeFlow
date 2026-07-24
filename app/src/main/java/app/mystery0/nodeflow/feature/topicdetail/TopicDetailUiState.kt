@@ -11,4 +11,6 @@ data class TopicDetailUiState(
     val hasMoreReplies: Boolean = false,
     val isLoadingMore: Boolean = false,
     val loadMoreError: String? = null,
+    val isTogglingFavorite: Boolean = false,
+    val favoriteError: String? = null,
 )
