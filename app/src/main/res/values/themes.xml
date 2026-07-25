@@ -2,4 +2,11 @@
 <resources>
 
     <style name="Theme.NodeFlow" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.NodeFlow.Starting" parent="Theme.SplashScreen.IconBackground">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenBackground">@color/splash_screen_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.NodeFlow</item>
+    </style>
 </resources>

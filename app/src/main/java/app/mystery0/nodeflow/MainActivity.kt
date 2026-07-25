@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.mystery0.nodeflow.core.designsystem.component.LocalCustomImageHosts
 import app.mystery0.nodeflow.core.designsystem.component.LocalMemberTags
@@ -24,6 +25,7 @@ class MainActivity : ComponentActivity() {
     private var pendingDeepLink by mutableStateOf<V2exLink?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         pendingDeepLink = parseDeepLink(intent)

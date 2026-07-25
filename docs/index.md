@@ -35,6 +35,7 @@
 - [主题详情回复按需分页设计](plans/2026-07-18-topic-detail-reply-paging-design.md) / [实施计划](plans/2026-07-18-topic-detail-reply-paging.md)
 - [“我的”签到提醒 Badge 设计](plans/2026-07-25-account-check-in-bottom-bar-badge-design.md) / [实施计划](plans/2026-07-25-account-check-in-bottom-bar-badge.md)
 - [消息底部导航设计](plans/2026-07-25-notification-bottom-navigation-design.md) / [实施计划](plans/2026-07-25-notification-bottom-navigation.md)
+- [系统深浅色启动页设计](plans/2026-07-25-system-splash-theme-design.md) / [实施计划](plans/2026-07-25-system-splash-theme.md)
 - [`investigations/`](investigations/)：问题调查、外部行为验证和技术研究记录。
 - [V2EX_Polish 用户标签数据格式调查](investigations/2026-07-17-v2ex-polish-member-tag-format.md)
 
