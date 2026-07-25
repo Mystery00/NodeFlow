@@ -22,7 +22,7 @@ object NodeFlowDestinations {
     }
     fun profile(username: String): String = "profile/${Uri.encode(username)}"
 
-    fun isTopLevelRoute(route: String?): Boolean = route in setOf(Home, NodeList, Account)
+    fun isTopLevelRoute(route: String?): Boolean = route in setOf(Home, NodeList, Notification, Account)
 
     fun routeFor(link: V2exLink): String = when (link) {
         is V2exLink.Topic -> topic(link.id)

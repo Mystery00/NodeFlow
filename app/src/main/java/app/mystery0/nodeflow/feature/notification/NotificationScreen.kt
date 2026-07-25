@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -57,7 +57,6 @@ import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 fun NotificationScreen(
     notifications: LazyPagingItems<Notification>,
     onEvent: (NotificationUiEvent) -> Unit,
-    onBackClick: () -> Unit,
     onUserClick: (String) -> Unit,
     onTopicClick: (Long, Int?) -> Unit,
     modifier: Modifier = Modifier,
@@ -67,12 +66,7 @@ fun NotificationScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("通知") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
-                    }
-                },
+                title = { Text("消息") },
                 actions = {
                     IconButton(onClick = { onEvent(NotificationUiEvent.Refresh) }) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
@@ -104,6 +98,44 @@ fun NotificationScreen(
     }
     previewImageUrl?.let { imageUrl ->
         ZoomableImageViewer(imageUrl = imageUrl, onDismiss = { previewImageUrl = null })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NotificationSignedOutScreen(
+    onLoginClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(title = { Text("消息") })
+        },
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "尚未登录",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "登录后可以查看与你相关的消息。",
+                modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(onClick = onLoginClick) {
+                Text("登录")
+            }
+        }
     }
 }
 

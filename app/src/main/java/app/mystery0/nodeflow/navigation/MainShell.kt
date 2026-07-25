@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -34,12 +35,16 @@ import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.feature.account.AccountScreen
+import app.mystery0.nodeflow.feature.account.AccountUiEvent
 import app.mystery0.nodeflow.feature.account.AccountUiState
 import app.mystery0.nodeflow.feature.account.AccountViewModel
 import app.mystery0.nodeflow.feature.home.HomeScreen
 import app.mystery0.nodeflow.feature.home.HomeViewModel
 import app.mystery0.nodeflow.feature.node.NodeListScreen
 import app.mystery0.nodeflow.feature.node.NodeListViewModel
+import app.mystery0.nodeflow.feature.notification.NotificationScreen
+import app.mystery0.nodeflow.feature.notification.NotificationSignedOutScreen
+import app.mystery0.nodeflow.feature.notification.NotificationViewModel
 import coil.compose.AsyncImage
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -51,9 +56,10 @@ fun MainShell(
     settings: AppSettings,
     onTopicClick: (Topic) -> Unit,
     onNodeClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
+    onNotificationTopicClick: (Long, Int?) -> Unit,
     onSettingsClick: () -> Unit,
     onLoginClick: () -> Unit,
-    onNotificationClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
@@ -70,6 +76,7 @@ fun MainShell(
             NodeFlowBottomBar(
                 currentRoute = currentRoute,
                 pinnedHomeNode = settings.pinnedHomeNode,
+                messageBadgeText = messageBottomBarBadgeText(accountState),
                 showAccountCheckInBadge = shouldShowAccountCheckInBadge(accountState),
                 onHomeClick = {
                     when (homeBottomBarAction(currentRoute)) {
@@ -80,6 +87,10 @@ fun MainShell(
                 },
                 onNodeClick = {
                     navController.navigateTopLevel(nodeBottomBarRoute())
+                },
+                onMessageClick = {
+                    accountViewModel.onEvent(AccountUiEvent.NotificationsOpened)
+                    navController.navigateTopLevel(messageBottomBarRoute())
                 },
                 onAccountClick = {
                     navController.navigateTopLevel(accountBottomBarRoute())
@@ -114,13 +125,26 @@ fun MainShell(
                     onNodeClick = onNodeClick,
                 )
             }
+            composable(NodeFlowDestinations.Notification) {
+                if (shouldLoadNotificationList(accountState)) {
+                    val viewModel: NotificationViewModel = koinViewModel()
+                    val notifications = viewModel.notifications.collectAsLazyPagingItems()
+                    NotificationScreen(
+                        notifications = notifications,
+                        onEvent = viewModel::onEvent,
+                        onUserClick = onUserClick,
+                        onTopicClick = onNotificationTopicClick,
+                    )
+                } else {
+                    NotificationSignedOutScreen(onLoginClick = onLoginClick)
+                }
+            }
             composable(NodeFlowDestinations.Account) {
                 AccountScreen(
                     state = accountState,
                     onEvent = accountViewModel::onEvent,
                     onSettingsClick = onSettingsClick,
                     onLoginClick = onLoginClick,
-                    onNotificationClick = onNotificationClick,
                 )
             }
         }
@@ -135,9 +159,11 @@ fun rootNavHostPadding(scaffoldPadding: PaddingValues): PaddingValues = PaddingV
 private fun NodeFlowBottomBar(
     currentRoute: String?,
     pinnedHomeNode: PinnedHomeNode?,
+    messageBadgeText: String?,
     showAccountCheckInBadge: Boolean,
     onHomeClick: () -> Unit,
     onNodeClick: () -> Unit,
+    onMessageClick: () -> Unit,
     onAccountClick: () -> Unit,
 ) {
     NavigationBar {
@@ -158,6 +184,20 @@ private fun NodeFlowBottomBar(
             onClick = onNodeClick,
             icon = { Icon(Icons.Outlined.AccountTree, contentDescription = null) },
             label = { Text("节点") },
+        )
+        NavigationBarItem(
+            selected = isMessageBottomBarSelected(currentRoute),
+            onClick = onMessageClick,
+            icon = {
+                BadgedBox(
+                    badge = {
+                        messageBadgeText?.let { Badge { Text(it) } }
+                    },
+                ) {
+                    Icon(Icons.Outlined.Notifications, contentDescription = null)
+                }
+            },
+            label = { Text("消息") },
         )
         NavigationBarItem(
             selected = isAccountBottomBarSelected(currentRoute),
@@ -228,6 +268,25 @@ fun homeBottomBarAction(currentRoute: String?): HomeBottomBarAction =
 fun nodeBottomBarRoute(): String = NodeFlowDestinations.NodeList
 
 fun isNodeBottomBarSelected(currentRoute: String?): Boolean = currentRoute == NodeFlowDestinations.NodeList
+
+fun messageBottomBarRoute(): String = NodeFlowDestinations.Notification
+
+fun isMessageBottomBarSelected(currentRoute: String?): Boolean =
+    currentRoute == NodeFlowDestinations.Notification
+
+fun messageBottomBarBadgeText(state: AccountUiState): String? {
+    if (!state.isLoggedIn) return null
+    val count = state.overview?.unreadNotificationCount
+    return when {
+        count == null && state.isLoading -> null
+        count == null -> "!"
+        count <= 0 -> null
+        count > 99 -> "99+"
+        else -> count.toString()
+    }
+}
+
+fun shouldLoadNotificationList(state: AccountUiState): Boolean = state.isLoggedIn
 
 fun accountBottomBarRoute(): String = NodeFlowDestinations.Account
 

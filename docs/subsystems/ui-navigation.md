@@ -28,7 +28,7 @@ Feature 层通常由 `XxxScreen.kt`、`XxxViewModel.kt`、`XxxUiState.kt` 和 `X
 - 修改层级、转场或 padding 时运行导航和布局相关测试。
 - 帖子列表和帖子详情中的节点 Chip 复用统一的节点标题/名称映射，并通过根导航进入节点详情页。
 - 已位于首页时重复点击首页底部导航项，应展开顶部 App Bar、滚动主题列表到顶部并刷新；从其他一级页面点击首页只执行导航。
-- 个人页的通知入口位于顶部 App Bar，并通过 Badge 展示未读数；加载完成后无法获取未读数时显示 `!`，加载中或未读数为 0 时不显示 Badge。通知中心由根 NavHost 管理，不占用底部导航项。
+- 主页面底部导航固定为“首页、节点、消息、我的”。消息入口通过 Badge 展示未读数：超过 99 条显示 `99+`，加载完成后无法获取未读数时显示 `!`，加载中、未读数为 0 或未登录时不显示。消息页由 `MainShell` 内部 NavHost 管理；未登录时展示登录引导且不创建通知分页请求，通知中的用户和主题详情仍由根 NavHost 打开。
 - 通知主题链接可携带目标回复楼层；主题详情按需顺序补页到目标楼层后滚动到对应回复并短暂高亮，楼层不存在时安全停留在主题顶部。
 - 主题详情回复按页加载：进入只抓第 1 页，滚动接近尾部自动加载下一页；刷新重拉已加载页并保持位置；发表回复后补页到最后一页并定位新楼层。分页状态由 `TopicDetailPager` 承载，见 [`../plans/2026-07-18-topic-detail-reply-paging-design.md`](../plans/2026-07-18-topic-detail-reply-paging-design.md)。
 
@@ -37,6 +37,7 @@ Feature 层通常由 `XxxScreen.kt`、`XxxViewModel.kt`、`XxxUiState.kt` 和 `X
 - [`../plans/2026-06-29-navigation-layering-design.md`](../plans/2026-06-29-navigation-layering-design.md)
 - [`../plans/2026-06-29-navigation-transition-design.md`](../plans/2026-06-29-navigation-transition-design.md)
 - [`../plans/2026-07-12-v2ex-link-routing-design.md`](../plans/2026-07-12-v2ex-link-routing-design.md)
+- [`../plans/2026-07-25-notification-bottom-navigation-design.md`](../plans/2026-07-25-notification-bottom-navigation-design.md)
 
 ## 排障入口
 

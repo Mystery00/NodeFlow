@@ -19,6 +19,7 @@ class NavigationRouteTest {
     fun isTopLevelRoute_returnsTrueForBottomNavigationRoutes() {
         assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Home)).isTrue()
         assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.NodeList)).isTrue()
+        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Notification)).isTrue()
         assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Account)).isTrue()
     }
 
@@ -82,6 +83,80 @@ class NavigationRouteTest {
         assertThat(isAccountBottomBarSelected(NodeFlowDestinations.Account)).isTrue()
         assertThat(isAccountBottomBarSelected(NodeFlowDestinations.Settings)).isFalse()
         assertThat(isAccountBottomBarSelected(NodeFlowDestinations.Auth)).isFalse()
+    }
+
+    @Test
+    fun messageBottomBarRoute_targetsNotificationPage() {
+        assertThat(messageBottomBarRoute()).isEqualTo(NodeFlowDestinations.Notification)
+    }
+
+    @Test
+    fun isMessageBottomBarSelected_matchesOnlyNotificationRoute() {
+        assertThat(isMessageBottomBarSelected(NodeFlowDestinations.Notification)).isTrue()
+        assertThat(isMessageBottomBarSelected(NodeFlowDestinations.Account)).isFalse()
+        assertThat(isMessageBottomBarSelected(NodeFlowDestinations.TopicRoute)).isFalse()
+    }
+
+    @Test
+    fun messageBottomBarBadgeText_returnsNullWhenLoggedOut() {
+        val state = AccountUiState(
+            overview = AccountOverview(unreadNotificationCount = 8),
+        )
+
+        assertThat(messageBottomBarBadgeText(state)).isNull()
+    }
+
+    @Test
+    fun messageBottomBarBadgeText_returnsNullWhileLoadingUnknownCount() {
+        val state = AccountUiState(
+            session = loggedInSession(),
+            isLoading = true,
+        )
+
+        assertThat(messageBottomBarBadgeText(state)).isNull()
+    }
+
+    @Test
+    fun messageBottomBarBadgeText_returnsBangWhenLoadedCountIsUnavailable() {
+        val state = AccountUiState(session = loggedInSession())
+
+        assertThat(messageBottomBarBadgeText(state)).isEqualTo("!")
+    }
+
+    @Test
+    fun messageBottomBarBadgeText_returnsNullForZeroUnreadCount() {
+        val state = AccountUiState(
+            session = loggedInSession(),
+            overview = AccountOverview(unreadNotificationCount = 0),
+        )
+
+        assertThat(messageBottomBarBadgeText(state)).isNull()
+    }
+
+    @Test
+    fun messageBottomBarBadgeText_returnsUnreadCount() {
+        val state = AccountUiState(
+            session = loggedInSession(),
+            overview = AccountOverview(unreadNotificationCount = 8),
+        )
+
+        assertThat(messageBottomBarBadgeText(state)).isEqualTo("8")
+    }
+
+    @Test
+    fun messageBottomBarBadgeText_capsLargeUnreadCount() {
+        val state = AccountUiState(
+            session = loggedInSession(),
+            overview = AccountOverview(unreadNotificationCount = 100),
+        )
+
+        assertThat(messageBottomBarBadgeText(state)).isEqualTo("99+")
+    }
+
+    @Test
+    fun shouldLoadNotificationList_matchesLoginState() {
+        assertThat(shouldLoadNotificationList(AccountUiState())).isFalse()
+        assertThat(shouldLoadNotificationList(AccountUiState(session = loggedInSession()))).isTrue()
     }
 
     @Test

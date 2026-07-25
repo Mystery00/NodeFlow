@@ -30,8 +30,6 @@ import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorEffect
 import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorViewModel
 import app.mystery0.nodeflow.feature.node.NodeScreen
 import app.mystery0.nodeflow.feature.node.NodeViewModel
-import app.mystery0.nodeflow.feature.notification.NotificationScreen
-import app.mystery0.nodeflow.feature.notification.NotificationViewModel
 import app.mystery0.nodeflow.feature.profile.ProfileScreen
 import app.mystery0.nodeflow.feature.profile.ProfileViewModel
 import app.mystery0.nodeflow.feature.settings.SettingsScreen
@@ -73,14 +71,17 @@ fun NodeFlowNavHost(
                 onNodeClick = { nodeName ->
                     navController.navigate(NodeFlowDestinations.node(nodeName))
                 },
+                onUserClick = { username ->
+                    navController.navigate(NodeFlowDestinations.profile(username))
+                },
+                onNotificationTopicClick = { topicId, replyFloor ->
+                    navController.navigate(NodeFlowDestinations.topic(topicId, replyFloor))
+                },
                 onSettingsClick = {
                     navController.navigate(NodeFlowDestinations.Settings)
                 },
                 onLoginClick = {
                     navController.navigate(NodeFlowDestinations.Auth)
-                },
-                onNotificationClick = {
-                    navController.navigate(NodeFlowDestinations.Notification)
                 },
             )
         }
@@ -187,21 +188,6 @@ fun NodeFlowNavHost(
                 onEvent = viewModel::onEvent,
                 onBackClick = { navController.popBackStack() },
                 onLoginSuccess = { navController.popBackStack() },
-            )
-        }
-        composable(NodeFlowDestinations.Notification) {
-            val viewModel: NotificationViewModel = koinViewModel()
-            val notifications = viewModel.notifications.collectAsLazyPagingItems()
-            NotificationScreen(
-                notifications = notifications,
-                onEvent = viewModel::onEvent,
-                onBackClick = { navController.popBackStack() },
-                onUserClick = { username ->
-                    navController.navigate(NodeFlowDestinations.profile(username))
-                },
-                onTopicClick = { topicId, replyFloor ->
-                    navController.navigate(NodeFlowDestinations.topic(topicId, replyFloor))
-                },
             )
         }
     }
