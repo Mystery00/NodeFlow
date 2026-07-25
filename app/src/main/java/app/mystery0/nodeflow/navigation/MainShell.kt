@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -32,6 +34,7 @@ import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.feature.account.AccountScreen
+import app.mystery0.nodeflow.feature.account.AccountUiState
 import app.mystery0.nodeflow.feature.account.AccountViewModel
 import app.mystery0.nodeflow.feature.home.HomeScreen
 import app.mystery0.nodeflow.feature.home.HomeViewModel
@@ -57,6 +60,8 @@ fun MainShell(
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
     val homeReselectRequests = remember { HomeReselectRequests() }
+    val accountViewModel: AccountViewModel = koinViewModel()
+    val accountState by accountViewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = modifier,
@@ -65,6 +70,7 @@ fun MainShell(
             NodeFlowBottomBar(
                 currentRoute = currentRoute,
                 pinnedHomeNode = settings.pinnedHomeNode,
+                showAccountCheckInBadge = shouldShowAccountCheckInBadge(accountState),
                 onHomeClick = {
                     when (homeBottomBarAction(currentRoute)) {
                         HomeBottomBarAction.NavigateHome ->
@@ -109,11 +115,9 @@ fun MainShell(
                 )
             }
             composable(NodeFlowDestinations.Account) {
-                val viewModel: AccountViewModel = koinViewModel()
-                val state by viewModel.uiState.collectAsStateWithLifecycle()
                 AccountScreen(
-                    state = state,
-                    onEvent = viewModel::onEvent,
+                    state = accountState,
+                    onEvent = accountViewModel::onEvent,
                     onSettingsClick = onSettingsClick,
                     onLoginClick = onLoginClick,
                     onNotificationClick = onNotificationClick,
@@ -131,6 +135,7 @@ fun rootNavHostPadding(scaffoldPadding: PaddingValues): PaddingValues = PaddingV
 private fun NodeFlowBottomBar(
     currentRoute: String?,
     pinnedHomeNode: PinnedHomeNode?,
+    showAccountCheckInBadge: Boolean,
     onHomeClick: () -> Unit,
     onNodeClick: () -> Unit,
     onAccountClick: () -> Unit,
@@ -157,7 +162,17 @@ private fun NodeFlowBottomBar(
         NavigationBarItem(
             selected = isAccountBottomBarSelected(currentRoute),
             onClick = onAccountClick,
-            icon = { Icon(Icons.Outlined.Person, contentDescription = null) },
+            icon = {
+                BadgedBox(
+                    badge = {
+                        if (showAccountCheckInBadge) {
+                            Badge { Text("!") }
+                        }
+                    },
+                ) {
+                    Icon(Icons.Outlined.Person, contentDescription = null)
+                }
+            },
             label = { Text("我的") },
         )
     }
@@ -217,6 +232,9 @@ fun isNodeBottomBarSelected(currentRoute: String?): Boolean = currentRoute == No
 fun accountBottomBarRoute(): String = NodeFlowDestinations.Account
 
 fun isAccountBottomBarSelected(currentRoute: String?): Boolean = currentRoute == NodeFlowDestinations.Account
+
+fun shouldShowAccountCheckInBadge(state: AccountUiState): Boolean =
+    state.isLoggedIn && state.overview?.checkIn?.canCheckIn == true
 
 private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
     navigate(route) {

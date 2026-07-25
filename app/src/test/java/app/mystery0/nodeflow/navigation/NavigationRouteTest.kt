@@ -1,7 +1,11 @@
 package app.mystery0.nodeflow.navigation
 
 import app.mystery0.nodeflow.core.link.V2exLink
+import app.mystery0.nodeflow.core.model.AccountOverview
+import app.mystery0.nodeflow.core.model.AuthSession
+import app.mystery0.nodeflow.core.model.DailyCheckIn
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
+import app.mystery0.nodeflow.feature.account.AccountUiState
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
@@ -81,6 +85,48 @@ class NavigationRouteTest {
     }
 
     @Test
+    fun shouldShowAccountCheckInBadge_returnsTrueWhenLoggedInAndCanCheckIn() {
+        val state = AccountUiState(
+            session = loggedInSession(),
+            overview = AccountOverview(
+                checkIn = DailyCheckIn(checkedIn = false, canCheckIn = true),
+            ),
+        )
+
+        assertThat(shouldShowAccountCheckInBadge(state)).isTrue()
+    }
+
+    @Test
+    fun shouldShowAccountCheckInBadge_returnsFalseWhenAlreadyCheckedIn() {
+        val state = AccountUiState(
+            session = loggedInSession(),
+            overview = AccountOverview(
+                checkIn = DailyCheckIn(checkedIn = true, canCheckIn = false),
+            ),
+        )
+
+        assertThat(shouldShowAccountCheckInBadge(state)).isFalse()
+    }
+
+    @Test
+    fun shouldShowAccountCheckInBadge_returnsFalseWhenLoggedOut() {
+        val state = AccountUiState(
+            overview = AccountOverview(
+                checkIn = DailyCheckIn(checkedIn = false, canCheckIn = true),
+            ),
+        )
+
+        assertThat(shouldShowAccountCheckInBadge(state)).isFalse()
+    }
+
+    @Test
+    fun shouldShowAccountCheckInBadge_returnsFalseWhenCheckInStateIsUnknown() {
+        val state = AccountUiState(session = loggedInSession())
+
+        assertThat(shouldShowAccountCheckInBadge(state)).isFalse()
+    }
+
+    @Test
     fun homeBottomBarLabel_usesPinnedNodeTitleWhenAvailable() {
         val pinned = PinnedHomeNode(
             name = "android",
@@ -130,4 +176,9 @@ class NavigationRouteTest {
 
         assertThat(replayed).isNull()
     }
+
+    private fun loggedInSession() = AuthSession(
+        cookieHeader = "test-cookie",
+        username = "test-user",
+    )
 }
