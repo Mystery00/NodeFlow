@@ -33,11 +33,11 @@ class ReplyRemoteDataSourceTest {
     fun tearDown() = server.shutdown()
 
     @Test
-    fun createReply_postsDynamicFormOnceAndConfirmsNewReply() = runTest {
+    fun createReply_postsDynamicFormOnceAndReturnsSuccess() = runTest {
         server.enqueue(htmlResponse(topicPage(replyRows = oldReply, includeForm = true)))
         server.enqueue(htmlResponse(topicPage(replyRows = oldReply + newReply, includeForm = false)))
 
-        val result = dataSource.createReply(42, "hello world", "tester")
+        val result = dataSource.createReply(42, "hello world")
 
         assertThat(result).isEqualTo(CreateReplyResult.Success(2))
         val get = server.takeRequest()
@@ -53,32 +53,29 @@ class ReplyRemoteDataSourceTest {
     }
 
     @Test
-    fun createReply_keepsUnconfirmedWhenResponseHasNoNewReply() = runTest {
+    fun createReply_succeedsWhenPostReturnsUnparseableSuccessfulResponse() = runTest {
         server.enqueue(htmlResponse(topicPage(replyRows = oldReply, includeForm = true)))
-        server.enqueue(htmlResponse(topicPage(replyRows = oldReply, includeForm = false)))
+        server.enqueue(htmlResponse("unexpected response"))
 
-        val result = dataSource.createReply(42, "hello world", "tester")
+        val result = dataSource.createReply(42, "hello world")
 
-        assertThat(result).isInstanceOf(CreateReplyResult.Failure::class.java)
-        result as CreateReplyResult.Failure
-        assertThat(result.reason).isEqualTo(ReplyFailureReason.SubmitUnconfirmed)
+        assertThat(result).isEqualTo(CreateReplyResult.Success(2))
         assertThat(server.requestCount).isEqualTo(2)
     }
 
     @Test
-    fun createReply_readsLastPageBeforeAndAfterSubmit() = runTest {
+    fun createReply_readsLastPageBeforeSubmitAndDoesNotReadAfterSubmit() = runTest {
         server.enqueue(htmlResponse(topicPage(oldReply, includeForm = true, pageCount = 2)))
         server.enqueue(htmlResponse(topicPage(secondPageOldReply, includeForm = false, pageCount = 2)))
         server.enqueue(htmlResponse(topicPage(oldReply, includeForm = false, pageCount = 2)))
-        server.enqueue(htmlResponse(topicPage(secondPageOldReply + newReply, includeForm = false, pageCount = 2)))
 
-        val result = dataSource.createReply(42, "hello world", "tester")
+        val result = dataSource.createReply(42, "hello world")
 
-        assertThat(result).isEqualTo(CreateReplyResult.Success(2))
-        val requests = List(4) { server.takeRequest() }
-        assertThat(requests.map { it.method }).containsExactly("GET", "GET", "POST", "GET").inOrder()
+        assertThat(result).isEqualTo(CreateReplyResult.Success(43))
+        val requests = List(3) { server.takeRequest() }
+        assertThat(requests.map { it.method }).containsExactly("GET", "GET", "POST").inOrder()
         assertThat(requests[1].path).isEqualTo("/t/42?p=2")
-        assertThat(requests[3].path).isEqualTo("/t/42?p=2")
+        assertThat(server.requestCount).isEqualTo(3)
     }
 
     @Test
@@ -91,8 +88,11 @@ class ReplyRemoteDataSourceTest {
         )
         server.enqueue(htmlResponse(topicPage(replyRows = oldReply + newReply, includeForm = false)))
 
-        runCatching { dataSource.createReply(42, "hello world", "tester") }
+        val result = dataSource.createReply(42, "hello world")
 
+        assertThat(result).isInstanceOf(CreateReplyResult.Failure::class.java)
+        result as CreateReplyResult.Failure
+        assertThat(result.reason).isEqualTo(ReplyFailureReason.Server)
         assertThat(server.requestCount).isEqualTo(2)
         assertThat(server.takeRequest().method).isEqualTo("GET")
         assertThat(server.takeRequest().method).isEqualTo("POST")
@@ -103,7 +103,7 @@ class ReplyRemoteDataSourceTest {
         server.enqueue(htmlResponse("<html><body>${replyForm()}</body></html>"))
         server.enqueue(htmlResponse(topicPage(replyRows = newReply, includeForm = false)))
 
-        val result = dataSource.createReply(42, "hello world", "tester")
+        val result = dataSource.createReply(42, "hello world")
 
         assertThat(result).isInstanceOf(CreateReplyResult.Failure::class.java)
         assertThat(server.requestCount).isEqualTo(1)
@@ -115,26 +115,11 @@ class ReplyRemoteDataSourceTest {
         server.enqueue(htmlResponse(titleOnlyTopicPage(replyRows = "", includeForm = true)))
         server.enqueue(htmlResponse(titleOnlyTopicPage(replyRows = firstReply, includeForm = false)))
 
-        val result = dataSource.createReply(42, "hello world", "tester")
+        val result = dataSource.createReply(42, "hello world")
 
         assertThat(result).isEqualTo(CreateReplyResult.Success(1))
         val requests = List(2) { server.takeRequest() }
         assertThat(requests.map { it.method }).containsExactly("GET", "POST").inOrder()
-        assertThat(server.requestCount).isEqualTo(2)
-    }
-
-    @Test
-    fun createReply_confirmsReplyWhenServerAddsSpacesAroundLatinText() = runTest {
-        server.enqueue(htmlResponse(titleOnlyTopicPage(replyRows = "", includeForm = true)))
-        server.enqueue(htmlResponse(titleOnlyTopicPage(replyRows = spacedFirstReply, includeForm = false)))
-
-        val result = dataSource.createReply(
-            topicId = 42,
-            content = "并没有复现，一切正常，desktop和cli都是",
-            currentUsername = "tester",
-        )
-
-        assertThat(result).isEqualTo(CreateReplyResult.Success(1))
         assertThat(server.requestCount).isEqualTo(2)
     }
 
@@ -187,13 +172,8 @@ class ReplyRemoteDataSourceTest {
         <div id="r_101"><span class="no">1</span><strong><a href="/member/tester">tester</a></strong><div class="reply_content">hello world</div></div>
     """.trimIndent()
 
-    private val spacedFirstReply: String
-        get() = """
-        <div id="r_101"><span class="no">1</span><strong><a href="/member/tester">tester</a></strong><div class="reply_content">并没有复现，一切正常，desktop 和 cli 都是</div></div>
-    """.trimIndent()
-
     private val secondPageOldReply: String
         get() = """
-        <div id="r_200"><span class="no">1</span><strong><a href="/member/second">second</a></strong><div class="reply_content">second old</div></div>
+        <div id="r_200"><span class="no">42</span><strong><a href="/member/second">second</a></strong><div class="reply_content">second old</div></div>
     """.trimIndent()
 }

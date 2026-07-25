@@ -19,10 +19,9 @@ class ReplyRepositoryImpl(
     override suspend fun createReply(
         topicId: Long,
         content: String,
-        currentUsername: String,
     ): CreateReplyResult = withContext(ioDispatcher) {
         try {
-            remote.createReply(topicId, content, currentUsername)
+            remote.createReply(topicId, content)
         } catch (error: CancellationException) {
             throw error
         } catch (error: NodeFlowException) {

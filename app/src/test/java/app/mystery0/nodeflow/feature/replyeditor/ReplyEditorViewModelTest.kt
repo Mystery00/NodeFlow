@@ -2,8 +2,8 @@ package app.mystery0.nodeflow.feature.replyeditor
 
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.SavedStateHandle
-import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.model.AuthLoginResult
+import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.model.LoginChallenge
 import app.mystery0.nodeflow.core.model.TwoFactorChallenge
 import app.mystery0.nodeflow.domain.auth.AuthRepository
@@ -24,8 +24,9 @@ import app.mystery0.nodeflow.domain.reply.SaveReplyDraftUseCase
 import app.mystery0.nodeflow.domain.reply.UploadImageUseCase
 import app.mystery0.nodeflow.domain.reply.UploadedReplyImage
 import com.google.common.truth.Truth.assertThat
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -33,11 +34,10 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Before
@@ -218,7 +218,7 @@ class ReplyEditorViewModelTest {
     ) : ReplyRepository {
         var createCalls = 0
         override suspend fun loadConstraints(topicId: Long) = Result.success(ReplyConstraints(10_000))
-        override suspend fun createReply(topicId: Long, content: String, currentUsername: String): CreateReplyResult {
+        override suspend fun createReply(topicId: Long, content: String): CreateReplyResult {
             createCalls += 1
             return createResult
         }

@@ -5,8 +5,8 @@ class GetReplyConstraintsUseCase(private val repository: ReplyRepository) {
 }
 
 class CreateReplyUseCase(private val repository: ReplyRepository) {
-    suspend operator fun invoke(topicId: Long, content: String, username: String) =
-        repository.createReply(topicId, content, username)
+    suspend operator fun invoke(topicId: Long, content: String) =
+        repository.createReply(topicId, content)
 }
 
 class UploadImageUseCase(private val repository: ImageUploadRepository) {

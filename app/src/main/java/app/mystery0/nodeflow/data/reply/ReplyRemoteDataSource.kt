@@ -8,9 +8,9 @@ import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import app.mystery0.nodeflow.domain.reply.CreateReplyResult
 import app.mystery0.nodeflow.domain.reply.ReplyConstraints
 import app.mystery0.nodeflow.domain.reply.ReplyFailureReason
+import okhttp3.FormBody
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.FormBody
 
 class ReplyRemoteDataSource(
     private val api: V2exWriteApi,
@@ -27,7 +27,6 @@ class ReplyRemoteDataSource(
     suspend fun createReply(
         topicId: Long,
         content: String,
-        currentUsername: String,
     ): CreateReplyResult {
         val topicUrl = baseUrl.resolve("t/$topicId") ?: return parseFailure()
         val beforeHtml = getTopicPage(topicId)
@@ -41,7 +40,7 @@ class ReplyRemoteDataSource(
 
         val beforeReplies = loadLastReplies(topicId, beforeHtml)
             ?: return failure(ReplyFailureReason.Parse, "无法确认回复列表，已取消提交")
-        val beforeIds = beforeReplies.mapTo(mutableSetOf()) { it.id }
+        val nextFloor = (beforeReplies.maxOfOrNull { it.floor } ?: 0) + 1
         val requestBody = FormBody.Builder().apply {
             (form.hiddenFields + (form.contentField to content)).forEach { (name, value) ->
                 add(name, value)
@@ -53,37 +52,12 @@ class ReplyRemoteDataSource(
             origin = baseUrl.newBuilder().encodedPath("/").build().toString().trimEnd('/'),
             referer = topicUrl.toString(),
         )
-        val finalUrl = response.raw().request.url
-        if (finalUrl.encodedPath == "/signin") {
-            return failure(ReplyFailureReason.AuthenticationRequired, "登录状态已失效，请重新登录")
+        if (!response.isSuccessful) {
+            response.errorBody()?.close()
+            return failure(ReplyFailureReason.Server, "回复失败：HTTP ${response.code()}")
         }
-        if (finalUrl.host != baseUrl.host || finalUrl.port != baseUrl.port) return parseFailure()
-        val responseHtml = response.bodyStringOrThrow()
-        if (parser.hasSignInEntry(responseHtml)) {
-            return failure(ReplyFailureReason.AuthenticationRequired, "登录状态已失效，请重新登录")
-        }
-        if (parser.hasAccessChallenge(responseHtml)) {
-            return failure(ReplyFailureReason.TopicUnavailable, "V2EX 暂时拒绝了本次回复")
-        }
-        parser.parseV2exProblem(responseHtml)?.let { problem ->
-            val reason = if (problem.contains("频繁") || problem.contains("interval", true)) {
-                ReplyFailureReason.AntiFlood
-            } else {
-                ReplyFailureReason.Server
-            }
-            return failure(reason, problem)
-        }
-        val afterReplies = loadLastReplies(topicId, responseHtml).orEmpty()
-        val match = afterReplies.lastOrNull { reply ->
-            reply.id !in beforeIds &&
-                reply.author.username.equals(currentUsername, ignoreCase = true) &&
-                normalizeReplyContent(reply.content) == normalizeReplyContent(content)
-        }
-        return match?.let { CreateReplyResult.Success(it.floor) }
-            ?: failure(
-                ReplyFailureReason.SubmitUnconfirmed,
-                "回复结果无法确认，请先刷新主题后再决定是否重试",
-            )
+        response.body()?.close()
+        return CreateReplyResult.Success(nextFloor)
     }
 
     private suspend fun getTopicPage(topicId: Long): String {
@@ -118,12 +92,6 @@ class ReplyRemoteDataSource(
             }
         }
 
-    private fun normalizeReplyContent(value: String): String {
-        val normalizedWhitespace = value.replace(Regex("\\s+"), " ").trim()
-        // V2EX 会在汉字与拉丁字母或数字之间自动补空格，确认回复时忽略这种展示差异。
-        return normalizedWhitespace.replace(CJK_LATIN_BOUNDARY_SPACE, "")
-    }
-
     private fun failure(reason: ReplyFailureReason, message: String) =
         CreateReplyResult.Failure(reason, message)
 
@@ -139,9 +107,4 @@ class ReplyRemoteDataSource(
         message = "登录状态已失效，请重新登录",
     )
 
-    private companion object {
-        val CJK_LATIN_BOUNDARY_SPACE = Regex(
-            """(?<=[\p{IsHan}]) (?=[A-Za-z0-9])|(?<=[A-Za-z0-9]) (?=[\p{IsHan}])""",
-        )
-    }
 }

@@ -6,7 +6,6 @@ interface ReplyRepository {
     suspend fun createReply(
         topicId: Long,
         content: String,
-        currentUsername: String,
     ): CreateReplyResult
 }
 

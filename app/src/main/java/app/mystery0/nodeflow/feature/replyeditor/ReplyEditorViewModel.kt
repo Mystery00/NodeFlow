@@ -235,8 +235,8 @@ class ReplyEditorViewModel(
         clearDraftAfterSuccess()
     }
 
-    private suspend fun createReplySafely(content: String, username: String) {
-        when (val result = createReply(topicId, content, username)) {
+    private suspend fun createReplySafely(content: String) {
+        when (val result = createReply(topicId, content)) {
             is CreateReplyResult.Success -> handleCreateSuccess(result)
             is CreateReplyResult.Failure -> handleCreateFailure(result)
         }
@@ -259,7 +259,7 @@ class ReplyEditorViewModel(
         viewModelScope.launch {
             try {
                 flushDraftNow()
-                createReplySafely(content, username)
+                createReplySafely(content)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {

@@ -32,7 +32,6 @@ enum class ReplyFailureReason {
     AuthenticationRequired,
     TopicUnavailable,
     AntiFlood,
-    SubmitUnconfirmed,
     Network,
     Server,
     Parse,
