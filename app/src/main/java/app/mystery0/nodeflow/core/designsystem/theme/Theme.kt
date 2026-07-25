@@ -2,12 +2,15 @@ package app.mystery0.nodeflow.core.designsystem.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.core.model.ThemeMode
@@ -48,6 +51,11 @@ fun NodeFlowTheme(
         colorScheme = colorScheme,
         typography = NodeFlowTypography,
         shapes = NodeFlowShapes,
-        content = content,
-    )
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
+            content = content,
+        )
+    }
 }
