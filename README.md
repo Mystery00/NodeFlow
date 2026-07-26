@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="128" height="128" alt="NodeFlow 应用图标">
+  <img src="app/src/main/ic_launcher-playstore.png" width="128" height="128" alt="NodeFlow 应用图标">
 </p>
 
 <h1 align="center">NodeFlow</h1>
