@@ -12,6 +12,7 @@ data class AppSettings(
     val pinnedHomeNode: PinnedHomeNode? = null,
     val customImageHosts: List<String> = emptyList(),
     val showMemberTags: Boolean = true,
+    val notificationReminder: Boolean = false,
 )
 
 data class PinnedHomeNode(

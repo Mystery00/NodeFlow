@@ -34,6 +34,7 @@ class SettingsStore(
                 },
             customImageHosts = decodeCustomImageHosts(preferences[Keys.customImageHosts]),
             showMemberTags = preferences[Keys.showMemberTags] ?: true,
+            notificationReminder = preferences[Keys.notificationReminder] ?: false,
         )
     }
 
@@ -72,6 +73,12 @@ class SettingsStore(
         }
     }
 
+    suspend fun setNotificationReminder(enabled: Boolean) {
+        context.nodeFlowDataStore.edit { preferences ->
+            preferences[Keys.notificationReminder] = enabled
+        }
+    }
+
     suspend fun setCustomImageHosts(hosts: List<String>) {
         context.nodeFlowDataStore.edit { preferences ->
             if (hosts.isEmpty()) {
@@ -90,6 +97,7 @@ class SettingsStore(
         val pinnedHomeNodeAvatarUrl = stringPreferencesKey("pinned_home_node_avatar_url")
         val customImageHosts = stringPreferencesKey("custom_image_hosts")
         val showMemberTags = booleanPreferencesKey("polish_member_tags_enabled")
+        val notificationReminder = booleanPreferencesKey("notification_reminder")
     }
 }
 

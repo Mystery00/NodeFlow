@@ -25,4 +25,8 @@ class UpdateSettingsUseCase(
     suspend fun setShowMemberTags(enabled: Boolean) {
         repository.setShowMemberTags(enabled)
     }
+
+    suspend fun setNotificationReminder(enabled: Boolean) {
+        repository.setNotificationReminder(enabled)
+    }
 }

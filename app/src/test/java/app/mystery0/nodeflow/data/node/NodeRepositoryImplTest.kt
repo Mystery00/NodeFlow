@@ -14,18 +14,18 @@ import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import app.mystery0.nodeflow.data.topic.TopicLocalDataSource
 import com.google.common.truth.Truth.assertThat
-import java.io.IOException
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
-import okhttp3.Response as OkHttpResponse
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
 import retrofit2.Response
+import java.io.IOException
+import okhttp3.Response as OkHttpResponse
 
 class NodeRepositoryImplTest {
     @Test
@@ -222,5 +222,19 @@ class NodeRepositoryImplTest {
             failure()
 
         override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> = failure()
+
+        override suspend fun favoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            failure()
+
+        override suspend fun unfavoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            failure()
     }
 }

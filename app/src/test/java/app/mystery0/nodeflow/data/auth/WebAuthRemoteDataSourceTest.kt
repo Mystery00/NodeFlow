@@ -289,6 +289,20 @@ class WebAuthRemoteDataSourceTest {
         override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> =
             htmlResponse("")
 
+        override suspend fun favoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            htmlResponse("")
+
+        override suspend fun unfavoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            htmlResponse("")
+
         override suspend fun signInTwoFactor(
             next: String,
             fields: Map<String, String>,

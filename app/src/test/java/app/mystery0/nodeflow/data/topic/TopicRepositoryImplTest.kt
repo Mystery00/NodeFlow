@@ -21,11 +21,11 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
-import okhttp3.Response as OkHttpResponse
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
 import retrofit2.Response
+import okhttp3.Response as OkHttpResponse
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TopicRepositoryImplTest {
@@ -523,6 +523,20 @@ class TopicRepositoryImplTest {
             failure()
 
         override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> = failure()
+
+        override suspend fun favoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            failure()
+
+        override suspend fun unfavoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            failure()
     }
 
     private class AccessDeniedV2exRawApi : FailingV2exRawApi() {

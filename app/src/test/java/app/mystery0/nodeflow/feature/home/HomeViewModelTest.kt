@@ -7,7 +7,6 @@ import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.ThemeMode
 import app.mystery0.nodeflow.core.model.Topic
-import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.node.NodeRepository
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
@@ -98,6 +97,10 @@ class HomeViewModelTest {
 
         override suspend fun setShowMemberTags(enabled: Boolean) {
             settingsFlow.value = settingsFlow.value.copy(showMemberTags = enabled)
+        }
+
+        override suspend fun setNotificationReminder(enabled: Boolean) {
+            settingsFlow.value = settingsFlow.value.copy(notificationReminder = enabled)
         }
 
         override suspend fun clearCache() = Unit

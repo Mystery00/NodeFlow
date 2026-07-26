@@ -10,11 +10,11 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
-import okhttp3.Response as OkHttpResponse
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
 import retrofit2.Response
+import okhttp3.Response as OkHttpResponse
 
 class TopicRemoteDataSourceTest {
     private val parser = V2exHtmlParser()
@@ -448,6 +448,20 @@ class TopicRemoteDataSourceTest {
             htmlResponse("")
 
         override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> =
+            htmlResponse("")
+
+        override suspend fun favoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            htmlResponse("")
+
+        override suspend fun unfavoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
             htmlResponse("")
 
         private fun htmlResponse(

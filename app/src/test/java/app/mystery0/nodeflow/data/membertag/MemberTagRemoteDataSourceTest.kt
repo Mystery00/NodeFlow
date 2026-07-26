@@ -176,6 +176,11 @@ class MemberTagRemoteDataSourceTest {
         override suspend fun redeemDailyMission(once: String, referer: String) = emptyResponse()
         override suspend fun balance() = emptyResponse()
         override suspend fun notifications(page: Int) = emptyResponse()
+        override suspend fun favoriteTopic(topicId: Long, once: String, referer: String) =
+            emptyResponse()
+
+        override suspend fun unfavoriteTopic(topicId: Long, once: String, referer: String) =
+            emptyResponse()
 
         private fun emptyResponse(): Response<ResponseBody> = Response.success("".toResponseBody())
 

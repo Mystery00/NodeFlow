@@ -38,6 +38,10 @@ class SettingsRepositoryImpl(
         settingsStore.setShowMemberTags(enabled)
     }
 
+    override suspend fun setNotificationReminder(enabled: Boolean) {
+        settingsStore.setNotificationReminder(enabled)
+    }
+
     override suspend fun clearCache() {
         topicRepository.clearCache()
         nodeRepository.clearCache()

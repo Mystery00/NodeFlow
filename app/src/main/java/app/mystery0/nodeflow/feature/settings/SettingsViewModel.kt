@@ -1,7 +1,9 @@
 package app.mystery0.nodeflow.feature.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.mystery0.nodeflow.core.notification.NotificationScheduler
 import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagSyncedAtUseCase
 import app.mystery0.nodeflow.domain.membertag.RefreshMemberTagsUseCase
 import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
@@ -20,6 +22,7 @@ class SettingsViewModel(
     private val updateSettings: UpdateSettingsUseCase,
     private val clearCache: ClearCacheUseCase,
     private val refreshMemberTags: RefreshMemberTagsUseCase,
+    private val applicationContext: Context,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -65,6 +68,10 @@ class SettingsViewModel(
             }
             is SettingsUiEvent.MemberTagVisibilityChanged -> viewModelScope.launch {
                 updateSettings.setShowMemberTags(event.enabled)
+            }
+            is SettingsUiEvent.NotificationReminderChanged -> viewModelScope.launch {
+                updateSettings.setNotificationReminder(event.enabled)
+                NotificationScheduler.updateSchedule(applicationContext, event.enabled)
             }
             SettingsUiEvent.SyncMemberTags -> viewModelScope.launch {
                 _uiState.update { it.copy(isSyncingMemberTags = true, message = null) }

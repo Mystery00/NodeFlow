@@ -8,8 +8,8 @@ import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Headers
-import retrofit2.http.Path
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface V2exRawApi {
@@ -129,7 +129,7 @@ interface V2exRawApi {
         @Path("topicId") topicId: Long,
         @Query("once") once: String,
         @Header("Referer") referer: String,
-    ): Response<ResponseBody> = throw NotImplementedError()
+    ): Response<ResponseBody>
 
     // 取消收藏主题
     @Headers("User-Agent: ${V2exUserAgents.DESKTOP}")
@@ -138,5 +138,5 @@ interface V2exRawApi {
         @Path("topicId") topicId: Long,
         @Query("once") once: String,
         @Header("Referer") referer: String,
-    ): Response<ResponseBody> = throw NotImplementedError()
+    ): Response<ResponseBody>
 }

@@ -1,5 +1,10 @@
 package app.mystery0.nodeflow.feature.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,8 +45,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import app.mystery0.nodeflow.BuildConfig
 import app.mystery0.nodeflow.core.model.ThemeMode
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
@@ -169,6 +176,43 @@ fun SettingsScreen(
                             },
                         )
                     }
+                },
+            )
+            HorizontalDivider()
+            SettingsSectionTitle("通知")
+            val context = LocalContext.current
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { granted ->
+                if (granted) {
+                    onEvent(SettingsUiEvent.NotificationReminderChanged(true))
+                }
+            }
+            ListItem(
+                headlineContent = { Text("新消息提醒") },
+                supportingContent = { Text("每 30 分钟检查一次未读通知，有新消息时发送系统通知") },
+                trailingContent = {
+                    Switch(
+                        checked = state.settings.notificationReminder,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS,
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    notificationPermissionLauncher.launch(
+                                        Manifest.permission.POST_NOTIFICATIONS,
+                                    )
+                                } else {
+                                    onEvent(SettingsUiEvent.NotificationReminderChanged(true))
+                                }
+                            } else {
+                                onEvent(SettingsUiEvent.NotificationReminderChanged(false))
+                            }
+                        },
+                    )
                 },
             )
             HorizontalDivider()

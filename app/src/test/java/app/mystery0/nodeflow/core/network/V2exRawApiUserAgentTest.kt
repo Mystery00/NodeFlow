@@ -77,6 +77,40 @@ class V2exRawApiUserAgentTest {
     }
 
     @Test
+    fun favoriteTopic_issuesRequestWithCorrectPathAndDesktopUa() = runTest {
+        server.enqueue(MockResponse().setBody(""))
+
+        api.favoriteTopic(
+            topicId = 123,
+            once = "99999",
+            referer = "https://www.v2ex.com/t/123",
+        )
+
+        val request = server.takeRequest()
+        assertThat(request.method).isEqualTo("GET")
+        assertThat(request.path).isEqualTo("/favorite/topic/123?once=99999")
+        assertThat(request.getHeader("Referer")).isEqualTo("https://www.v2ex.com/t/123")
+        assertThat(request.getHeader("User-Agent")).isEqualTo(V2exUserAgents.DESKTOP)
+    }
+
+    @Test
+    fun unfavoriteTopic_issuesRequestWithCorrectPathAndDesktopUa() = runTest {
+        server.enqueue(MockResponse().setBody(""))
+
+        api.unfavoriteTopic(
+            topicId = 456,
+            once = "88888",
+            referer = "https://www.v2ex.com/t/456",
+        )
+
+        val request = server.takeRequest()
+        assertThat(request.method).isEqualTo("GET")
+        assertThat(request.path).isEqualTo("/unfavorite/topic/456?once=88888")
+        assertThat(request.getHeader("Referer")).isEqualTo("https://www.v2ex.com/t/456")
+        assertThat(request.getHeader("User-Agent")).isEqualTo(V2exUserAgents.DESKTOP)
+    }
+
+    @Test
     fun redeemDailyMission_usesObservedPathAndReferer() = runTest {
         server.enqueue(MockResponse().setBody(""))
 

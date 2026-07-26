@@ -125,6 +125,20 @@ class UserRemoteDataSourceTest {
         override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> =
             htmlResponse("")
 
+        override suspend fun favoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            htmlResponse("")
+
+        override suspend fun unfavoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            htmlResponse("")
+
         private fun htmlResponse(html: String): Response<ResponseBody> =
             Response.success(html.toResponseBody("text/html".toMediaType()))
     }

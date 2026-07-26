@@ -12,5 +12,6 @@ interface SettingsRepository {
     suspend fun setPinnedHomeNode(node: PinnedHomeNode?)
     suspend fun setCustomImageHosts(hosts: List<String>)
     suspend fun setShowMemberTags(enabled: Boolean)
+    suspend fun setNotificationReminder(enabled: Boolean)
     suspend fun clearCache()
 }

@@ -4,8 +4,8 @@ import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
-import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
@@ -321,6 +321,20 @@ class AccountRemoteDataSourceTest {
             emptyResponse()
 
         override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> =
+            emptyResponse()
+
+        override suspend fun favoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
+            emptyResponse()
+
+        override suspend fun unfavoriteTopic(
+            topicId: Long,
+            once: String,
+            referer: String
+        ): Response<ResponseBody> =
             emptyResponse()
 
         private fun emptyResponse(): Response<ResponseBody> = htmlResponse("")
