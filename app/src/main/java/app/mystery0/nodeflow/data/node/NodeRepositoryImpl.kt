@@ -85,6 +85,10 @@ class NodeRepositoryImpl(
             },
         ).flow
 
+    override suspend fun blockNode(name: String): Result<Unit> = withContext(ioDispatcher) {
+        runCatching { remoteDataSource.blockNode(name) }
+    }
+
     override suspend fun clearCache() {
         withContext(ioDispatcher) {
             localDataSource.clear()

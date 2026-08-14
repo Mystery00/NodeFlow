@@ -112,6 +112,9 @@ fun NodeFlowNavHost(
                 onNodeClick = { nodeName ->
                     navController.navigate(NodeFlowDestinations.node(nodeName))
                 },
+                onLoginClick = {
+                    navController.navigate(NodeFlowDestinations.Auth)
+                },
             )
         }
         composable(

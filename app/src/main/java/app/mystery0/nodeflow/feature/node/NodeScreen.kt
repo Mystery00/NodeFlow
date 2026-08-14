@@ -17,7 +17,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -28,6 +31,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,8 +63,13 @@ fun NodeScreen(
     onBackClick: () -> Unit,
     onTopicClick: (Topic) -> Unit,
     onNodeClick: (String) -> Unit,
+    onLoginClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showBlockConfirmation by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state.blockNodeCompleted) {
+        if (state.blockNodeCompleted) showBlockConfirmation = false
+    }
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -68,6 +81,19 @@ fun NodeScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            if (state.isLoggedIn) {
+                                onEvent(NodeUiEvent.BlockNodeErrorConsumed)
+                                showBlockConfirmation = true
+                            } else {
+                                onLoginClick()
+                            }
+                        },
+                        enabled = !state.isBlockingNode,
+                    ) {
+                        Icon(Icons.Outlined.Block, contentDescription = "屏蔽节点")
+                    }
                     IconButton(onClick = { onEvent(NodeUiEvent.TogglePinnedHomeNode) }) {
                         Icon(
                             imageVector = if (state.isPinnedHomeNode) {
@@ -109,6 +135,84 @@ fun NodeScreen(
             )
         }
     }
+    if (showBlockConfirmation) {
+        BlockNodeConfirmationDialog(
+            nodeTitle = state.node?.title?.takeIf { it.isNotBlank() } ?: state.nodeName,
+            isBlocking = state.isBlockingNode,
+            errorMessage = state.blockNodeError,
+            onConfirm = { onEvent(NodeUiEvent.BlockNode) },
+            onDismiss = {
+                onEvent(NodeUiEvent.BlockNodeErrorConsumed)
+                showBlockConfirmation = false
+            },
+        )
+    }
+    if (state.blockNodeCompleted) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("节点已屏蔽") },
+            text = { Text("该节点已加入 V2EX 屏蔽列表。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onEvent(NodeUiEvent.BlockNodeResultConsumed)
+                        onBackClick()
+                    },
+                ) {
+                    Text("返回")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun BlockNodeConfirmationDialog(
+    nodeTitle: String,
+    isBlocking: Boolean,
+    errorMessage: String?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isBlocking) onDismiss() },
+        title = { Text("屏蔽节点") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("屏蔽后，该节点的主题将不再出现在 V2EX 首页。是否屏蔽「$nodeTitle」？")
+                errorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = !isBlocking,
+            ) {
+                if (isBlocking) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text("屏蔽")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isBlocking,
+            ) {
+                Text("取消")
+            }
+        },
+    )
 }
 
 @Composable

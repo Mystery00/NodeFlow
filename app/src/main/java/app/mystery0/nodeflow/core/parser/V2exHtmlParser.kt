@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -68,6 +69,32 @@ class V2exHtmlParser {
             avatarUrl = avatarUrl,
             topics = topics,
         )
+    }
+
+    fun parseNodeActionOnce(nodeId: Long, html: String): String? {
+        val actionPaths = setOf(
+            "/settings/ignore/node/$nodeId",
+            "/settings/unignore/node/$nodeId",
+            "/favorite/node/$nodeId",
+            "/unfavorite/node/$nodeId",
+        )
+        return Jsoup.parse(html, V2EX_BASE_URL)
+            .select("a[href]")
+            .firstNotNullOfOrNull { link ->
+                val url = link.absUrl("href").toHttpUrlOrNull()
+                if (
+                    url == null ||
+                    url.scheme != "https" ||
+                    url.host != V2EX_HOST ||
+                    url.port != 443 ||
+                    url.encodedPath !in actionPaths
+                ) {
+                    null
+                } else {
+                    url.queryParameter("once")
+                        ?.takeIf { once -> once.isNotEmpty() && once.all(Char::isDigit) }
+                }
+            }
     }
 
     fun parseSignInChallenge(html: String): ParsedSignInChallenge? {
@@ -1040,6 +1067,7 @@ class V2exHtmlParser {
 
     private companion object {
         const val V2EX_BASE_URL = "https://www.v2ex.com"
+        const val V2EX_HOST = "www.v2ex.com"
         const val DEFAULT_REPLY_MAX_LENGTH = 10_000
         const val VIEW_ACTION = "https://schema.org/ViewAction"
         const val LIKE_ACTION = "https://schema.org/LikeAction"

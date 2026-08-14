@@ -27,7 +27,7 @@ val dataSourceModule = module {
     }
 
     single {
-        NodeRemoteDataSource(get(), get(), get())
+        NodeRemoteDataSource(get(), get(), get(), get())
     }
 
     single {

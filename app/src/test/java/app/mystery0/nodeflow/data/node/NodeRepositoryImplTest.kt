@@ -11,6 +11,7 @@ import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.network.V2exRawApi
+import app.mystery0.nodeflow.core.network.V2exWriteApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import app.mystery0.nodeflow.data.topic.TopicLocalDataSource
 import com.google.common.truth.Truth.assertThat
@@ -20,6 +21,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
@@ -38,6 +40,7 @@ class NodeRepositoryImplTest {
         val repository = NodeRepositoryImpl(
             remoteDataSource = NodeRemoteDataSource(
                 api = api,
+                writeApi = FailingV2exWriteApi(),
                 json = Json { ignoreUnknownKeys = true },
                 parser = V2exHtmlParser(),
             ),
@@ -68,6 +71,7 @@ class NodeRepositoryImplTest {
         val repository = NodeRepositoryImpl(
             remoteDataSource = NodeRemoteDataSource(
                 api = api,
+                writeApi = FailingV2exWriteApi(),
                 json = Json { ignoreUnknownKeys = true },
                 parser = V2exHtmlParser(),
             ),
@@ -236,5 +240,24 @@ class NodeRepositoryImplTest {
             referer: String
         ): Response<ResponseBody> =
             failure()
+    }
+
+    private class FailingV2exWriteApi : V2exWriteApi {
+        override suspend fun getHtml(url: String): Response<ResponseBody> =
+            Response.error(500, "".toResponseBody("text/plain".toMediaType()))
+
+        override suspend fun submitForm(
+            url: String,
+            body: RequestBody,
+            origin: String,
+            referer: String,
+        ): Response<ResponseBody> = getHtml(url)
+
+        override suspend fun uploadImage(
+            body: RequestBody,
+            accept: String,
+            requestedWith: String,
+            referer: String,
+        ): Response<ResponseBody> = getHtml("https://www.v2ex.com/i/upload")
     }
 }

@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.data.node
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.network.V2EX_ACCESS_DENIED_MESSAGE
 import app.mystery0.nodeflow.core.network.V2exRawApi
+import app.mystery0.nodeflow.core.network.V2exWriteApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
@@ -10,6 +11,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
@@ -46,7 +48,12 @@ class NodeRemoteDataSourceTest {
                 </html>
             """.trimIndent(),
         )
-        val dataSource = NodeRemoteDataSource(api, json, parser)
+        val dataSource = NodeRemoteDataSource(
+            api,
+            FakeV2exWriteApi("https://www.v2ex.com/go/android"),
+            json,
+            parser,
+        )
 
         val node = dataSource.node("android")
 
@@ -63,7 +70,12 @@ class NodeRemoteDataSourceTest {
             nodeHtml = topicListHtml(topicId = 9001, title = "首页主题"),
             nodeTopicsFinalUrl = "https://www.v2ex.com/",
         )
-        val dataSource = NodeRemoteDataSource(api, json, parser)
+        val dataSource = NodeRemoteDataSource(
+            api,
+            FakeV2exWriteApi("https://www.v2ex.com/go/flamewar"),
+            json,
+            parser,
+        )
 
         val result = runCatching {
             dataSource.topics(name = "flamewar", page = 1)
@@ -82,7 +94,12 @@ class NodeRemoteDataSourceTest {
             nodeHtml = topicListHtml(topicId = 9002, title = "Android 主题"),
             nodeTopicsFinalUrl = "https://www.v2ex.com/go/android?p=2",
         )
-        val dataSource = NodeRemoteDataSource(api, json, parser)
+        val dataSource = NodeRemoteDataSource(
+            api,
+            FakeV2exWriteApi("https://www.v2ex.com/go/android"),
+            json,
+            parser,
+        )
 
         val topics = dataSource.topics(name = "android", page = 2)
 
@@ -90,6 +107,159 @@ class NodeRemoteDataSourceTest {
         assertThat(topics.single().node.name).isEqualTo("android")
         assertThat(api.nodeTopicsHtmlRequests)
             .containsExactly(NodeTopicsHtmlRequest("android", 2))
+    }
+
+    @Test
+    fun blockNode_readsNodeIdAndOnceBeforeRequestingIgnoreAction() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = """
+                <a href="/favorite/node/39?once=12345">收藏节点</a>
+            """.trimIndent(),
+        )
+        val writeApi = FakeV2exWriteApi(finalUrl = "https://www.v2ex.com/go/android")
+        val dataSource = NodeRemoteDataSource(
+            api = api,
+            writeApi = writeApi,
+            json = json,
+            parser = parser,
+        )
+
+        dataSource.blockNode("android")
+
+        assertThat(api.nodeTopicsHtmlRequests).containsExactly(NodeTopicsHtmlRequest("android", null))
+        assertThat(writeApi.requestedUrls).containsExactly(
+            "https://www.v2ex.com/settings/ignore/node/39?once=12345",
+        )
+    }
+
+    @Test
+    fun blockNode_doesNotWriteWhenNodePageHasNoActionToken() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = "<html><body>没有节点操作</body></html>",
+        )
+        val writeApi = FakeV2exWriteApi(finalUrl = "https://www.v2ex.com/go/android")
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        val result = runCatching { dataSource.blockNode("android") }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.Auth)
+        assertThat(writeApi.requestedUrls).isEmpty()
+    }
+
+    @Test
+    fun blockNode_doesNotLoadActionPageOrWriteWhenNodeIdIsMissing() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+        )
+        val writeApi = FakeV2exWriteApi(finalUrl = "https://www.v2ex.com/go/android")
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        val result = runCatching { dataSource.blockNode("android") }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.Parse)
+        assertThat(api.nodeTopicsHtmlRequests).isEmpty()
+        assertThat(writeApi.requestedUrls).isEmpty()
+    }
+
+    @Test
+    fun blockNode_doesNotWriteWhenActionPageRedirectsToExternalHost() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = "<a href=\"/settings/ignore/node/39?once=12345\">屏蔽节点</a>",
+            nodeTopicsFinalUrl = "https://untrusted.example/go/android",
+        )
+        val writeApi = FakeV2exWriteApi(finalUrl = "https://www.v2ex.com/go/android")
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        val result = runCatching { dataSource.blockNode("android") }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.Parse)
+        assertThat(writeApi.requestedUrls).isEmpty()
+    }
+
+    @Test
+    fun blockNode_doesNotWriteWhenActionPageRedirectsToDifferentNode() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = "<a href=\"/settings/ignore/node/39?once=12345\">屏蔽节点</a>",
+            nodeTopicsFinalUrl = "https://www.v2ex.com/go/python",
+        )
+        val writeApi = FakeV2exWriteApi(finalUrl = "https://www.v2ex.com/go/android")
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        val result = runCatching { dataSource.blockNode("android") }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.Parse)
+        assertThat(writeApi.requestedUrls).isEmpty()
+    }
+
+    @Test
+    fun blockNode_rejectsUnexpectedActionResultPage() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = "<a href=\"/settings/ignore/node/39?once=12345\">屏蔽节点</a>",
+        )
+        val writeApi = FakeV2exWriteApi(
+            finalUrl = "https://www.v2ex.com/settings/ignore/node/39?once=12345",
+        )
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        val result = runCatching { dataSource.blockNode("android") }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.Parse)
+    }
+
+    @Test
+    fun blockNode_rejectsExternalHostWithExpectedPath() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = "<a href=\"/settings/ignore/node/39?once=12345\">屏蔽节点</a>",
+        )
+        val writeApi = FakeV2exWriteApi(finalUrl = "https://untrusted.example/go/android")
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        val result = runCatching { dataSource.blockNode("android") }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.Parse)
+    }
+
+    @Test
+    fun blockNode_rejectsDifferentNodeResultPath() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = "<a href=\"/settings/ignore/node/39?once=12345\">屏蔽节点</a>",
+        )
+        val writeApi = FakeV2exWriteApi(finalUrl = "https://www.v2ex.com/go/python")
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        val result = runCatching { dataSource.blockNode("android") }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.Parse)
     }
 
     private fun topicListHtml(topicId: Long, title: String): String =
@@ -211,5 +381,38 @@ class NodeRemoteDataSourceTest {
                 .build()
             return Response.success(body, rawResponse)
         }
+    }
+
+    private class FakeV2exWriteApi(
+        private val finalUrl: String,
+    ) : V2exWriteApi {
+        val requestedUrls = mutableListOf<String>()
+
+        override suspend fun getHtml(url: String): Response<ResponseBody> {
+            requestedUrls += url
+            val body = "<html><body>节点页面</body></html>"
+                .toResponseBody("text/html".toMediaType())
+            val rawResponse = OkHttpResponse.Builder()
+                .request(Request.Builder().url(finalUrl).build())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build()
+            return Response.success(body, rawResponse)
+        }
+
+        override suspend fun submitForm(
+            url: String,
+            body: RequestBody,
+            origin: String,
+            referer: String,
+        ): Response<ResponseBody> = error("Unexpected form submit")
+
+        override suspend fun uploadImage(
+            body: RequestBody,
+            accept: String,
+            requestedWith: String,
+            referer: String,
+        ): Response<ResponseBody> = error("Unexpected image upload")
     }
 }

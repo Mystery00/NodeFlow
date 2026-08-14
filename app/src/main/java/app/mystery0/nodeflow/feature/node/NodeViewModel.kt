@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
+import app.mystery0.nodeflow.core.common.toUserMessage
+import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
+import app.mystery0.nodeflow.domain.node.BlockNodeUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
@@ -27,6 +30,8 @@ class NodeViewModel(
     private val getNodeTopicsPaging: GetNodeTopicsPagingUseCase,
     observeSettings: ObserveSettingsUseCase,
     private val updateSettings: UpdateSettingsUseCase,
+    private val blockNodeUseCase: BlockNodeUseCase,
+    observeAuthSession: ObserveAuthSessionUseCase,
 ) : ViewModel() {
     private val nodeName: String = savedStateHandle["nodeName"] ?: "python"
     private val _uiState = MutableStateFlow(NodeUiState(nodeName = nodeName))
@@ -47,6 +52,13 @@ class NodeViewModel(
                 _uiState.update { it.copy(isPinnedHomeNode = isPinned) }
             }
             .launchIn(viewModelScope)
+        observeAuthSession()
+            .map { session -> !session.cookieHeader.isNullOrBlank() }
+            .distinctUntilChanged()
+            .onEach { isLoggedIn ->
+                _uiState.update { it.copy(isLoggedIn = isLoggedIn) }
+            }
+            .launchIn(viewModelScope)
         loadNodeInfo(forceRefresh = false)
     }
 
@@ -59,6 +71,13 @@ class NodeViewModel(
                 refreshRequests.update { it + 1 }
             }
             NodeUiEvent.TogglePinnedHomeNode -> togglePinnedHomeNode()
+            NodeUiEvent.BlockNode -> blockNode()
+            NodeUiEvent.BlockNodeErrorConsumed -> {
+                _uiState.update { it.copy(blockNodeError = null) }
+            }
+            NodeUiEvent.BlockNodeResultConsumed -> {
+                _uiState.update { it.copy(blockNodeCompleted = false) }
+            }
         }
     }
 
@@ -85,6 +104,36 @@ class NodeViewModel(
                 )
             }
             updateSettings.setPinnedHomeNode(pinnedNode)
+        }
+    }
+
+    private fun blockNode() {
+        if (!_uiState.value.isLoggedIn || _uiState.value.isBlockingNode) return
+        _uiState.update {
+            it.copy(
+                isBlockingNode = true,
+                blockNodeError = null,
+                blockNodeCompleted = false,
+            )
+        }
+        viewModelScope.launch {
+            blockNodeUseCase(nodeName)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isBlockingNode = false,
+                            blockNodeCompleted = true,
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isBlockingNode = false,
+                            blockNodeError = error.toUserMessage(),
+                        )
+                    }
+                }
         }
     }
 }

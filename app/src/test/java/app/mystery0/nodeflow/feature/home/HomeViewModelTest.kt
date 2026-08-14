@@ -143,6 +143,8 @@ class HomeViewModelTest {
             return flowOf(PagingData.empty())
         }
 
+        override suspend fun blockNode(name: String): Result<Unit> = Result.success(Unit)
+
         override suspend fun clearCache() = Unit
     }
 }

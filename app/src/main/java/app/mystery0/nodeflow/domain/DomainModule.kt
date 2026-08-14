@@ -12,6 +12,7 @@ import app.mystery0.nodeflow.domain.node.GetNodeTopicsUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeUseCase
 import app.mystery0.nodeflow.domain.node.GetNodePlanesUseCase
+import app.mystery0.nodeflow.domain.node.BlockNodeUseCase
 import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
@@ -61,6 +62,10 @@ val domainModule = module {
 
     factory {
         GetNodeTopicsPagingUseCase(get())
+    }
+
+    factory {
+        BlockNodeUseCase(get())
     }
 
     factory {

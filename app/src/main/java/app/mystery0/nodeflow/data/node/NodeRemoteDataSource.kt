@@ -1,10 +1,12 @@
 package app.mystery0.nodeflow.data.node
 
+import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.network.V2exHtmlAccessTarget
 import app.mystery0.nodeflow.core.network.V2exRawApi
+import app.mystery0.nodeflow.core.network.V2exWriteApi
 import app.mystery0.nodeflow.core.network.accessibleHtmlOrThrow
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
@@ -13,9 +15,11 @@ import app.mystery0.nodeflow.data.common.V2exNodeDto
 import app.mystery0.nodeflow.data.common.toNode
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl
 
 class NodeRemoteDataSource(
     private val api: V2exRawApi,
+    private val writeApi: V2exWriteApi,
     private val json: Json,
     private val parser: V2exHtmlParser,
 ) {
@@ -53,6 +57,48 @@ class NodeRemoteDataSource(
 
     suspend fun planes(): List<NodePlane> = safeNetworkCall {
         parser.parseNodePlanes(api.planesHtml().bodyStringOrThrow())
+    }
+
+    suspend fun blockNode(name: String): Unit = safeNetworkCall {
+        val nodeId = node(name).id ?: throw NodeFlowException(
+            kind = NodeFlowException.Kind.Parse,
+            message = "未获取到节点 ID，无法屏蔽节点",
+        )
+        val nodeResponse = api.nodeTopicsHtml(name, page = null)
+        val nodeHtml = nodeResponse.accessibleHtmlOrThrow(V2exHtmlAccessTarget.NodeTopics)
+        if (!nodeResponse.raw().request.url.isExpectedNodePage(name)) {
+            throw NodeFlowException(
+                kind = NodeFlowException.Kind.Parse,
+                message = "未确认节点操作页面，请刷新后重试",
+            )
+        }
+        val once = parser.parseNodeActionOnce(nodeId = nodeId, html = nodeHtml)
+            ?: throw NodeFlowException(
+                kind = NodeFlowException.Kind.Auth,
+                message = "未获取到节点屏蔽凭证，请刷新登录状态后重试",
+            )
+        val response = writeApi.getHtml(
+            "$V2EX_BASE_URL/settings/ignore/node/$nodeId?once=$once",
+        )
+        response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.NodeTopics)
+        val resultUrl = response.raw().request.url
+        if (!resultUrl.isExpectedNodePage(name)) {
+            throw NodeFlowException(
+                kind = NodeFlowException.Kind.Parse,
+                message = "未确认节点屏蔽结果，请刷新后重试",
+            )
+        }
+    }
+
+    private fun HttpUrl.isExpectedNodePage(name: String): Boolean =
+        scheme == "https" &&
+            host == V2EX_HOST &&
+            port == 443 &&
+            encodedPath == "/go/$name"
+
+    private companion object {
+        const val V2EX_BASE_URL = "https://www.v2ex.com"
+        const val V2EX_HOST = "www.v2ex.com"
     }
 }
 

@@ -25,7 +25,7 @@ val featureModule = module {
     }
 
     viewModel {
-        NodeViewModel(get(), get(), get(), get(), get())
+        NodeViewModel(get(), get(), get(), get(), get(), get(), get())
     }
 
     viewModel {
