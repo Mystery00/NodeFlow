@@ -45,9 +45,11 @@ fun ReplyItem(
     onMoreClick: () -> Unit = {},
     onReplyClick: () -> Unit = {},
     onReferenceClick: (ReplyReference) -> Unit = {},
+    onUserClick: (String) -> Unit = {},
     onImageClick: (String) -> Unit = {},
     onUrlClick: (String) -> Boolean = { false },
 ) {
+    val authorNavigationTarget = replyAuthorNavigationTarget(reply)
     val containerColor by animateColorAsState(
         targetValue = if (highlighted) {
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
@@ -74,6 +76,9 @@ fun ReplyItem(
                 UserAvatar(
                     avatarUrl = reply.author.avatarUrl,
                     username = reply.author.username,
+                    modifier = Modifier.clickable(enabled = authorNavigationTarget != null) {
+                        authorNavigationTarget?.let(onUserClick)
+                    },
                     size = 32.dp,
                 )
                 Spacer(Modifier.width(10.dp))
@@ -86,6 +91,9 @@ fun ReplyItem(
                     ) {
                         Text(
                             text = reply.author.username,
+                            modifier = Modifier.clickable(enabled = authorNavigationTarget != null) {
+                                authorNavigationTarget?.let(onUserClick)
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -173,6 +181,9 @@ fun isReplyFromTopicAuthor(replyUsername: String, topicAuthorUsername: String): 
     replyUsername.isNotBlank() &&
             topicAuthorUsername.isNotBlank() &&
             replyUsername.trim().equals(topicAuthorUsername.trim(), ignoreCase = true)
+
+internal fun replyAuthorNavigationTarget(reply: Reply): String? =
+    reply.author.username.trim().takeIf { it.isNotBlank() }
 
 internal fun memberUsernameFromUrl(url: String): String? {
     val cleanUrl = url

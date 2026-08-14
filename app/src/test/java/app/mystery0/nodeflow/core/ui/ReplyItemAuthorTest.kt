@@ -1,5 +1,7 @@
 package app.mystery0.nodeflow.core.ui
 
+import app.mystery0.nodeflow.core.model.Reply
+import app.mystery0.nodeflow.core.model.User
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
@@ -34,4 +36,27 @@ class ReplyItemAuthorTest {
         assertThat(isReplyFromTopicAuthor("Livid", "")).isFalse()
         assertThat(isReplyFromTopicAuthor("", "Livid")).isFalse()
     }
+
+    @Test
+    fun replyAuthorNavigationTarget_returnsTrimmedUsername() {
+        val reply = reply(username = " alice ")
+
+        assertThat(replyAuthorNavigationTarget(reply)).isEqualTo("alice")
+    }
+
+    @Test
+    fun replyAuthorNavigationTarget_returnsNullForBlankUsername() {
+        val reply = reply(username = "   ")
+
+        assertThat(replyAuthorNavigationTarget(reply)).isNull()
+    }
+
+    private fun reply(username: String): Reply = Reply(
+        id = 1L,
+        topicId = 2L,
+        floor = 1,
+        author = User(username = username),
+        content = "",
+        contentRendered = "",
+    )
 }

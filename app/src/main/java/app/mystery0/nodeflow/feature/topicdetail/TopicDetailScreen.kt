@@ -524,6 +524,7 @@ private fun TopicDetailContent(
                         replyUsername = reply.author.username,
                         topicAuthorUsername = detail.topic.author.username,
                     ),
+                    onUserClick = onUserClick,
                     onImageClick = onImageClick,
                     showDirectReplyAction = replyEditorOpen,
                     onMoreClick = { onReplyMoreClick(reply) },
@@ -812,4 +813,3 @@ private fun TopicAppendCard(
         }
     }
 }
-
