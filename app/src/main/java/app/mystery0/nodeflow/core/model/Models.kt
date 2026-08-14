@@ -113,6 +113,7 @@ data class Topic(
     val createdAtEpochSeconds: Long? = null,
     val lastTouchedAtEpochSeconds: Long? = null,
     val lastReplyBy: String? = null,
+    val isPinned: Boolean = false,
 )
 
 data class TopicAppend(

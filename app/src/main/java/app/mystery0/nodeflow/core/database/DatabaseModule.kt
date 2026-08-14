@@ -16,7 +16,7 @@ val databaseModule = module {
             androidContext(),
             NodeFlowDatabase::class.java,
             "nodeflow.db",
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .fallbackToDestructiveMigration(false)
             .build()
     }
@@ -109,5 +109,11 @@ internal val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS index_reply_draft_images_topicId ON reply_draft_images(topicId)",
         )
+    }
+}
+
+internal val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE topics ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0")
     }
 }

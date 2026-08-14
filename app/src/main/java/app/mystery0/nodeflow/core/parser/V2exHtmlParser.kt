@@ -32,7 +32,12 @@ class V2exHtmlParser {
     fun parseTopicList(html: String, sourceNodeName: String? = null): List<Topic> {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         return document.select("div.cell:has(a.topic-link)")
-            .mapNotNull { cell -> parseTopicCell(cell, sourceNodeName) }
+            .groupBy { cell -> cell.closest(".box") ?: cell.parent() ?: cell }
+            .values
+            .flatMap { cells ->
+                cells.mapNotNull { cell -> parseTopicCell(cell, sourceNodeName) }
+                    .markPinnedTopicsByTimeOrder()
+            }
     }
 
     fun parseNodePlanes(html: String): List<NodePlane> {
@@ -852,7 +857,68 @@ class V2exHtmlParser {
             lastReplyBy = lastReplyBy,
             createdAtEpochSeconds = null,
             lastTouchedAtEpochSeconds = touchedAtEpochSeconds,
+            isPinned = cell.hasPinnedTopicMarker(),
         )
+    }
+
+    private fun Element.hasPinnedTopicMarker(): Boolean {
+        val markedByClass = select("[class]")
+            .asSequence()
+            .plus(this)
+            .any { element ->
+                element.classNames().any { className ->
+                    className.lowercase() in PINNED_TOPIC_CLASS_NAMES
+                }
+            }
+        if (markedByClass) return true
+
+        val markedByData = PINNED_TOPIC_DATA_ATTRIBUTES.any { attribute ->
+            attr(attribute).trim().lowercase() in TRUE_ATTRIBUTE_VALUES
+        }
+        if (markedByData) return true
+
+        return select(".badge, .label, .tag").any { label ->
+            label.text().trim().lowercase() in PINNED_TOPIC_LABELS
+        }
+    }
+
+    private fun List<Topic>.markPinnedTopicsByTimeOrder(): List<Topic> {
+        val timedIndices = indices.filter { index ->
+            !this[index].isPinned && this[index].lastTouchedAtEpochSeconds != null
+        }
+        if (timedIndices.size < 2) return this
+
+        val sequenceLengths = IntArray(timedIndices.size) { 1 }
+        val previousPositions = IntArray(timedIndices.size) { -1 }
+        for (position in timedIndices.indices) {
+            val timestamp = this[timedIndices[position]].lastTouchedAtEpochSeconds ?: continue
+            for (previousPosition in 0 until position) {
+                val previousTimestamp = this[timedIndices[previousPosition]].lastTouchedAtEpochSeconds ?: continue
+                val keepsDescendingOrder = previousTimestamp + PINNED_ORDER_TOLERANCE_SECONDS >= timestamp
+                if (keepsDescendingOrder && sequenceLengths[previousPosition] + 1 > sequenceLengths[position]) {
+                    sequenceLengths[position] = sequenceLengths[previousPosition] + 1
+                    previousPositions[position] = previousPosition
+                }
+            }
+        }
+
+        var position = timedIndices.indices.maxWithOrNull(
+            compareBy<Int> { sequenceLengths[it] }
+                .thenBy { this[timedIndices[it]].lastTouchedAtEpochSeconds },
+        ) ?: return this
+        val descendingIndices = mutableSetOf<Int>()
+        while (position >= 0) {
+            descendingIndices += timedIndices[position]
+            position = previousPositions[position]
+        }
+
+        return mapIndexed { index, topic ->
+            if (topic.lastTouchedAtEpochSeconds != null && index !in descendingIndices && !topic.isPinned) {
+                topic.copy(isPinned = true)
+            } else {
+                topic
+            }
+        }
     }
 
     private fun String.parseV2exDateTime(): Long? =
@@ -1068,6 +1134,7 @@ class V2exHtmlParser {
     private companion object {
         const val V2EX_BASE_URL = "https://www.v2ex.com"
         const val V2EX_HOST = "www.v2ex.com"
+        const val PINNED_ORDER_TOLERANCE_SECONDS = 60L
         const val DEFAULT_REPLY_MAX_LENGTH = 10_000
         const val VIEW_ACTION = "https://schema.org/ViewAction"
         const val LIKE_ACTION = "https://schema.org/LikeAction"
@@ -1086,6 +1153,17 @@ class V2exHtmlParser {
         val NOTIFICATION_TOPIC_REGEX = Regex("""^/t/(\d+)(?:#reply(\d+))?""")
         val NOTIFICATION_REFERENCE_REGEX =
             Regex("""(?:^|\s)@([A-Za-z0-9_][A-Za-z0-9_-]{0,31})\s*#(\d{1,4})(?=$|[^A-Za-z0-9_-])""")
+        val PINNED_TOPIC_CLASS_NAMES = setOf(
+            "pinned",
+            "sticky",
+            "topic-pinned",
+            "topic-sticky",
+            "topic_pinned",
+            "topic_sticky",
+        )
+        val PINNED_TOPIC_DATA_ATTRIBUTES = listOf("data-pinned", "data-sticky")
+        val TRUE_ATTRIBUTE_VALUES = setOf("1", "true")
+        val PINNED_TOPIC_LABELS = setOf("置顶", "pinned")
         val DAILY_CHECK_IN_SUCCESS_MARKERS = listOf("每日登录奖励已领取", "已领取", "成功领取", "已成功")
         val DAILY_CHECK_IN_RISK_MARKERS = listOf(
             "干净安装的浏览器",

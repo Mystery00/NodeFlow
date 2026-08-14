@@ -15,3 +15,5 @@ fun topicNodeChip(topic: Topic): TopicNodeChip? {
         nodeName = nodeName,
     )
 }
+
+fun topicPinnedChip(topic: Topic, label: String): String? = label.takeIf { topic.isPinned }

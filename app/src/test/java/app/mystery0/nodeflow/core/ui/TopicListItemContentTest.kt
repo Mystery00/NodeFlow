@@ -51,11 +51,21 @@ class TopicListItemContentTest {
         assertThat(chip).isNull()
     }
 
-    private fun topic(node: Node): Topic = Topic(
+    @Test
+    fun topicPinnedChip_returnsLabelOnlyForPinnedTopic() {
+        assertThat(topicPinnedChip(topic(isPinned = true), label = "置顶")).isEqualTo("置顶")
+        assertThat(topicPinnedChip(topic(isPinned = false), label = "置顶")).isNull()
+    }
+
+    private fun topic(
+        node: Node = Node(name = "android", title = "Android"),
+        isPinned: Boolean = false,
+    ): Topic = Topic(
         id = 1L,
         title = "测试主题",
         url = "https://www.v2ex.com/t/1",
         node = node,
         author = User(username = "alice"),
+        isPinned = isPinned,
     )
 }

@@ -35,8 +35,14 @@ class TopicLocalDataSource(
     }
 
     suspend fun cacheTopicDetail(detail: TopicDetail) {
+        val cachedTopic = topicDao.topic(detail.topic.id)
+        val topic = if (cachedTopic?.isPinned == true) {
+            detail.topic.copy(isPinned = true)
+        } else {
+            detail.topic
+        }
         topicDao.upsertTopic(
-            detail.topic.toEntity(
+            topic.toEntity(
                 content = detail.content,
                 contentRendered = detail.contentRendered,
             ),

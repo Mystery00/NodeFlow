@@ -24,7 +24,7 @@ import app.mystery0.nodeflow.core.database.entity.ReplyDraftImageEntity
         ReplyDraftEntity::class,
         ReplyDraftImageEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class NodeFlowDatabase : RoomDatabase() {

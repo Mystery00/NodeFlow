@@ -20,10 +20,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.designsystem.component.NodeChip
+import app.mystery0.nodeflow.core.designsystem.component.StatusChip
 import app.mystery0.nodeflow.core.designsystem.component.UserAvatar
 import app.mystery0.nodeflow.core.model.Topic
 
@@ -61,6 +64,7 @@ fun TopicListItem(
     modifier: Modifier = Modifier,
 ) {
     val nodeChip = topicNodeChip(topic)
+    val pinnedChip = topicPinnedChip(topic, stringResource(R.string.topic_pinned))
     val layout = compactTopicListItemLayout()
     Column(
         modifier = modifier
@@ -96,6 +100,9 @@ fun TopicListItem(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(layout.metadataSpacing),
                 ) {
+                    pinnedChip?.let { label ->
+                        StatusChip(title = label)
+                    }
                     nodeChip?.let { chip ->
                         NodeChip(
                             title = chip.label,

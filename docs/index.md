@@ -38,6 +38,7 @@
 - [系统深浅色启动页设计](plans/2026-07-25-system-splash-theme-design.md) / [实施计划](plans/2026-07-25-system-splash-theme.md)
 - [帖子回复作者导航设计](plans/2026-08-14-topic-reply-author-navigation-design.md) / [实施计划](plans/2026-08-14-topic-reply-author-navigation.md)
 - [节点详情屏蔽节点设计](plans/2026-08-14-node-blocking-design.md) / [实施计划](plans/2026-08-14-node-blocking.md)
+- [帖子列表置顶标记设计](plans/2026-08-14-topic-pinned-badge-design.md) / [实施计划](plans/2026-08-14-topic-pinned-badge.md)
 - [`investigations/`](investigations/)：问题调查、外部行为验证和技术研究记录。
 - [V2EX_Polish 用户标签数据格式调查](investigations/2026-07-17-v2ex-polish-member-tag-format.md)
 

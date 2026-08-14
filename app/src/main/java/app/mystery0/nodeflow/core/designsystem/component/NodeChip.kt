@@ -29,14 +29,33 @@ fun NodeChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val layout = compactNodeChipLayout()
-    Surface(
+    CompactLabelChip(
+        title = title,
         onClick = onClick,
-        modifier = modifier.height(layout.height),
-        shape = MaterialTheme.shapes.extraSmall,
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    ) {
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun StatusChip(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    CompactLabelChip(
+        title = title,
+        onClick = null,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun CompactLabelChip(
+    title: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier,
+) {
+    val layout = compactNodeChipLayout()
+    val content: @Composable () -> Unit = {
         Box(
             modifier = Modifier
                 .height(layout.height)
@@ -50,5 +69,24 @@ fun NodeChip(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+    val chipModifier = modifier.height(layout.height)
+    if (onClick == null) {
+        Surface(
+            modifier = chipModifier,
+            shape = MaterialTheme.shapes.extraSmall,
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            content = content,
+        )
+    } else {
+        Surface(
+            onClick = onClick,
+            modifier = chipModifier,
+            shape = MaterialTheme.shapes.extraSmall,
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            content = content,
+        )
     }
 }

@@ -8,6 +8,7 @@
 - 禁止使用破坏性迁移掩盖缺失 Migration；现有配置为 `fallbackToDestructiveMigration(false)`。
 - 修改字段、索引、主键或表结构时，同时检查 DAO、映射、Migration 和测试。
 - 数据库操作在合适 Dispatcher 上执行，不阻塞主线程。
+- `topics.isPinned` 保存列表页解析到的置顶状态；版本 4→5 通过非破坏性 Migration 增加字段，旧缓存默认不是置顶。
 
 ## 缓存策略
 

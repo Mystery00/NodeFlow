@@ -747,6 +747,214 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseTopicList_readsExplicitPinnedMarkers() {
+        val html = """
+            <html><body>
+              <div class="cell item pinned">
+                <a class="topic-link" href="/t/101">class marker</a>
+              </div>
+              <div class="cell item" data-sticky="true">
+                <a class="topic-link" href="/t/102">data marker</a>
+              </div>
+              <div class="cell item">
+                <span class="badge">置顶</span>
+                <a class="topic-link" href="/t/103">label marker</a>
+              </div>
+            </body></html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics.map { it.isPinned }).containsExactly(true, true, true).inOrder()
+    }
+
+    @Test
+    fun parseTopicList_doesNotInferPinnedFromFirstPositionOrPromotionNode() {
+        val html = """
+            <html><body>
+              <div class="cell item">
+                <a class="node" href="/go/promotions">推广</a>
+                <a class="topic-link" href="/t/201">普通首条推广主题</a>
+              </div>
+              <div class="cell item">
+                <a class="node" href="/go/qna">问与答</a>
+                <a class="topic-link" href="/t/202">普通主题</a>
+              </div>
+            </body></html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics.map { it.isPinned }).containsExactly(false, false).inOrder()
+    }
+
+    @Test
+    fun parseTopicList_marksLeadingTopicWhenServerOrderBreaksDisplayedTimeOrder() {
+        val html = """
+            <html><body>
+              <div class="cell item">
+                <a class="node" href="/go/promotions">推广</a>
+                <a class="topic-link" href="/t/301">五天前的置顶主题</a>
+                <span class="topic_info"><span title="2026-08-09 16:59:24 +08:00">5 days ago</span></span>
+              </div>
+              <div class="cell item">
+                <a class="node" href="/go/create">分享创造</a>
+                <a class="topic-link" href="/t/302">一小时前的普通主题</a>
+                <span class="topic_info"><span title="2026-08-14 19:30:00 +08:00">1h ago</span></span>
+              </div>
+              <div class="cell item">
+                <a class="node" href="/go/qna">问与答</a>
+                <a class="topic-link" href="/t/303">两小时前的普通主题</a>
+                <span class="topic_info"><span title="2026-08-14 18:30:00 +08:00">2h ago</span></span>
+              </div>
+            </body></html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics.map { it.isPinned }).containsExactly(true, false, false).inOrder()
+    }
+
+    @Test
+    fun parseTopicList_marksPinnedTopicAfterNewerNormalTopic() {
+        val html = """
+            <html><body>
+              <div class="cell item">
+                <a class="node" href="/go/google">Google</a>
+                <a class="topic-link" href="/t/401">一小时前的普通主题</a>
+                <span class="topic_info"><span title="2026-08-14 20:30:00 +08:00">1h ago</span></span>
+              </div>
+              <div class="cell item">
+                <a class="node" href="/go/promotions">推广</a>
+                <a class="topic-link" href="/t/402">五天前的置顶主题</a>
+                <span class="topic_info"><span title="2026-08-09 16:59:24 +08:00">5 days ago</span></span>
+              </div>
+              <div class="cell item">
+                <a class="node" href="/go/create">分享创造</a>
+                <a class="topic-link" href="/t/403">两小时前的普通主题</a>
+                <span class="topic_info"><span title="2026-08-14 19:30:00 +08:00">2h ago</span></span>
+              </div>
+            </body></html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics.map { it.isPinned }).containsExactly(false, true, false).inOrder()
+    }
+
+    @Test
+    fun parseTopicList_marksLaterInsertedTopicWithoutMarkingSkippedNormalTopics() {
+        val timestamps = listOf(
+            "2026-08-14 20:00:00 +08:00",
+            "2026-08-14 19:50:00 +08:00",
+            "2026-08-14 19:40:00 +08:00",
+            "2026-08-14 19:55:00 +08:00",
+            "2026-08-14 19:30:00 +08:00",
+        )
+        val cells = timestamps.mapIndexed { index, timestamp ->
+            """
+              <div class="cell item">
+                <a class="topic-link" href="/t/${500 + index}">主题 $index</a>
+                <span class="topic_info"><span title="$timestamp">time</span></span>
+              </div>
+            """.trimIndent()
+        }.joinToString(separator = "\n")
+        val html = "<html><body>$cells</body></html>"
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics.map { it.isPinned })
+            .containsExactly(false, false, false, true, false)
+            .inOrder()
+    }
+
+    @Test
+    fun parseTopicList_doesNotInferPinnedAcrossDifferentContainers() {
+        val html = """
+            <html><body>
+              <main id="Main"><div class="box">
+                <div class="cell item">
+                  <a class="topic-link" href="/t/601">主列表主题一</a>
+                  <span class="topic_info"><span title="2026-08-14 20:00:00 +08:00">time</span></span>
+                </div>
+                <div class="cell item">
+                  <a class="topic-link" href="/t/602">主列表主题二</a>
+                  <span class="topic_info"><span title="2026-08-14 19:00:00 +08:00">time</span></span>
+                </div>
+              </div></main>
+              <aside><div class="box">
+                <div class="cell item">
+                  <a class="topic-link" href="/t/603">侧栏主题一</a>
+                  <span class="topic_info"><span title="2026-08-14 23:00:00 +08:00">time</span></span>
+                </div>
+                <div class="cell item">
+                  <a class="topic-link" href="/t/604">侧栏主题二</a>
+                  <span class="topic_info"><span title="2026-08-14 22:00:00 +08:00">time</span></span>
+                </div>
+                <div class="cell item">
+                  <a class="topic-link" href="/t/605">侧栏主题三</a>
+                  <span class="topic_info"><span title="2026-08-14 21:00:00 +08:00">time</span></span>
+                </div>
+              </div></aside>
+            </body></html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics.map { it.isPinned })
+            .containsExactly(false, false, false, false, false)
+            .inOrder()
+    }
+
+    @Test
+    fun parseTopicList_allowsSixtySecondTimeOrderTolerance() {
+        val withinTolerance = """
+            <html><body>
+              <div class="cell item">
+                <a class="topic-link" href="/t/701">主题一</a>
+                <span class="topic_info"><span title="2026-08-14 20:00:00 +08:00">time</span></span>
+              </div>
+              <div class="cell item">
+                <a class="topic-link" href="/t/702">主题二</a>
+                <span class="topic_info"><span title="2026-08-14 20:01:00 +08:00">time</span></span>
+              </div>
+            </body></html>
+        """.trimIndent()
+        val beyondTolerance = withinTolerance.replace("20:01:00", "20:01:01")
+
+        assertThat(parser.parseTopicList(withinTolerance).map { it.isPinned })
+            .containsExactly(false, false)
+            .inOrder()
+        assertThat(parser.parseTopicList(beyondTolerance).map { it.isPinned })
+            .containsExactly(true, false)
+            .inOrder()
+    }
+
+    @Test
+    fun parseTopicList_ignoresTopicWithoutExactTimeDuringInference() {
+        val html = """
+            <html><body>
+              <div class="cell item">
+                <a class="topic-link" href="/t/801">主题一</a>
+                <span class="topic_info"><span title="2026-08-14 20:00:00 +08:00">time</span></span>
+              </div>
+              <div class="cell item">
+                <a class="topic-link" href="/t/802">缺少精确时间的主题</a>
+                <span class="topic_info">刚刚</span>
+              </div>
+              <div class="cell item">
+                <a class="topic-link" href="/t/803">主题三</a>
+                <span class="topic_info"><span title="2026-08-14 19:00:00 +08:00">time</span></span>
+              </div>
+            </body></html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics.map { it.isPinned }).containsExactly(false, false, false).inOrder()
+    }
+
+    @Test
     fun extractImageUrls_readsImagesAndLinkedImageUrls() {
         val html = """
             <p>正文</p>
