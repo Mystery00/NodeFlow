@@ -40,6 +40,10 @@ interface V2exRawApi {
     @GET("recent")
     suspend fun recentTopicsHtml(@Query("p") page: Int? = null): Response<ResponseBody>
 
+    @Headers("User-Agent: ${V2exUserAgents.DESKTOP}")
+    @GET(".?tab=all")
+    suspend fun allTopicsHtml(): Response<ResponseBody>
+
     @GET("planes")
     suspend fun planesHtml(): Response<ResponseBody>
 

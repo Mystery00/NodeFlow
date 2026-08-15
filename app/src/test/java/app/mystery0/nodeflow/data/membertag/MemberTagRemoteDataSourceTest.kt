@@ -164,6 +164,7 @@ class MemberTagRemoteDataSourceTest {
         override suspend fun member(username: String) = emptyResponse()
         override suspend fun nodeTopicsHtml(nodeName: String, page: Int?) = emptyResponse()
         override suspend fun recentTopicsHtml(page: Int?) = emptyResponse()
+        override suspend fun allTopicsHtml() = emptyResponse()
         override suspend fun planesHtml() = emptyResponse()
         override suspend fun topicHtml(topicId: Long, page: Int?) = emptyResponse()
         override suspend fun memberHtml(username: String) = emptyResponse()

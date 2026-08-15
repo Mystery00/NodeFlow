@@ -56,6 +56,17 @@ class V2exRawApiUserAgentTest {
     }
 
     @Test
+    fun allTopicsHtml_requestsAllTabWithDesktopUserAgent() = runTest {
+        server.enqueue(MockResponse().setBody(""))
+
+        api.allTopicsHtml()
+
+        val request = server.takeRequest()
+        assertThat(request.path).isEqualTo("/?tab=all")
+        assertThat(request.getHeader("User-Agent")).isEqualTo(V2exUserAgents.DESKTOP)
+    }
+
+    @Test
     fun topicHtml_usesDesktopUserAgent() = runTest {
         server.enqueue(MockResponse().setBody(""))
 

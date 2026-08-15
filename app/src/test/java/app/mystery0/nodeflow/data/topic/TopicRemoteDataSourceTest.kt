@@ -21,9 +21,9 @@ class TopicRemoteDataSourceTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
-    fun latestTopics_readsHomeTopicsFromRecentHtml() = runTest {
+    fun latestTopics_readsHomeTopicsFromAllTabHtml() = runTest {
         val api = FakeV2exRawApi(
-            recentHtml = """
+            allHtml = """
                 <html>
                   <body>
                     <div class="cell from_1 t_1224588">
@@ -60,7 +60,8 @@ class TopicRemoteDataSourceTest {
 
         assertThat(api.latestTopicsRequestCount).isEqualTo(0)
         assertThat(api.nodeTopicsHtmlRequests).isEmpty()
-        assertThat(api.recentTopicsHtmlRequests).containsExactly(RecentTopicsHtmlRequest(1))
+        assertThat(api.allTopicsHtmlRequestCount).isEqualTo(1)
+        assertThat(api.recentTopicsHtmlRequests).isEmpty()
         assertThat(topics).hasSize(1)
         assertThat(topics.first().id).isEqualTo(1224588)
         assertThat(topics.first().title).isEqualTo("首页主题")
@@ -70,7 +71,7 @@ class TopicRemoteDataSourceTest {
     }
 
     @Test
-    fun homeTopics_readsRequestedRecentPage() = runTest {
+    fun homeTopics_secondPageReadsFirstRecentPage() = runTest {
         val api = FakeV2exRawApi(
             recentHtml = """
                 <html>
@@ -91,8 +92,20 @@ class TopicRemoteDataSourceTest {
         val topics = dataSource.homeTopics(page = 2)
 
         assertThat(api.nodeTopicsHtmlRequests).isEmpty()
-        assertThat(api.recentTopicsHtmlRequests).containsExactly(RecentTopicsHtmlRequest(2))
+        assertThat(api.allTopicsHtmlRequestCount).isEqualTo(0)
+        assertThat(api.recentTopicsHtmlRequests).containsExactly(RecentTopicsHtmlRequest(1))
         assertThat(topics.map { it.id }).containsExactly(1224599L)
+    }
+
+    @Test
+    fun homeTopics_thirdPageReadsSecondRecentPage() = runTest {
+        val api = FakeV2exRawApi(recentHtml = "<html><body></body></html>")
+        val dataSource = TopicRemoteDataSource(api, json, parser)
+
+        dataSource.homeTopics(page = 3)
+
+        assertThat(api.allTopicsHtmlRequestCount).isEqualTo(0)
+        assertThat(api.recentTopicsHtmlRequests).containsExactly(RecentTopicsHtmlRequest(2))
     }
 
     @Test
@@ -355,6 +368,7 @@ class TopicRemoteDataSourceTest {
     )
 
     private class FakeV2exRawApi(
+        private val allHtml: String = "",
         private val recentHtml: String = "",
         private val topicHtmlPages: Map<Int?, String> = emptyMap(),
         private val topicHtmlFinalUrls: Map<Int?, String> = emptyMap(),
@@ -364,6 +378,7 @@ class TopicRemoteDataSourceTest {
         var latestTopicsRequestCount: Int = 0
         var topicJsonCalls: Int = 0
         var repliesJsonCalls: Int = 0
+        var allTopicsHtmlRequestCount: Int = 0
         val nodeTopicsHtmlRequests = mutableListOf<NodeTopicsHtmlRequest>()
         val recentTopicsHtmlRequests = mutableListOf<RecentTopicsHtmlRequest>()
         val topicHtmlRequests = mutableListOf<Int?>()
@@ -395,6 +410,11 @@ class TopicRemoteDataSourceTest {
         override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> {
             recentTopicsHtmlRequests += RecentTopicsHtmlRequest(page)
             return htmlResponse(recentHtml)
+        }
+
+        override suspend fun allTopicsHtml(): Response<ResponseBody> {
+            allTopicsHtmlRequestCount += 1
+            return htmlResponse(allHtml)
         }
 
         override suspend fun planesHtml(): Response<ResponseBody> = htmlResponse("")

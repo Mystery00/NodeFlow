@@ -186,6 +186,8 @@ class NodeRepositoryImplTest {
 
         override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> = failure()
 
+        override suspend fun allTopicsHtml(): Response<ResponseBody> = failure()
+
         override suspend fun planesHtml(): Response<ResponseBody> = failure()
 
         override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> = failure()

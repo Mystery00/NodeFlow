@@ -25,8 +25,13 @@ class TopicRemoteDataSource(
     suspend fun latestTopics(): List<Topic> = homeTopics(HOME_TOPICS_PAGE)
 
     suspend fun homeTopics(page: Int): List<Topic> = safeNetworkCall {
+        val response = if (page == HOME_TOPICS_PAGE) {
+            api.allTopicsHtml()
+        } else {
+            api.recentTopicsHtml(page - HOME_TOPICS_PAGE)
+        }
         parser.parseTopicList(
-            html = api.recentTopicsHtml(page).bodyStringOrThrow(),
+            html = response.bodyStringOrThrow(),
         )
     }
 
