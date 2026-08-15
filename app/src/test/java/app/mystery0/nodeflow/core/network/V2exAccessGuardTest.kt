@@ -155,6 +155,53 @@ class V2exAccessGuardTest {
         assertThat(error.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
     }
 
+    @Test
+    fun actionResult_allowsHomeRedirect() {
+        val html = "<html><body>Home topics</body></html>"
+        val response = successfulHtmlResponse(
+            html = html,
+            finalUrl = "https://www.v2ex.com/",
+        )
+
+        val actual = response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.ActionResult)
+
+        assertThat(actual).isEqualTo(html)
+    }
+
+    @Test
+    fun actionResult_rejectsSignInFinalUrl() {
+        val response = successfulHtmlResponse(
+            html = "<html><body>Sign in</body></html>",
+            finalUrl = "https://www.v2ex.com/signin?next=%2F",
+        )
+
+        val result = runCatching {
+            response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.ActionResult)
+        }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
+    }
+
+    @Test
+    fun actionResult_rejectsRestrictedSignInForm() {
+        val response = successfulHtmlResponse(
+            html = """
+                <form action="/signin">
+                  <input type="hidden" name="next" value="/restricted" />
+                </form>
+            """.trimIndent(),
+            finalUrl = "https://www.v2ex.com/",
+        )
+
+        val result = runCatching {
+            response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.ActionResult)
+        }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
+    }
+
     private fun successfulHtmlResponse(
         html: String,
         finalUrl: String,

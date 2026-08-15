@@ -14,7 +14,7 @@
 
 - 与用户沟通、代码注释和文档使用中文，日志使用英文。
 - 不记录 Cookie、`once`、响应正文或用户隐私数据。
-- 网络测试不得访问真实 V2EX；模拟器不得确认最终屏蔽操作。
+- 自动化网络测试不得访问真实 V2EX；真实屏蔽操作仅在用户明确授权的节点上执行。
 - 不修改 Room、DataStore、User-Agent、Cookie、Referer 或 Origin 的公共规则。
 
 ### 任务一：解析节点 action token
@@ -51,9 +51,9 @@
 - 产出：`suspend fun NodeRepository.blockNode(name: String): Result<Unit>`
 - 产出：`suspend operator fun BlockNodeUseCase.invoke(name: String): Result<Unit>`
 
-- [x] 写入成功请求、缺少 ID/token 和异常最终 URL 的失败测试。
+- [x] 写入成功请求、成功后首页重定向、访问挑战、普通 Cloudflare 主题、缺少 ID/token 和异常最终 URL 的失败测试。
 - [x] 运行 RemoteDataSource 局部测试并确认接口或行为失败。
-- [x] 实现受访问保护的节点页读取、动态写请求和成功 URL 校验。
+- [x] 实现受访问保护的节点页读取、动态写请求和写操作结果校验；允许已实测的成功首页重定向。
 - [x] 接入 Repository、UseCase 与 Koin。
 - [x] 重跑数据层及 Koin 局部测试并确认通过。
 
@@ -90,5 +90,5 @@
 
 - [x] 更新网络、UI 专题文档和索引。
 - [x] 运行节点相关测试、全部 JVM 单元测试、Debug 构建和 Lint。
-- [x] 模拟器验证无登录会话时进入登录页且未发送写请求；按约束不写入会话，因此未在真实登录态打开确认框。
+- [x] 模拟器验证无登录会话时进入登录页且未发送写请求；2026-08-16 经用户授权，使用已登录会话对 `localllm` 完成解除屏蔽与重新屏蔽，确认成功后不再误报无权访问，最终状态为已屏蔽。
 - [x] 检查差异、敏感信息和计划覆盖后创建独立提交。

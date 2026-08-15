@@ -322,6 +322,21 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun hasAccessChallenge_ignoresCloudflareInsideHomeTopicTitle() {
+        val html = """
+            <div id="Main">
+              <div class="cell item">
+                <span class="item_title">
+                  <a class="topic-link" href="/t/123">聊聊 Cloudflare 的缓存配置</a>
+                </span>
+              </div>
+            </div>
+        """.trimIndent()
+
+        assertThat(parser.hasAccessChallenge(html)).isFalse()
+    }
+
+    @Test
     fun parseLatestDailyReward_readsRewardCellAfterDescription() {
         val html = """
             <html><body><table>

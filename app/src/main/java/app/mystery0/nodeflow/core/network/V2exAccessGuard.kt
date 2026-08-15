@@ -9,6 +9,7 @@ import retrofit2.Response
 enum class V2exHtmlAccessTarget {
     Topic,
     NodeTopics,
+    ActionResult,
 }
 
 const val V2EX_ACCESS_DENIED_MESSAGE =

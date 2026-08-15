@@ -283,10 +283,13 @@ class V2exHtmlParser {
 
     fun hasAccessChallenge(html: String): Boolean {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
-        // 正常业务正文可能讨论 Cloudflare 等关键词，已有通知结构时不能据此误判整页。
-        if (document.select("#Main .cell[id^=n_]").isNotEmpty()) return false
-        val pageContent = "${document.text()} ${document.outerHtml()}".lowercase()
-        return DAILY_CHECK_IN_RISK_MARKERS.any(pageContent::contains)
+        // 只识别挑战页的 DOM、标题和完整风控提示，避免普通主题讨论 Cloudflare 时误判。
+        if (document.select(ACCESS_CHALLENGE_SELECTOR).isNotEmpty()) return true
+        val title = document.title().trim().lowercase()
+        if (title.trimEnd('.') == "just a moment") return true
+        if (title.contains("attention required") && title.contains("cloudflare")) return true
+        val pageText = document.text().lowercase()
+        return CLEAN_BROWSER_RISK_MARKERS.any(pageText::contains)
     }
 
     fun parseLatestDailyReward(html: String): Int? {
@@ -1165,15 +1168,19 @@ class V2exHtmlParser {
         val TRUE_ATTRIBUTE_VALUES = setOf("1", "true")
         val PINNED_TOPIC_LABELS = setOf("置顶", "pinned")
         val DAILY_CHECK_IN_SUCCESS_MARKERS = listOf("每日登录奖励已领取", "已领取", "成功领取", "已成功")
-        val DAILY_CHECK_IN_RISK_MARKERS = listOf(
+        val ACCESS_CHALLENGE_SELECTOR = listOf(
+            "[id*=cf-chl]",
+            "[class*=cf-chl]",
+            "[id*=cf-turnstile]",
+            "[class*=cf-turnstile]",
+            "#challenge-form",
+            "#cf-wrapper",
+            ".cf-error-details",
+            "script[src*=/cdn-cgi/challenge-platform]",
+        ).joinToString(",")
+        val CLEAN_BROWSER_RISK_MARKERS = listOf(
             "干净安装的浏览器",
             "clean browser",
-            "just a moment",
-            "cf-chl",
-            "cf-turnstile",
-            "challenge-platform",
-            "attention required",
-            "cloudflare",
         )
         val NUMBER_REGEX = Regex("""\d[\d,]*""")
         val HTML_TAG_REGEX = Regex("""<[^>]+>""")

@@ -136,6 +136,56 @@ class NodeRemoteDataSourceTest {
     }
 
     @Test
+    fun blockNode_acceptsHomeRedirectAfterSuccessfulAction() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = "<a href=\"/settings/ignore/node/39?once=12345\">屏蔽节点</a>",
+        )
+        val writeApi = FakeV2exWriteApi(
+            finalUrl = "https://www.v2ex.com/",
+            responseHtml = """
+                <div id="Main">
+                  <div class="cell item">
+                    <a class="topic-link" href="/t/123">聊聊 Cloudflare 的缓存配置</a>
+                  </div>
+                </div>
+            """.trimIndent(),
+        )
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        dataSource.blockNode("android")
+
+        assertThat(writeApi.requestedUrls).hasSize(1)
+    }
+
+    @Test
+    fun blockNode_rejectsAccessChallengeAtTrustedV2exUrl() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = "<a href=\"/settings/ignore/node/39?once=12345\">屏蔽节点</a>",
+        )
+        val writeApi = FakeV2exWriteApi(
+            finalUrl = "https://www.v2ex.com/",
+            responseHtml = """
+                <html>
+                  <head><title>Just a moment...</title></head>
+                  <body><div id="cf-chl-widget"></div></body>
+                </html>
+            """.trimIndent(),
+        )
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        val result = runCatching { dataSource.blockNode("android") }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.AccessDenied)
+    }
+
+    @Test
     fun blockNode_doesNotWriteWhenNodePageHasNoActionToken() = runTest {
         val api = FakeV2exRawApi(
             nodeJson = """
@@ -210,7 +260,7 @@ class NodeRemoteDataSourceTest {
     }
 
     @Test
-    fun blockNode_rejectsUnexpectedActionResultPage() = runTest {
+    fun blockNode_acceptsActionEndpointResponse() = runTest {
         val api = FakeV2exRawApi(
             nodeJson = """
                 {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
@@ -222,10 +272,9 @@ class NodeRemoteDataSourceTest {
         )
         val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
 
-        val result = runCatching { dataSource.blockNode("android") }
+        dataSource.blockNode("android")
 
-        val error = result.exceptionOrNull() as NodeFlowException
-        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.Parse)
+        assertThat(writeApi.requestedUrls).hasSize(1)
     }
 
     @Test
@@ -246,14 +295,31 @@ class NodeRemoteDataSourceTest {
     }
 
     @Test
-    fun blockNode_rejectsDifferentNodeResultPath() = runTest {
+    fun blockNode_rejectsInsecureV2exResultUrl() = runTest {
         val api = FakeV2exRawApi(
             nodeJson = """
                 {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
             """.trimIndent(),
             nodeHtml = "<a href=\"/settings/ignore/node/39?once=12345\">屏蔽节点</a>",
         )
-        val writeApi = FakeV2exWriteApi(finalUrl = "https://www.v2ex.com/go/python")
+        val writeApi = FakeV2exWriteApi(finalUrl = "http://www.v2ex.com/")
+        val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
+
+        val result = runCatching { dataSource.blockNode("android") }
+
+        val error = result.exceptionOrNull() as NodeFlowException
+        assertThat(error.kind).isEqualTo(NodeFlowException.Kind.Parse)
+    }
+
+    @Test
+    fun blockNode_rejectsNonStandardV2exPort() = runTest {
+        val api = FakeV2exRawApi(
+            nodeJson = """
+                {"id":39,"name":"android","title":"Android","avatar_large":"https://cdn.example/node.png"}
+            """.trimIndent(),
+            nodeHtml = "<a href=\"/settings/ignore/node/39?once=12345\">屏蔽节点</a>",
+        )
+        val writeApi = FakeV2exWriteApi(finalUrl = "https://www.v2ex.com:444/")
         val dataSource = NodeRemoteDataSource(api, writeApi, json, parser)
 
         val result = runCatching { dataSource.blockNode("android") }
@@ -387,13 +453,13 @@ class NodeRemoteDataSourceTest {
 
     private class FakeV2exWriteApi(
         private val finalUrl: String,
+        private val responseHtml: String = "<html><body>节点页面</body></html>",
     ) : V2exWriteApi {
         val requestedUrls = mutableListOf<String>()
 
         override suspend fun getHtml(url: String): Response<ResponseBody> {
             requestedUrls += url
-            val body = "<html><body>节点页面</body></html>"
-                .toResponseBody("text/html".toMediaType())
+            val body = responseHtml.toResponseBody("text/html".toMediaType())
             val rawResponse = OkHttpResponse.Builder()
                 .request(Request.Builder().url(finalUrl).build())
                 .protocol(Protocol.HTTP_1_1)

@@ -80,12 +80,19 @@ class NodeRemoteDataSource(
         val response = writeApi.getHtml(
             "$V2EX_BASE_URL/settings/ignore/node/$nodeId?once=$once",
         )
-        response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.NodeTopics)
+        // 屏蔽成功后 V2EX 当前会回到首页，写操作结果不能套用“节点页跳首页即无权访问”的读取规则。
+        val resultHtml = response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.ActionResult)
         val resultUrl = response.raw().request.url
-        if (!resultUrl.isExpectedNodePage(name)) {
+        if (!resultUrl.isTrustedV2exPage()) {
             throw NodeFlowException(
                 kind = NodeFlowException.Kind.Parse,
                 message = "未确认节点屏蔽结果，请刷新后重试",
+            )
+        }
+        if (parser.hasAccessChallenge(resultHtml)) {
+            throw NodeFlowException(
+                kind = NodeFlowException.Kind.AccessDenied,
+                message = "V2EX 暂时拒绝节点操作，请稍后重试",
             )
         }
     }
@@ -95,6 +102,11 @@ class NodeRemoteDataSource(
             host == V2EX_HOST &&
             port == 443 &&
             encodedPath == "/go/$name"
+
+    private fun HttpUrl.isTrustedV2exPage(): Boolean =
+        scheme == "https" &&
+            host == V2EX_HOST &&
+            port == 443
 
     private companion object {
         const val V2EX_BASE_URL = "https://www.v2ex.com"
