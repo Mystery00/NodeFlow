@@ -159,10 +159,15 @@ class TopicDetailViewModel(
         return snapshot
     }
 
-    /** 顺序补页到目标楼层；[markTarget] 为 true 时完成后触发楼层定位与高亮。 */
+    /** 顺序补页到目标楼层；回复成功时先刷新已加载页面，再触发楼层定位与高亮。 */
     private suspend fun catchUpToFloor(floor: Int, generation: Long, markTarget: Boolean) {
         _uiState.update { it.copy(isLoadingMore = true, loadMoreError = null) }
-        val result = pager.loadUntilFloor(floor)
+        val refreshResult = if (markTarget) pager.refreshLoaded() else null
+        if (generation != loadGeneration) return
+        val result = refreshResult?.fold(
+            onSuccess = { pager.loadUntilFloor(floor) },
+            onFailure = { Result.failure(it) },
+        ) ?: pager.loadUntilFloor(floor)
         if (generation != loadGeneration) return
         result.fold(
             onSuccess = { snapshot ->
@@ -178,6 +183,7 @@ class TopicDetailViewModel(
                 }
                 // 补齐中途失败：用已加载前缀同步界面，定位退回已加载末尾
                 val partial = pager.loadFirst(forceRefresh = false).getOrNull()
+                if (generation != loadGeneration) return
                 _uiState.update { current ->
                     val base = partial?.let { applySnapshot(current, it) } ?: current
                     base.copy(

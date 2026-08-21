@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">NodeFlow</string>
     <string name="topic_pinned">置顶</string>
+    <string name="reply_created">回复成功</string>
 </resources>

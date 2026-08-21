@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.navigation
 
+import android.widget.Toast
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
@@ -22,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.paging.compose.collectAsLazyPagingItems
+import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.feature.auth.AuthScreen
@@ -131,6 +134,7 @@ fun NodeFlowNavHost(
             val state by viewModel.uiState.collectAsStateWithLifecycle()
             val replyEditorViewModel: ReplyEditorViewModel = koinViewModel()
             val replyEditorState by replyEditorViewModel.uiState.collectAsStateWithLifecycle()
+            val context = LocalContext.current
             val uriHandler = LocalUriHandler.current
             LaunchedEffect(replyEditorViewModel, viewModel) {
                 replyEditorViewModel.effects.collect { effect ->
@@ -139,8 +143,10 @@ fun NodeFlowNavHost(
                             navController.navigate(NodeFlowDestinations.Auth)
                         ReplyEditorEffect.OpenGallery ->
                             uriHandler.openUri("https://www.v2ex.com/i")
-                        is ReplyEditorEffect.ReplyCreated ->
+                        is ReplyEditorEffect.ReplyCreated -> {
+                            Toast.makeText(context, R.string.reply_created, Toast.LENGTH_SHORT).show()
                             viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(effect.floor))
+                        }
                     }
                 }
             }

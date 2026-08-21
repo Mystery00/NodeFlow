@@ -221,31 +221,40 @@ class TopicDetailViewModelTest {
     }
 
     @Test
-    fun replyCreated_catchesUpToFloorAndPublishesFloorTarget() = runTest(testDispatcher) {
-        val pager = FakeTopicDetailPager()
-        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
-        pager.loadUntilFloorResults +=
-            Result.success(snapshot(replies = replies(1..208), hasMore = false))
-        val viewModel = viewModel(pager)
-        advanceUntilIdle()
+    fun replyCreated_refreshesLoadedPagesBeforeCatchingUpAndPublishesFloorTarget() =
+        runTest(testDispatcher) {
+            val pager = FakeTopicDetailPager()
+            pager.loadFirstResults +=
+                Result.success(snapshot(replies = replies(1..100), hasMore = false))
+            pager.refreshResults +=
+                Result.success(snapshot(replies = replies(1..101), hasMore = false))
+            pager.loadUntilFloorResults +=
+                Result.success(snapshot(replies = replies(1..101), hasMore = false))
+            val viewModel = viewModel(pager)
+            advanceUntilIdle()
 
-        viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(208))
-        advanceUntilIdle()
+            viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(101))
+            advanceUntilIdle()
 
-        val state = viewModel.uiState.value
-        assertThat(pager.calls).containsExactly("loadFirst(false)", "loadUntilFloor(208)").inOrder()
-        assertThat(state.detail?.replies).hasSize(208)
-        assertThat(state.replyFloorTarget).isEqualTo(208)
-        viewModel.onEvent(TopicDetailUiEvent.ReplyFloorTargetConsumed)
-        assertThat(viewModel.uiState.value.replyFloorTarget).isNull()
-    }
+            val state = viewModel.uiState.value
+            assertThat(pager.calls).containsExactly(
+                "loadFirst(false)",
+                "refreshLoaded()",
+                "loadUntilFloor(101)",
+            ).inOrder()
+            assertThat(state.detail?.replies).hasSize(101)
+            assertThat(state.replyFloorTarget).isEqualTo(101)
+            viewModel.onEvent(TopicDetailUiEvent.ReplyFloorTargetConsumed)
+            assertThat(viewModel.uiState.value.replyFloorTarget).isNull()
+        }
 
     @Test
     fun replyCreated_midFailureFallsBackToLoadedPrefix() = runTest(testDispatcher) {
         val pager = FakeTopicDetailPager()
         pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.refreshResults += Result.success(snapshot(replies = replies(1..200), hasMore = true))
         pager.loadUntilFloorResults += Result.failure(networkError())
-        // 失败后 ViewModel 会用 loadFirst(false) 同步已加载前缀
+        // 失败后 ViewModel 会用 loadFirst(false) 同步刷新后的已加载前缀
         pager.loadFirstResults += Result.success(snapshot(replies = replies(1..200), hasMore = true))
         val viewModel = viewModel(pager)
         advanceUntilIdle()
@@ -260,11 +269,39 @@ class TopicDetailViewModelTest {
     }
 
     @Test
+    fun olderReplyFailureFallback_doesNotOverwriteNewerRefresh() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.refreshResults += Result.success(snapshot(replies = replies(1..100), hasMore = true))
+        pager.loadUntilFloorResults += Result.failure(networkError())
+        val viewModel = viewModel(pager)
+        advanceUntilIdle()
+
+        val olderFallback = CompletableDeferred<Result<TopicDetailSnapshot>>()
+        pager.deferredLoadFirst += olderFallback
+        viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(101))
+        runCurrent()
+
+        pager.refreshResults += Result.success(snapshot(replies = replies(1..101), hasMore = false))
+        viewModel.onEvent(TopicDetailUiEvent.Refresh)
+        runCurrent()
+        olderFallback.complete(Result.success(snapshot(replies = replies(1..100), hasMore = true)))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.detail?.replies).hasSize(101)
+        assertThat(state.errorMessage).isNull()
+        assertThat(state.replyFloorTarget).isNull()
+    }
+
+    @Test
     fun olderRefreshResult_doesNotOverwriteNewerReplyCatchUp() = runTest(testDispatcher) {
         val pager = FakeTopicDetailPager()
         pager.loadFirstResults += Result.success(snapshot(replies = replies(1..10), hasMore = true))
         val olderRefresh = CompletableDeferred<Result<TopicDetailSnapshot>>()
+        val replyRefresh = CompletableDeferred<Result<TopicDetailSnapshot>>()
         pager.deferredRefresh += olderRefresh
+        pager.deferredRefresh += replyRefresh
         val newerCatchUp = CompletableDeferred<Result<TopicDetailSnapshot>>()
         pager.deferredLoadUntilFloor += newerCatchUp
         val viewModel = viewModel(pager)
@@ -273,6 +310,8 @@ class TopicDetailViewModelTest {
         viewModel.onEvent(TopicDetailUiEvent.Refresh)
         runCurrent()
         viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(11))
+        runCurrent()
+        replyRefresh.complete(Result.success(snapshot(replies = replies(1..11), hasMore = false)))
         runCurrent()
         newerCatchUp.complete(Result.success(snapshot(replies = replies(1..11), hasMore = false)))
         runCurrent()
@@ -400,12 +439,14 @@ class TopicDetailViewModelTest {
         val loadNextResults = ArrayDeque<Result<TopicDetailSnapshot>>()
         val loadUntilFloorResults = ArrayDeque<Result<TopicDetailSnapshot>>()
         val refreshResults = ArrayDeque<Result<TopicDetailSnapshot>>()
+        val deferredLoadFirst = ArrayDeque<CompletableDeferred<Result<TopicDetailSnapshot>>>()
         val deferredLoadNext = ArrayDeque<CompletableDeferred<Result<TopicDetailSnapshot>>>()
         val deferredLoadUntilFloor = ArrayDeque<CompletableDeferred<Result<TopicDetailSnapshot>>>()
         val deferredRefresh = ArrayDeque<CompletableDeferred<Result<TopicDetailSnapshot>>>()
 
         override suspend fun loadFirst(forceRefresh: Boolean): Result<TopicDetailSnapshot> {
             calls += "loadFirst($forceRefresh)"
+            deferredLoadFirst.pollFirst()?.let { return it.await() }
             return loadFirstResults.removeFirst()
         }
 
