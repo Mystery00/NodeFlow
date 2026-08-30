@@ -40,7 +40,9 @@
 - [帖子回复作者导航设计](plans/2026-08-14-topic-reply-author-navigation-design.md) / [实施计划](plans/2026-08-14-topic-reply-author-navigation.md)
 - [节点详情屏蔽节点设计](plans/2026-08-14-node-blocking-design.md) / [实施计划](plans/2026-08-14-node-blocking.md)
 - [帖子列表置顶标记设计](plans/2026-08-14-topic-pinned-badge-design.md) / [实施计划](plans/2026-08-14-topic-pinned-badge.md)
+- [V2EX 主题与回复感谢支持实施计划](plans/2026-08-30-v2ex-thank-topic-reply.md)
 - [`investigations/`](investigations/)：问题调查、外部行为验证和技术研究记录。
 - [V2EX_Polish 用户标签数据格式调查](investigations/2026-07-17-v2ex-polish-member-tag-format.md)
+- [V2EX 主题与回复感谢接口调查](investigations/2026-08-30-v2ex-thank-topic-reply.md)
 
 历史文档描述的是特定时间点的设计与实施背景。若其内容与当前源码、`AGENTS.md` 或专题文档冲突，以当前源码和现行规范为准。

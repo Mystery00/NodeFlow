@@ -133,7 +133,15 @@ data class TopicDetail(
     val tags: List<String> = emptyList(),
     val isFavorited: Boolean? = null,
     val favoriteOnce: String? = null,
+    val isThanked: Boolean? = null,
+    val thankOnce: String? = null,
     val appends: List<TopicAppend> = emptyList(),
+)
+
+data class ThankResult(
+    val success: Boolean,
+    val message: String? = null,
+    val once: String? = null,
 )
 
 data class Reply(
@@ -145,6 +153,7 @@ data class Reply(
     val contentRendered: String,
     val createdAtEpochSeconds: Long? = null,
     val thanks: Int = 0,
+    val isThanked: Boolean? = null,
     val reference: ReplyReference? = null,
 )
 

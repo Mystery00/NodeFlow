@@ -86,10 +86,20 @@ class TopicRepositoryImpl(
                     tags = p.tags,
                     isFavorited = p.isFavorited,
                     favoriteOnce = p.favoriteOnce,
+                    isThanked = p.isThanked,
+                    thankOnce = p.thankOnce,
                     appends = p.appends,
                 )
             }
         }
+    }
+
+    override suspend fun thankTopic(topicId: Long, once: String) = withContext(ioDispatcher) {
+        runCatching { remoteDataSource.thankTopic(topicId, once) }
+    }
+
+    override suspend fun thankReply(topicId: Long, replyId: Long, once: String) = withContext(ioDispatcher) {
+        runCatching { remoteDataSource.thankReply(topicId, replyId, once) }
     }
 
     override suspend fun clearCache() {

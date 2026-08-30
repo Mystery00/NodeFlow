@@ -9,16 +9,22 @@ import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
 import app.mystery0.nodeflow.domain.topic.SetFavoriteUseCase
 import app.mystery0.nodeflow.domain.topic.TopicDetailPager
 import app.mystery0.nodeflow.domain.topic.TopicDetailSnapshot
+import app.mystery0.nodeflow.domain.topic.ThankTopicUseCase
+import app.mystery0.nodeflow.domain.topic.ThankReplyUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class TopicDetailViewModel(
     savedStateHandle: SavedStateHandle,
     getTopicDetailPager: GetTopicDetailUseCase,
     private val setFavoriteUseCase: SetFavoriteUseCase,
+    private val thankTopicUseCase: ThankTopicUseCase,
+    private val thankReplyUseCase: ThankReplyUseCase,
 ) : ViewModel() {
     private val topicId: Long = checkNotNull(savedStateHandle["topicId"])
     private val initialReplyFloor: Int? =
@@ -27,6 +33,7 @@ class TopicDetailViewModel(
     private val _uiState = MutableStateFlow(TopicDetailUiState())
     val uiState: StateFlow<TopicDetailUiState> = _uiState.asStateFlow()
     private var loadGeneration: Long = 0
+    private val thankMutex = Mutex()
 
     init {
         val generation = ++loadGeneration
@@ -55,6 +62,9 @@ class TopicDetailViewModel(
             TopicDetailUiEvent.ToggleFavorite -> toggleFavorite()
             TopicDetailUiEvent.FavoriteErrorConsumed ->
                 _uiState.update { it.copy(favoriteError = null) }
+            TopicDetailUiEvent.ThankTopic -> thankTopic()
+            is TopicDetailUiEvent.ThankReply -> thankReply(event.replyId)
+            TopicDetailUiEvent.ThankErrorConsumed -> _uiState.update { it.copy(thankError = null) }
         }
     }
 
@@ -86,6 +96,61 @@ class TopicDetailViewModel(
                             favoriteError = error.toUserMessage(),
                         )
                     },
+                )
+            }
+        }
+    }
+
+    private fun thankTopic() {
+        val detail = _uiState.value.detail ?: return
+        val once = detail.thankOnce ?: return
+        if (_uiState.value.isThankingTopic || _uiState.value.thankingReplyId != null || detail.isThanked == true) return
+        _uiState.update { it.copy(isThankingTopic = true, thankError = null) }
+        viewModelScope.launch {
+            val result = thankMutex.withLock { thankTopicUseCase(topicId, once) }
+            _uiState.update { current ->
+                result.fold(
+                    onSuccess = { response ->
+                        val updated = current.detail?.copy(
+                            thankOnce = response.once ?: current.detail.thankOnce,
+                            isThanked = response.success,
+                        )
+                        current.copy(
+                            detail = updated,
+                            isThankingTopic = false,
+                            thankError = if (response.success) null else response.message ?: "感谢发送失败，请稍后重试",
+                        )
+                    },
+                    onFailure = { error -> current.copy(isThankingTopic = false, thankError = error.toUserMessage()) },
+                )
+            }
+        }
+    }
+
+    private fun thankReply(replyId: Long) {
+        val detail = _uiState.value.detail ?: return
+        val once = detail.thankOnce ?: return
+        val reply = detail.replies.firstOrNull { it.id == replyId } ?: return
+        if (_uiState.value.thankingReplyId != null || _uiState.value.isThankingTopic || reply.isThanked == true) return
+        _uiState.update { it.copy(thankingReplyId = replyId, thankError = null) }
+        viewModelScope.launch {
+            val result = thankMutex.withLock { thankReplyUseCase(topicId, replyId, once) }
+            _uiState.update { current ->
+                result.fold(
+                    onSuccess = { response ->
+                        val updated = current.detail?.copy(
+                            thankOnce = response.once ?: current.detail.thankOnce,
+                            replies = current.detail.replies.map { item ->
+                                if (item.id == replyId && response.success) item.copy(isThanked = true) else item
+                            },
+                        )
+                        current.copy(
+                            detail = updated,
+                            thankingReplyId = null,
+                            thankError = if (response.success) null else response.message ?: "感谢发送失败，请稍后重试",
+                        )
+                    },
+                    onFailure = { error -> current.copy(thankingReplyId = null, thankError = error.toUserMessage()) },
                 )
             }
         }
@@ -203,7 +268,14 @@ class TopicDetailViewModel(
         isLoading = false,
         isRefreshing = false,
         isLoadingMore = false,
-        detail = snapshot.detail,
+        detail = snapshot.detail.copy(
+            isThanked = current.detail?.isThanked ?: snapshot.detail.isThanked,
+            thankOnce = current.detail?.thankOnce ?: snapshot.detail.thankOnce,
+            replies = snapshot.detail.replies.map { reply ->
+                val previous = current.detail?.replies?.firstOrNull { it.id == reply.id }
+                reply.copy(isThanked = previous?.isThanked ?: reply.isThanked)
+            },
+        ),
         hasMoreReplies = snapshot.hasMore,
         loadMoreError = null,
         errorMessage = null,

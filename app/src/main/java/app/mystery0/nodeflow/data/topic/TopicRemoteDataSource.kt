@@ -1,10 +1,13 @@
 package app.mystery0.nodeflow.data.topic
 
 import app.mystery0.nodeflow.core.common.isAccessDenied
+import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
+import app.mystery0.nodeflow.core.model.ThankResult
 import app.mystery0.nodeflow.core.network.V2exHtmlAccessTarget
 import app.mystery0.nodeflow.core.network.V2exRawApi
+import app.mystery0.nodeflow.core.network.V2exThankApi
 import app.mystery0.nodeflow.core.network.accessibleHtmlOrThrow
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
@@ -21,6 +24,7 @@ class TopicRemoteDataSource(
     private val api: V2exRawApi,
     private val json: Json,
     private val parser: V2exHtmlParser,
+    private val thankApi: V2exThankApi? = null,
 ) {
     suspend fun latestTopics(): List<Topic> = homeTopics(HOME_TOPICS_PAGE)
 
@@ -79,6 +83,8 @@ class TopicRemoteDataSource(
             tags = supplemental?.tags.orEmpty(),
             isFavorited = supplemental?.isFavorited,
             favoriteOnce = supplemental?.favoriteOnce,
+            isThanked = supplemental?.isThanked,
+            thankOnce = supplemental?.thankOnce,
             appends = supplemental?.appends.orEmpty(),
         )
     }
@@ -100,8 +106,48 @@ class TopicRemoteDataSource(
         parser.parseTopicHtml(topicId, html)
     }
 
+    suspend fun thankTopic(topicId: Long, once: String): ThankResult = thank(
+        topicId = topicId,
+        replyId = null,
+        once = once,
+    )
+
+    suspend fun thankReply(topicId: Long, replyId: Long, once: String): ThankResult = thank(
+        topicId = topicId,
+        replyId = replyId,
+        once = once,
+    )
+
+    private suspend fun thank(topicId: Long, replyId: Long?, once: String): ThankResult = safeNetworkCall {
+        val api = requireNotNull(thankApi) { "Thank API is not configured" }
+        val response = if (replyId == null) {
+            api.thankTopic(topicId, once, "$V2EX_BASE_URL/t/$topicId")
+        } else {
+            api.thankReply(replyId, once, "$V2EX_BASE_URL/t/$topicId")
+        }
+        val finalUrl = response.raw().request.url
+        val body = response.bodyStringOrThrow()
+        if (finalUrl.encodedPath == "/signin" || parser.hasSignInEntry(body)) {
+            throw NodeFlowException(NodeFlowException.Kind.Auth, "登录状态已失效，请重新登录")
+        }
+        if (parser.hasAccessChallenge(body)) {
+            throw NodeFlowException(NodeFlowException.Kind.AccessDenied, "V2EX 暂时拒绝访问")
+        }
+        val result = json.decodeFromString<ThankResultDto>(body).toModel()
+        result
+    }
+
     private companion object {
         const val HOME_TOPICS_PAGE = 1
         const val V2EX_BASE_URL = "https://www.v2ex.com"
     }
+}
+
+@kotlinx.serialization.Serializable
+private data class ThankResultDto(
+    val success: Boolean = false,
+    val message: String? = null,
+    val once: String? = null,
+) {
+    fun toModel() = ThankResult(success = success, message = message, once = once)
 }

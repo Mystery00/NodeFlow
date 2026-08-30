@@ -612,6 +612,18 @@ class V2exHtmlParser {
                 favoriteOnce = null
             }
         }
+        val topicThankArea = document.selectFirst("#topic_thank")
+        val isThanked = when {
+            topicThankArea == null -> null
+            topicThankArea.hasClass("topic_thanked") || topicThankArea.text().contains("感谢已发送") -> true
+            topicThankArea.attr("onclick").contains("thankTopic(") -> false
+            else -> null
+        }
+        val thankOnce = TOPIC_THANK_ONCLICK_REGEX.find(topicThankArea?.attr("onclick").orEmpty())
+            ?.groupValues?.getOrNull(1)
+            ?: document.select("script").firstNotNullOfOrNull { script ->
+                PAGE_ONCE_REGEX.find(script.data())?.groupValues?.getOrNull(1)
+            }
         val appends = document.select("div.subtle").mapIndexedNotNull { index, subtle ->
             val appendContent = subtle.selectFirst(".topic_content")?.html().orEmpty()
             if (appendContent.isBlank()) return@mapIndexedNotNull null
@@ -649,6 +661,8 @@ class V2exHtmlParser {
             replies = replies,
             isFavorited = isFavorited,
             favoriteOnce = favoriteOnce,
+            isThanked = isThanked,
+            thankOnce = thankOnce,
             appends = appends,
         )
     }
@@ -677,6 +691,7 @@ class V2exHtmlParser {
                 contentRendered = contentRendered.ifBlank { contentText },
                 createdAtEpochSeconds = createdAt,
                 thanks = element.parseReplyThanks(),
+                isThanked = element.parseReplyThanked(id),
             )
         }
 
@@ -694,6 +709,15 @@ class V2exHtmlParser {
             image.replaceWith(TextNode(url))
         }
         return clone.text()
+    }
+
+    private fun Element.parseReplyThanked(replyId: Long): Boolean? {
+        val area = selectFirst("#thank_area_$replyId") ?: return null
+        return when {
+            area.hasClass("thanked") || area.text().contains("感谢已发送") -> true
+            area.select("[onclick*=thankReply]").isNotEmpty() || area.attr("onclick").contains("thankReply(") -> false
+            else -> null
+        }
     }
 
     private fun Element.parseReplyThanks(): Int =
@@ -1093,6 +1117,8 @@ class V2exHtmlParser {
         val replies: List<Reply> = emptyList(),
         val isFavorited: Boolean? = null,
         val favoriteOnce: String? = null,
+        val isThanked: Boolean? = null,
+        val thankOnce: String? = null,
         val appends: List<TopicAppend> = emptyList(),
     )
 
@@ -1152,6 +1178,8 @@ class V2exHtmlParser {
         val DAILY_ACTIVITY_RANK_REGEX = Regex("""Today's activity rank\s+(\d[\d,]*)""", RegexOption.IGNORE_CASE)
         val CONTINUOUS_DAYS_REGEX = Regex("""(\d+)\s*天""")
         val ONCE_REGEX = Regex("""once=(\d+)""")
+        val TOPIC_THANK_ONCLICK_REGEX = Regex("""thankTopic\(\d+,\s*['\"]?([A-Za-z0-9_-]+)['\"]?\)""")
+        val PAGE_ONCE_REGEX = Regex("""\bonce\s*=\s*['\"]?([A-Za-z0-9_-]+)['\"]?""")
         val DAILY_REWARD_REGEX = Regex("""\+?(\d[\d,]*)""")
         val NOTIFICATION_TOPIC_REGEX = Regex("""^/t/(\d+)(?:#reply(\d+))?""")
         val NOTIFICATION_REFERENCE_REGEX =

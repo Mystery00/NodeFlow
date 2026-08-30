@@ -8,4 +8,7 @@ sealed interface TopicDetailUiEvent {
     data object ReplyFloorTargetConsumed : TopicDetailUiEvent
     data object ToggleFavorite : TopicDetailUiEvent
     data object FavoriteErrorConsumed : TopicDetailUiEvent
+    data object ThankTopic : TopicDetailUiEvent
+    data class ThankReply(val replyId: Long) : TopicDetailUiEvent
+    data object ThankErrorConsumed : TopicDetailUiEvent
 }

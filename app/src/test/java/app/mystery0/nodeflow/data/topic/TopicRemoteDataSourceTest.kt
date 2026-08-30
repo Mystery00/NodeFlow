@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.data.topic
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.network.V2EX_ACCESS_DENIED_MESSAGE
 import app.mystery0.nodeflow.core.network.V2exRawApi
+import app.mystery0.nodeflow.core.network.V2exThankApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
@@ -11,9 +12,12 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.ResponseBody
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
 import retrofit2.Response
+import retrofit2.Retrofit
 import okhttp3.Response as OkHttpResponse
 
 class TopicRemoteDataSourceTest {
@@ -356,6 +360,25 @@ class TopicRemoteDataSourceTest {
 
         assertThat(page).isNull()
         assertThat(api.topicJsonCalls).isEqualTo(0)
+    }
+
+    @Test
+    fun thankTopic_parsesBusinessFailureAndRotatedOnce() = runTest {
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(MockResponse().setBody("{\"success\":false,\"message\":\"余额不足\",\"once\":\"next\"}"))
+            val thankApi = Retrofit.Builder().baseUrl(server.url("/")).build().create(V2exThankApi::class.java)
+            val dataSource = TopicRemoteDataSource(FakeV2exRawApi(), json, parser, thankApi)
+
+            val result = dataSource.thankTopic(topicId = 99, once = "old")
+
+            assertThat(result.success).isFalse()
+            assertThat(result.message).isEqualTo("余额不足")
+            assertThat(result.once).isEqualTo("next")
+        } finally {
+            server.shutdown()
+        }
     }
 
     private data class NodeTopicsHtmlRequest(

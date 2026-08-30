@@ -1642,6 +1642,48 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseTopicHtml_parsesTopicThankTokenAndReplyThankState() {
+        val html = """
+            <html><body><div id="Main">
+              <div class="box">
+                <div class="header"><h1>感谢测试</h1><small class="gray"><a href="/member/alice">alice</a></small></div>
+                <div class="topic_buttons"><a id="topic_thank" href="#;" onclick="thankTopic(99, '12345');">感谢</a></div>
+              </div>
+              <div id="r_100" class="cell"><span class="no">1</span><strong><a href="/member/bob">bob</a></strong>
+                <div class="reply_content">未感谢</div>
+                <div id="thank_area_100"><a class="thank" href="#;" onclick="thankReply(100);">感谢回复者</a></div>
+              </div>
+              <div id="r_101" class="cell"><span class="no">2</span><strong><a href="/member/carol">carol</a></strong>
+                <div class="reply_content">已感谢</div>
+                <div id="thank_area_101" class="thanked">感谢已发送</div>
+              </div>
+            </div></body></html>
+        """.trimIndent()
+
+        val topic = requireNotNull(parser.parseTopicHtml(topicId = 99L, html = html))
+
+        assertThat(topic.thankOnce).isEqualTo("12345")
+        assertThat(topic.isThanked).isFalse()
+        assertThat(topic.replies.map { it.isThanked }).containsExactly(false, true).inOrder()
+    }
+
+    @Test
+    fun parseTopicHtml_readsUnquotedPageOnceWhenTopicAlreadyThanked() {
+        val html = """
+            <html><body><div id="Main">
+              <div class="header"><h1>已感谢主题</h1><small class="gray"><a href="/member/alice">alice</a></small></div>
+              <span id="topic_thank" class="topic_thanked">感谢已发送</span>
+              <script>var once = 67890;</script>
+            </div></body></html>
+        """.trimIndent()
+
+        val topic = requireNotNull(parser.parseTopicHtml(topicId = 99L, html = html))
+
+        assertThat(topic.isThanked).isTrue()
+        assertThat(topic.thankOnce).isEqualTo("67890")
+    }
+
+    @Test
     fun parseTopicHtml_parsesEnglishSupplementSubtle() {
         val html = """
             <html>

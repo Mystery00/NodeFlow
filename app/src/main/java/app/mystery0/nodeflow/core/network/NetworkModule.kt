@@ -60,6 +60,14 @@ val networkModule = module {
         get<Retrofit>().create(V2exRawApi::class.java)
     }
 
+    single {
+        Retrofit.Builder()
+            .baseUrl("https://www.v2ex.com/")
+            .client(get(named("v2exWriteClient")))
+            .build()
+            .create(V2exThankApi::class.java)
+    }
+
     single(named("v2exWriteClient")) {
         get<OkHttpClient>().newBuilder()
             .retryOnConnectionFailure(false)

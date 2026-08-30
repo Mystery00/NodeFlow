@@ -44,7 +44,9 @@ import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -183,6 +185,8 @@ fun TopicDetailScreen(
     var replyFabVisible by remember { mutableStateOf(true) }
     var previousPosition by remember { mutableStateOf(ScrollPosition(0, 0)) }
     var selectedReply by remember { mutableStateOf<Reply?>(null) }
+    var showTopicThankConfirmation by remember { mutableStateOf(false) }
+    var pendingThankReply by remember { mutableStateOf<Reply?>(null) }
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri: Uri? ->
@@ -237,7 +241,10 @@ fun TopicDetailScreen(
                         TopicActions(
                             detail = detail,
                             isTogglingFavorite = state.isTogglingFavorite,
+                            isThankingTopic = state.isThankingTopic,
+                            isThankingReply = state.thankingReplyId != null,
                             onToggleFavorite = { onEvent(TopicDetailUiEvent.ToggleFavorite) },
+                            onThankTopic = { showTopicThankConfirmation = true },
                         )
                     }
                 },
@@ -316,12 +323,64 @@ fun TopicDetailScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             ) { Text("回复") }
             TextButton(
-                onClick = {},
-                enabled = false,
+                onClick = {
+                    selectedReply = null
+                    pendingThankReply = reply
+                },
+                enabled = reply.isThanked == false && detail?.thankOnce != null && state.thankingReplyId == null && !state.isThankingTopic,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            ) { Text("感谢 · 暂未开放") }
+            ) {
+                Text(if (reply.isThanked == true) "感谢已发送" else "感谢回复者 · 10 铜币")
+            }
             Spacer(Modifier.size(16.dp))
         }
+    }
+    if (showTopicThankConfirmation) {
+        AlertDialog(
+            onDismissRequest = { if (!state.isThankingTopic) showTopicThankConfirmation = false },
+            title = { Text("感谢主题") },
+            text = { Text("确定要向本主题创建者发送谢意吗？") },
+            confirmButton = {
+                TextButton(onClick = { onEvent(TopicDetailUiEvent.ThankTopic) }, enabled = !state.isThankingTopic) {
+                    Text(if (state.isThankingTopic) "发送中…" else "发送感谢")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTopicThankConfirmation = false }, enabled = !state.isThankingTopic) { Text("取消") }
+            },
+        )
+        LaunchedEffect(detail?.isThanked) {
+            if (detail?.isThanked == true) showTopicThankConfirmation = false
+        }
+    }
+    pendingThankReply?.let { reply ->
+        AlertDialog(
+            onDismissRequest = { if (state.thankingReplyId == null) pendingThankReply = null },
+            title = { Text("感谢回复者") },
+            text = { Text("确定花费 10 个铜币向 @${reply.author.username} 的这条回复发送感谢吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = { onEvent(TopicDetailUiEvent.ThankReply(reply.id)) },
+                    enabled = state.thankingReplyId == null,
+                ) { Text(if (state.thankingReplyId == reply.id) "发送中…" else "发送感谢") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingThankReply = null }, enabled = state.thankingReplyId == null) { Text("取消") }
+            },
+        )
+        LaunchedEffect(detail?.replies?.firstOrNull { it.id == reply.id }?.isThanked) {
+            if (detail?.replies?.firstOrNull { it.id == reply.id }?.isThanked == true) pendingThankReply = null
+        }
+    }
+    state.thankError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { onEvent(TopicDetailUiEvent.ThankErrorConsumed) },
+            title = { Text("感谢发送失败") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { onEvent(TopicDetailUiEvent.ThankErrorConsumed) }) { Text("知道了") }
+            },
+        )
     }
     previewImageUrl?.let { imageUrl ->
         ZoomableImageViewer(
@@ -335,7 +394,10 @@ fun TopicDetailScreen(
 private fun TopicActions(
     detail: TopicDetail,
     isTogglingFavorite: Boolean,
+    isThankingTopic: Boolean,
+    isThankingReply: Boolean,
     onToggleFavorite: () -> Unit,
+    onThankTopic: () -> Unit,
 ) {
     val context = LocalContext.current
     val url = detail.topic.url
@@ -353,6 +415,18 @@ private fun TopicActions(
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
+            )
+        }
+    }
+    if (detail.isThanked != null) {
+        IconButton(
+            onClick = onThankTopic,
+            enabled = detail.isThanked == false && detail.thankOnce != null && !isThankingTopic && !isThankingReply,
+        ) {
+            Icon(
+                Icons.Outlined.ThumbUp,
+                contentDescription = if (detail.isThanked == true) "感谢已发送" else "感谢主题",
+                tint = if (detail.isThanked == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
