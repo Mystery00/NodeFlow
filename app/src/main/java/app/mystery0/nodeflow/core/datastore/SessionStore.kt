@@ -1,45 +1,69 @@
 package app.mystery0.nodeflow.core.datastore
 
-import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import app.mystery0.nodeflow.core.model.AuthSession
+import app.mystery0.nodeflow.core.security.EncryptedKeyValueStore
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 class SessionStore(
-    private val context: Context,
+    private val storage: EncryptedKeyValueStore,
 ) {
-    val session: Flow<AuthSession> = context.nodeFlowDataStore.data.map { preferences ->
-        AuthSession(
-            personalAccessToken = preferences[Keys.personalAccessToken],
-            cookieHeader = preferences[Keys.cookieHeader],
-            username = preferences[Keys.username],
-        )
+    private val _session = MutableStateFlow(readSession())
+    private val mutationMutex = Mutex()
+    val session: Flow<AuthSession> = _session.asStateFlow()
+
+    suspend fun save(session: AuthSession) = mutationMutex.withLock {
+        if (session == AuthSession()) {
+            storage.remove(SESSION_KEY)
+        } else {
+            storage.write(SESSION_KEY, SessionJson.encodeToString(session.toPersisted()))
+        }
+        _session.value = session
     }
 
-    suspend fun save(session: AuthSession) {
-        context.nodeFlowDataStore.edit { preferences ->
-            session.personalAccessToken?.let { preferences[Keys.personalAccessToken] = it }
-                ?: preferences.remove(Keys.personalAccessToken)
-            session.cookieHeader?.let { preferences[Keys.cookieHeader] = it }
-                ?: preferences.remove(Keys.cookieHeader)
-            session.username?.let { preferences[Keys.username] = it }
-                ?: preferences.remove(Keys.username)
+    suspend fun clear() = mutationMutex.withLock {
+        storage.remove(SESSION_KEY)
+        _session.value = AuthSession()
+    }
+
+    private fun readSession(): AuthSession {
+        val raw = storage.read(SESSION_KEY) ?: return AuthSession()
+        return try {
+            SessionJson.decodeFromString<PersistedAuthSession>(raw).toAuthSession()
+        } catch (_: Exception) {
+            storage.remove(SESSION_KEY)
+            AuthSession()
         }
     }
 
-    suspend fun clear() {
-        context.nodeFlowDataStore.edit { preferences ->
-            preferences.remove(Keys.personalAccessToken)
-            preferences.remove(Keys.cookieHeader)
-            preferences.remove(Keys.username)
+    private companion object {
+        const val SESSION_KEY = "auth_session"
+        val SessionJson = Json {
+            ignoreUnknownKeys = true
         }
-    }
-
-    private object Keys {
-        val personalAccessToken = stringPreferencesKey("personal_access_token")
-        val cookieHeader = stringPreferencesKey("cookie_header")
-        val username = stringPreferencesKey("session_username")
     }
 }
+
+@Serializable
+private data class PersistedAuthSession(
+    val personalAccessToken: String? = null,
+    val cookieHeader: String? = null,
+    val username: String? = null,
+)
+
+private fun AuthSession.toPersisted() = PersistedAuthSession(
+    personalAccessToken = personalAccessToken,
+    cookieHeader = cookieHeader,
+    username = username,
+)
+
+private fun PersistedAuthSession.toAuthSession() = AuthSession(
+    personalAccessToken = personalAccessToken,
+    cookieHeader = cookieHeader,
+    username = username,
+)

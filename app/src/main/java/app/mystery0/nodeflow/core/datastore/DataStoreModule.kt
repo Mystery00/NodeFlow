@@ -5,7 +5,7 @@ import org.koin.dsl.module
 
 val dataStoreModule = module {
     single {
-        SessionStore(androidContext())
+        SessionStore(get())
     }
 
     single {

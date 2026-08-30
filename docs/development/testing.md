@@ -9,8 +9,8 @@ NodeFlow 明确维护 JVM 单元测试。修改业务逻辑必须补充或更新
 - UseCase、Repository、RemoteDataSource、LocalDataSource 和缓存策略。
 - HTML Parser、页面分类、链接解析、格式化与图片分类。
 - ViewModel 的 UiState/UiEvent 转换。
-- Room DAO、Entity 映射和 Migration。
-- Cookie、User-Agent、访问控制和网络异常映射。
+- Room DAO、Entity 映射，以及正式发布后的 Migration；当前未发布版本只维护完整版本 1 schema。
+- Cookie、加密会话存储、User-Agent、访问控制、后台通知去重和网络异常映射。
 
 网络测试使用 MockWebServer 或测试替身，不访问真实 V2EX。协程和 Flow 使用 `kotlinx-coroutines-test`，断言优先使用 Truth。HTML fixture 必须最小化且脱敏。
 
@@ -21,7 +21,7 @@ NodeFlow 明确维护 JVM 单元测试。修改业务逻辑必须补充或更新
 | 业务逻辑 | 相关局部测试、`:app:testDebugUnitTest` |
 | Kotlin 或构建配置 | `:app:testDebugUnitTest`、`:app:assembleDebug` |
 | UI、资源、Manifest、导航 | 相关测试、`:app:assembleDebug`，按需 `:app:lintDebug` |
-| Room Entity/DAO/Migration | 数据库测试、全量测试、Debug 构建、schema 检查 |
+| Room Entity/DAO/schema | 数据库测试、全量测试、Debug 构建、schema 检查；正式发布后的版本升级还必须运行 Migration 测试 |
 | 网络、Cookie、登录、HTML 解析 | 相关 MockWebServer/Parser 测试、全量测试 |
 | Release、混淆、签名 | 在安全配置可用时运行 Release 构建 |
 

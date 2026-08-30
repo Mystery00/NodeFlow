@@ -7,11 +7,11 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
+import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import app.mystery0.nodeflow.MainActivity
 import app.mystery0.nodeflow.R
-import app.mystery0.nodeflow.core.network.V2exRawApi
-import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.core.common.NodeFlowException
 import kotlinx.coroutines.CancellationException
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -21,21 +21,22 @@ class NotificationCheckWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(context, params), KoinComponent {
 
-    private val api: V2exRawApi by inject()
-    private val parser: V2exHtmlParser by inject()
+    private val checker: NotificationReminderChecker by inject()
+    private val reminderEnabled: NotificationReminderEnabledProvider by inject()
 
     override suspend fun doWork(): Result {
         return try {
-            val response = api.home()
-            val html = response.body()?.string() ?: return Result.success()
-            val unreadCount = parser.parseUnreadNotificationCount(html)
-                ?: return Result.success()
-            if (unreadCount > 0) {
-                showNotification(unreadCount)
-            }
+            val decision = checker.check()
+            publishNotificationIfEnabled(
+                decision = decision,
+                isEnabled = reminderEnabled::isEnabled,
+                publish = ::showNotification,
+            )
             Result.success()
         } catch (e: CancellationException) {
             throw e
+        } catch (e: NodeFlowException) {
+            e.workerOutcome().toWorkManagerResult()
         } catch (_: Exception) {
             Result.retry()
         }
@@ -74,4 +75,37 @@ class NotificationCheckWorker(
         const val CHANNEL_NAME = "新消息提醒"
         const val NOTIFICATION_ID = 1001
     }
+}
+
+internal suspend fun publishNotificationIfEnabled(
+    decision: NotificationReminderDecision,
+    isEnabled: suspend () -> Boolean,
+    publish: (Int) -> Unit,
+): Boolean {
+    if (!decision.shouldNotify || !isEnabled()) return false
+    publish(decision.unreadCount)
+    return true
+}
+
+internal enum class NotificationWorkerOutcome {
+    Success,
+    Retry,
+    Failure,
+}
+
+internal fun NodeFlowException.workerOutcome(): NotificationWorkerOutcome = when (kind) {
+    NodeFlowException.Kind.Auth -> NotificationWorkerOutcome.Success
+    NodeFlowException.Kind.Network,
+    NodeFlowException.Kind.Http,
+    NodeFlowException.Kind.EmptyBody,
+    NodeFlowException.Kind.AccessDenied,
+    NodeFlowException.Kind.Unknown,
+    -> NotificationWorkerOutcome.Retry
+    else -> NotificationWorkerOutcome.Failure
+}
+
+private fun NotificationWorkerOutcome.toWorkManagerResult(): ListenableWorker.Result = when (this) {
+    NotificationWorkerOutcome.Success -> ListenableWorker.Result.success()
+    NotificationWorkerOutcome.Retry -> ListenableWorker.Result.retry()
+    NotificationWorkerOutcome.Failure -> ListenableWorker.Result.failure()
 }

@@ -9,6 +9,7 @@ import app.mystery0.nodeflow.domain.membertag.RefreshMemberTagsUseCase
 import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -85,8 +86,16 @@ class SettingsViewModel(
             }
             SettingsUiEvent.ClearCache -> viewModelScope.launch {
                 _uiState.update { it.copy(isClearingCache = true, message = null) }
-                runCatching { clearCache() }
-                _uiState.update { it.copy(isClearingCache = false, message = "缓存已清除") }
+                try {
+                    clearCache()
+                    _uiState.update { it.copy(message = "缓存已清除") }
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (_: Exception) {
+                    _uiState.update { it.copy(message = "缓存清除失败") }
+                } finally {
+                    _uiState.update { it.copy(isClearingCache = false) }
+                }
             }
             SettingsUiEvent.MessageShown -> _uiState.update { it.copy(message = null) }
         }

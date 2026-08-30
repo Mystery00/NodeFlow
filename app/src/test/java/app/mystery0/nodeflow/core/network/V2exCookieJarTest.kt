@@ -106,6 +106,60 @@ class V2exCookieJarTest {
     }
 
     @Test
+    fun saveFromResponse_preservesEachCookieOriginAcrossHostsAndRestart() {
+        val storage = FakeCookieStorage()
+        val firstHost = "https://www.v2ex.com/".toHttpUrl()
+        val secondHost = "https://api.v2ex.com/".toHttpUrl()
+        val firstCookie = Cookie.Builder()
+            .hostOnlyDomain(firstHost.host)
+            .path("/")
+            .name("FIRST")
+            .value("one")
+            .secure()
+            .httpOnly()
+            .build()
+        val secondCookie = Cookie.Builder()
+            .hostOnlyDomain(secondHost.host)
+            .path("/")
+            .name("SECOND")
+            .value("two")
+            .build()
+
+        val firstJar = V2exCookieJar(storage = storage)
+        firstJar.saveFromResponse(firstHost, listOf(firstCookie))
+        firstJar.saveFromResponse(secondHost, listOf(secondCookie))
+        assertThat(storage.cookies.map { it.url })
+            .containsExactly(firstHost.toString(), secondHost.toString())
+        val restoredJar = V2exCookieJar(storage = storage)
+
+        assertThat(restoredJar.loadForRequest(firstHost)).containsExactly(firstCookie)
+        assertThat(restoredJar.loadForRequest(secondHost)).containsExactly(secondCookie)
+    }
+
+    @Test
+    fun persistedCookieRetainsDomainPathExpiryAndSecurityAttributes() {
+        val storage = FakeCookieStorage()
+        val url = "https://www.v2ex.com/".toHttpUrl()
+        val cookie = Cookie.Builder()
+            .domain("v2ex.com")
+            .path("/private")
+            .name("AUTH")
+            .value("secret")
+            .expiresAt(4_000_000_000_000L)
+            .secure()
+            .httpOnly()
+            .build()
+
+        V2exCookieJar(storage = storage, clock = { 1_000_000_000_000L })
+            .saveFromResponse(url, listOf(cookie))
+
+        val restored = V2exCookieJar(storage = storage, clock = { 1_000_000_000_000L })
+            .loadForRequest("https://api.v2ex.com/private/page".toHttpUrl())
+            .single()
+        assertThat(restored).isEqualTo(cookie)
+    }
+
+    @Test
     fun restoreFromCookieHeader_persistsCookiesForLaterRequests() {
         val storage = FakeCookieStorage()
         val v2exUrl = "https://www.v2ex.com/signin".toHttpUrl()

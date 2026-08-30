@@ -1,6 +1,6 @@
 package app.mystery0.nodeflow.core.network
 
-import android.content.SharedPreferences
+import app.mystery0.nodeflow.core.security.EncryptedKeyValueStore
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -13,29 +13,35 @@ class V2exCookieJar(
     private val storage: V2exCookieStorage = InMemoryV2exCookieStorage(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) : CookieJar {
-    private val cookies = storage.load()
-        .mapNotNull { storedCookie ->
-            val url = storedCookie.url.toHttpUrlOrNull() ?: return@mapNotNull null
-            Cookie.parse(url, storedCookie.value)
-        }
-        .distinctBy { it.identityKey() }
-        .toMutableList()
+    private val cookies = mutableListOf<Cookie>()
+    private val cookieOrigins = mutableMapOf<String, HttpUrl>()
 
     init {
+        storage.load().forEach { storedCookie ->
+            val cookie = storedCookie.toCookie() ?: return@forEach
+            val origin = storedCookie.url.toHttpUrlOrNull() ?: return@forEach
+            val identity = cookie.identityKey()
+            if (cookieOrigins.putIfAbsent(identity, origin) == null) {
+                cookies += cookie
+            }
+        }
         pruneExpiredCookies()
     }
 
     @Synchronized
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
         cookies.forEach { cookie ->
+            val identity = cookie.identityKey()
             this.cookies.removeAll { stored ->
-                stored.identityKey() == cookie.identityKey()
+                stored.identityKey() == identity
             }
+            cookieOrigins.remove(identity)
             if (cookie.expiresAt > clock()) {
                 this.cookies += cookie
+                cookieOrigins[identity] = url
             }
         }
-        persistCookies(url)
+        persistCookies()
     }
 
     @Synchronized
@@ -58,14 +64,16 @@ class V2exCookieJar(
                 if (separatorIndex <= 0) return@mapNotNull null
                 val name = trimmed.substring(0, separatorIndex)
                 val value = trimmed.substring(separatorIndex + 1)
-                runCatching {
+                try {
                     Cookie.Builder()
                         .domain(url.host)
                         .path("/")
                         .name(name)
                         .value(value)
                         .build()
-                }.getOrNull()
+                } catch (_: Exception) {
+                    null
+                }
             }
         if (restoredCookies.isEmpty()) return
         saveFromResponse(url, restoredCookies)
@@ -74,22 +82,34 @@ class V2exCookieJar(
     @Synchronized
     fun clear() {
         cookies.clear()
+        cookieOrigins.clear()
         storage.clear()
     }
 
     private fun pruneExpiredCookies() {
-        val removed = cookies.removeAll { it.expiresAt <= clock() }
-        if (removed) {
-            persistCookies(V2EX_HOME_URL)
+        val expired = cookies.filter { it.expiresAt <= clock() }
+        if (expired.isNotEmpty()) {
+            cookies.removeAll(expired.toSet())
+            expired.forEach { cookieOrigins.remove(it.identityKey()) }
+            persistCookies()
         }
     }
 
-    private fun persistCookies(url: HttpUrl) {
+    private fun persistCookies() {
         storage.save(
             cookies.map { cookie ->
                 StoredCookie(
-                    url = url.toString(),
+                    url = (cookieOrigins[cookie.identityKey()] ?: V2EX_HOME_URL).toString(),
                     value = cookie.toString(),
+                    name = cookie.name,
+                    cookieValue = cookie.value,
+                    domain = cookie.domain,
+                    path = cookie.path,
+                    expiresAt = cookie.expiresAt,
+                    persistent = cookie.persistent,
+                    secure = cookie.secure,
+                    httpOnly = cookie.httpOnly,
+                    hostOnly = cookie.hostOnly,
                 )
             },
         )
@@ -112,29 +132,68 @@ interface V2exCookieStorage {
 data class StoredCookie(
     val url: String,
     val value: String,
+    val name: String? = null,
+    val cookieValue: String? = null,
+    val domain: String? = null,
+    val path: String? = null,
+    val expiresAt: Long? = null,
+    val persistent: Boolean? = null,
+    val secure: Boolean? = null,
+    val httpOnly: Boolean? = null,
+    val hostOnly: Boolean? = null,
 )
 
-internal class SharedPreferencesV2exCookieStorage(
-    private val preferences: SharedPreferences,
+private fun StoredCookie.toCookie(): Cookie? {
+    val origin = url.toHttpUrlOrNull() ?: return null
+    val cookieName = name ?: return Cookie.parse(origin, value)
+    val cookieValue = cookieValue ?: return Cookie.parse(origin, value)
+    val cookieDomain = domain ?: return Cookie.parse(origin, value)
+    val cookiePath = path ?: return Cookie.parse(origin, value)
+    return try {
+        Cookie.Builder()
+            .name(cookieName)
+            .value(cookieValue)
+            .apply {
+                if (hostOnly == true) hostOnlyDomain(cookieDomain) else domain(cookieDomain)
+            }
+            .path(cookiePath)
+            .apply {
+                if (persistent == true) {
+                    expiresAt?.let { expiry -> expiresAt(expiry) }
+                }
+                if (secure == true) secure()
+                if (httpOnly == true) httpOnly()
+            }
+            .build()
+    } catch (_: Exception) {
+        null
+    }
+}
+
+internal class EncryptedV2exCookieStorage(
+    private val storage: EncryptedKeyValueStore,
 ) : V2exCookieStorage {
     override fun load(): List<StoredCookie> {
-        val raw = preferences.getString(COOKIES_KEY, null) ?: return emptyList()
-        return runCatching {
+        val raw = storage.read(COOKIES_KEY) ?: return emptyList()
+        return try {
             CookieJson.decodeFromString(ListSerializer(StoredCookie.serializer()), raw)
-        }.getOrDefault(emptyList())
+        } catch (_: Exception) {
+            storage.remove(COOKIES_KEY)
+            emptyList()
+        }
     }
 
     override fun save(cookies: List<StoredCookie>) {
         val raw = CookieJson.encodeToString(ListSerializer(StoredCookie.serializer()), cookies)
-        preferences.edit().putString(COOKIES_KEY, raw).apply()
+        storage.write(COOKIES_KEY, raw)
     }
 
     override fun clear() {
-        preferences.edit().remove(COOKIES_KEY).apply()
+        storage.remove(COOKIES_KEY)
     }
 
     private companion object {
-        const val COOKIES_KEY = "cookies"
+        const val COOKIES_KEY = "v2ex_cookies"
     }
 }
 

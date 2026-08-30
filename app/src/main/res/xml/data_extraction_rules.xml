@@ -3,9 +3,13 @@
     <cloud-backup>
         <!-- 登录态包含 Token 和 Cookie，不参与系统云备份。 -->
         <exclude domain="file" path="datastore/nodeflow_preferences.preferences_pb" />
+        <exclude domain="sharedpref" path="nodeflow_secure_storage.xml" />
+        <exclude domain="sharedpref" path="nodeflow_v2ex_cookies.xml" />
     </cloud-backup>
     <device-transfer>
         <!-- 登录态包含 Token 和 Cookie，不参与设备迁移。 -->
         <exclude domain="file" path="datastore/nodeflow_preferences.preferences_pb" />
+        <exclude domain="sharedpref" path="nodeflow_secure_storage.xml" />
+        <exclude domain="sharedpref" path="nodeflow_v2ex_cookies.xml" />
     </device-transfer>
 </data-extraction-rules>
