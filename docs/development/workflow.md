@@ -11,7 +11,7 @@
 
 ## 隐私与安全
 
-- 不在日志、异常、测试输出、截图、文档或提交中暴露 Cookie、Token、密码、once、Authorization header 和用户隐私内容。
+- 不在日志、异常、测试输出、截图、文档或提交中暴露 Cookie、Token、密码、once、Authorization header 和用户隐私内容；可查看或分享的崩溃报告只保留异常类型与代码位置，不输出异常 message。
 - 不提交真实账户数据、未脱敏 HTML、签名文件、`local.properties` 或私有密钥。
 - 新增敏感数据时明确其存储位置、生命周期、清理方式和备份规则。
 - 不新增与核心功能无关的埋点、统计上传或远程日志。
