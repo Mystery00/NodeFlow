@@ -51,6 +51,18 @@ class ReplyItemAuthorTest {
         assertThat(replyAuthorNavigationTarget(reply)).isNull()
     }
 
+    @Test
+    fun replyMetadataText_placesPositiveThanksCountAfterFloorAndTime() {
+        assertThat(replyMetadataText(floor = 4, time = "8 月 21 日", thanks = 13))
+            .isEqualTo("#4 · 8 月 21 日 · ❤️ 13")
+    }
+
+    @Test
+    fun replyMetadataText_omitsThanksCountWhenZero() {
+        assertThat(replyMetadataText(floor = 2, time = "8 月 21 日", thanks = 0))
+            .isEqualTo("#2 · 8 月 21 日")
+    }
+
     private fun reply(username: String): Reply = Reply(
         id = 1L,
         topicId = 2L,

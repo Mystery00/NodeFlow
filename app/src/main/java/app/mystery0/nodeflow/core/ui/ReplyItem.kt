@@ -108,7 +108,7 @@ fun ReplyItem(
                     }
                     val time = formatEpochSeconds(reply.createdAtEpochSeconds)
                     Text(
-                        text = if (time.isBlank()) "#${reply.floor}" else "#${reply.floor} · $time",
+                        text = replyMetadataText(reply.floor, time, reply.thanks),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -181,6 +181,19 @@ fun isReplyFromTopicAuthor(replyUsername: String, topicAuthorUsername: String): 
     replyUsername.isNotBlank() &&
             topicAuthorUsername.isNotBlank() &&
             replyUsername.trim().equals(topicAuthorUsername.trim(), ignoreCase = true)
+
+internal fun replyMetadataText(floor: Int, time: String, thanks: Int): String = buildString {
+    append("#")
+    append(floor)
+    if (time.isNotBlank()) {
+        append(" · ")
+        append(time)
+    }
+    if (thanks > 0) {
+        append(" · ❤️ ")
+        append(thanks)
+    }
+}
 
 internal fun replyAuthorNavigationTarget(reply: Reply): String? =
     reply.author.username.trim().takeIf { it.isNotBlank() }
