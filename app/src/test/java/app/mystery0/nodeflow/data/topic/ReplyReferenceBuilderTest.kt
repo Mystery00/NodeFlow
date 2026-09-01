@@ -144,6 +144,31 @@ class ReplyReferenceBuilderTest {
     }
 
     @Test
+    fun withReferencePreviews_usesImagePlaceholderForImageOnlyReply() {
+        val replies = listOf(
+            Reply(
+                id = 101,
+                topicId = 1,
+                floor = 11,
+                author = User(username = "alice"),
+                content = "https://i.imgur.com/example.png",
+                contentRendered = """<a href="https://i.imgur.com/example.png"><img src="https://i.imgur.com/example.png" class="embedded_image" /></a>""",
+            ),
+            Reply(
+                id = 102,
+                topicId = 1,
+                floor = 15,
+                author = User(username = "bob"),
+                content = "@alice 回复图片",
+                contentRendered = """@<a href="/member/alice">alice</a> 回复图片""",
+            ),
+        )
+
+        val enriched = replies.withReferencePreviews()
+
+        assertThat(enriched[1].reference?.excerpt).isEqualTo("[图片]")
+    }
+    @Test
     fun withReferencePreviews_ignoresUnknownOrFutureFloor() {
         val replies = listOf(
             Reply(

@@ -53,9 +53,13 @@ private fun Reply.referenceSourceText(): String =
         ?: Jsoup.parseBodyFragment(contentRendered).text()
 
 private fun Reply.referenceExcerpt(): String {
-    val text = Jsoup.parseBodyFragment(contentRendered.ifBlank { content }).text()
+    val document = Jsoup.parseBodyFragment(contentRendered.ifBlank { content })
+    val text = document.text()
         .replace(Regex("""\s+"""), " ")
         .trim()
+    if (text.isBlank() && document.select("img").isNotEmpty()) {
+        return "[图片]"
+    }
     return if (text.length <= MaxReferenceExcerptLength) {
         text
     } else {
