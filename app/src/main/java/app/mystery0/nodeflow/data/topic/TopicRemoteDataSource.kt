@@ -147,7 +147,7 @@ class TopicRemoteDataSource(
 private data class ThankResultDto(
     val success: Boolean = false,
     val message: String? = null,
-    val once: String? = null,
+    val once: Long? = null,
 ) {
-    fun toModel() = ThankResult(success = success, message = message, once = once)
+    fun toModel() = ThankResult(success = success, message = message, once = once?.toString())
 }

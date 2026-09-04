@@ -367,7 +367,7 @@ class TopicRemoteDataSourceTest {
         val server = MockWebServer()
         server.start()
         try {
-            server.enqueue(MockResponse().setBody("{\"success\":false,\"message\":\"余额不足\",\"once\":\"next\"}"))
+            server.enqueue(MockResponse().setBody("{\"success\":false,\"message\":\"余额不足\",\"once\":23456}"))
             val thankApi = Retrofit.Builder().baseUrl(server.url("/")).build().create(V2exThankApi::class.java)
             val dataSource = TopicRemoteDataSource(FakeV2exRawApi(), json, parser, thankApi)
 
@@ -375,7 +375,26 @@ class TopicRemoteDataSourceTest {
 
             assertThat(result.success).isFalse()
             assertThat(result.message).isEqualTo("余额不足")
-            assertThat(result.once).isEqualTo("next")
+            assertThat(result.once).isEqualTo("23456")
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun thankReply_parsesSuccessAndNumericOnce() = runTest {
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(MockResponse().setBody("{\"success\":true,\"message\":\"\",\"once\":12345}"))
+            val thankApi = Retrofit.Builder().baseUrl(server.url("/")).build().create(V2exThankApi::class.java)
+            val dataSource = TopicRemoteDataSource(FakeV2exRawApi(), json, parser, thankApi)
+
+            val result = dataSource.thankReply(topicId = 99, replyId = 100, once = "old")
+
+            assertThat(result.success).isTrue()
+            assertThat(result.message).isEmpty()
+            assertThat(result.once).isEqualTo("12345")
         } finally {
             server.shutdown()
         }
