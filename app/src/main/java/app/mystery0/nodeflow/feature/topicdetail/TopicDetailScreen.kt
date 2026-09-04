@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.feature.topicdetail
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -178,6 +179,7 @@ fun TopicDetailScreen(
     onLoginClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val detail = state.detail
     var previewImageUrl by remember { mutableStateOf<String?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
@@ -196,6 +198,12 @@ fun TopicDetailScreen(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(state.favoriteToastMessage) {
+        state.favoriteToastMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            onEvent(TopicDetailUiEvent.FavoriteToastConsumed)
+        }
+    }
     DisposableEffect(lifecycleOwner, onReplyEditorEvent) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {

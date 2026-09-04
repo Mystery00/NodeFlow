@@ -348,6 +348,33 @@ class TopicDetailViewModelTest {
         assertThat(state.detail?.isFavorited).isTrue()
         assertThat(state.detail?.favoriteOnce).isEqualTo("67890")
         assertThat(state.favoriteError).isNull()
+        assertThat(state.favoriteToastMessage).isEqualTo("收藏成功")
+
+        viewModel.onEvent(TopicDetailUiEvent.FavoriteToastConsumed)
+        assertThat(viewModel.uiState.value.favoriteToastMessage).isNull()
+    }
+
+    @Test
+    fun toggleFavorite_unfavoriteSuccessPublishesToast() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        val initialDetail = snapshot(replies = replies(1..5), hasMore = false).detail.copy(
+            isFavorited = true,
+            favoriteOnce = "12345",
+        )
+        pager.loadFirstResults += Result.success(TopicDetailSnapshot(initialDetail, 1, 1, false))
+        val updatedDetail = initialDetail.copy(
+            isFavorited = false,
+            favoriteOnce = "67890",
+        )
+        val repository = SinglePagerRepository(pager, setFavoriteResult = Result.success(updatedDetail))
+        val viewModel = viewModel(pager, repository = repository)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.ToggleFavorite)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.detail?.isFavorited).isFalse()
+        assertThat(viewModel.uiState.value.favoriteToastMessage).isEqualTo("取消收藏成功")
     }
 
     @Test

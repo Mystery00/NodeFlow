@@ -13,6 +13,7 @@ data class TopicDetailUiState(
     val loadMoreError: String? = null,
     val isTogglingFavorite: Boolean = false,
     val favoriteError: String? = null,
+    val favoriteToastMessage: String? = null,
     val isThankingTopic: Boolean = false,
     val thankingReplyId: Long? = null,
     val thankError: String? = null,

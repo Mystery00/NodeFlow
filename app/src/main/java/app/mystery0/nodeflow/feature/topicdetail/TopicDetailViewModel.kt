@@ -62,6 +62,8 @@ class TopicDetailViewModel(
             TopicDetailUiEvent.ToggleFavorite -> toggleFavorite()
             TopicDetailUiEvent.FavoriteErrorConsumed ->
                 _uiState.update { it.copy(favoriteError = null) }
+            TopicDetailUiEvent.FavoriteToastConsumed ->
+                _uiState.update { it.copy(favoriteToastMessage = null) }
             TopicDetailUiEvent.ThankTopic -> thankTopic()
             is TopicDetailUiEvent.ThankReply -> thankReply(event.replyId)
             TopicDetailUiEvent.ThankErrorConsumed -> _uiState.update { it.copy(thankError = null) }
@@ -73,21 +75,29 @@ class TopicDetailViewModel(
         val currentFavorited = detail.isFavorited ?: return
         val once = detail.favoriteOnce ?: return
         if (_uiState.value.isTogglingFavorite) return
-        _uiState.update { it.copy(isTogglingFavorite = true, favoriteError = null) }
+        _uiState.update {
+            it.copy(
+                isTogglingFavorite = true,
+                favoriteError = null,
+                favoriteToastMessage = null,
+            )
+        }
         viewModelScope.launch {
             val result = setFavoriteUseCase(topicId, !currentFavorited, once)
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { updatedDetail ->
                         // 只更新收藏状态和 once token，保留当前回复列表等内容
+                        val isFavorited = updatedDetail?.isFavorited ?: !currentFavorited
                         val merged = current.detail?.copy(
-                            isFavorited = updatedDetail?.isFavorited ?: !currentFavorited,
+                            isFavorited = isFavorited,
                             favoriteOnce = updatedDetail?.favoriteOnce,
                         )
                         current.copy(
                             detail = merged,
                             isTogglingFavorite = false,
                             favoriteError = null,
+                            favoriteToastMessage = if (isFavorited) "收藏成功" else "取消收藏成功",
                         )
                     },
                     onFailure = { error ->
