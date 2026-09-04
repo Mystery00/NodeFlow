@@ -556,7 +556,10 @@ private fun TopicDetailContent(
                 bottom = contentPadding.calculateBottomPadding() + 80.dp,
             ),
         ) {
-            item {
+            item(
+                key = TOPIC_DETAIL_HEADER_KEY,
+                contentType = TOPIC_DETAIL_HEADER_CONTENT_TYPE,
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -603,7 +606,11 @@ private fun TopicDetailContent(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
                 )
             }
-            items(detail.replies, key = { it.id }) { reply ->
+            items(
+                items = detail.replies,
+                key = { it.id },
+                contentType = { TOPIC_DETAIL_REPLY_CONTENT_TYPE },
+            ) { reply ->
                 ReplyItem(
                     reply = reply,
                     highlighted = highlightedReplyId == reply.id,
@@ -633,7 +640,10 @@ private fun TopicDetailContent(
                 )
             }
             if (hasMoreReplies || loadMoreError != null) {
-                item(key = "reply-load-more") {
+                item(
+                    key = "reply-load-more",
+                    contentType = TOPIC_DETAIL_LOAD_MORE_CONTENT_TYPE,
+                ) {
                     ReplyLoadMoreFooter(
                         isLoading = isLoadingMore,
                         errorMessage = loadMoreError,
@@ -693,6 +703,10 @@ private fun ReplyLoadMoreFooter(
 }
 
 private const val LOAD_MORE_PREFETCH_ITEMS = 10
+private const val TOPIC_DETAIL_HEADER_KEY = "topic-detail-header"
+private const val TOPIC_DETAIL_HEADER_CONTENT_TYPE = "topic-detail-header"
+private const val TOPIC_DETAIL_REPLY_CONTENT_TYPE = "topic-detail-reply"
+private const val TOPIC_DETAIL_LOAD_MORE_CONTENT_TYPE = "topic-detail-load-more"
 
 @Composable
 private fun TopicMetadataRow(

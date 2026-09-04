@@ -223,6 +223,7 @@ fun RichHtmlText(
                     .height(contentHeight),
                 factory = {
                     val webView = RichHtmlWebView(context)
+                    val callbacks = webView.callbacks
                     webView.allowVerticalScroll = useInternalScroll
                     webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     webView.isVerticalScrollBarEnabled = false
@@ -236,41 +237,52 @@ fun RichHtmlText(
                     webView.settings.displayZoomControls = false
                     webView.addJavascriptInterface(
                         RichHtmlImageBridge(
-                            onImageClick = { url -> webView.post { currentOnImageClick.value(url) } },
-                            onContentChanged = { webView.post { updateContentHeight(webView) } },
-                            onLayoutInvalidated = {
-                                webView.post {
-                                    layoutCache.invalidate(htmlDocument, expectedWidthPx)
-                                    hasCachedStableHeight = false
-                                    stableHeightCandidate = null
-                                    stableConfirmationAttempts = 0
-                                }
-                            },
+                            onImageClick = callbacks::openImage,
+                            onContentChanged = callbacks::contentChanged,
+                            onLayoutInvalidated = callbacks::layoutInvalidated,
                         ),
                         NODEFLOW_IMAGE_BRIDGE,
                     )
                     webView.webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                            currentOnUrlClick.value(request.url.toString()) || context.openExternalUri(request.url)
+                            callbacks.openUrl(request.url.toString()) || context.openExternalUri(request.url)
 
                         override fun onPageFinished(view: WebView, url: String?) {
-                            installImageManager(view)
-                            scheduleHeightUpdates(view)
+                            callbacks.documentLoaded()
                         }
                     }
                     webView.webChromeClient = object : WebChromeClient() {
                         override fun onProgressChanged(view: WebView, newProgress: Int) {
                             if (newProgress == 100) {
-                                installImageManager(view)
-                                scheduleHeightUpdates(view)
+                                callbacks.documentLoaded()
                             }
                         }
                     }
                     webView
                 },
                 update = { view ->
+                    view.callbacks.bind(
+                        RichHtmlWebViewCallbackSet(
+                            onImageClick = { url -> view.post { currentOnImageClick.value(url) } },
+                            onContentChanged = { view.post { updateContentHeight(view) } },
+                            onLayoutInvalidated = {
+                                view.post {
+                                    layoutCache.invalidate(htmlDocument, expectedWidthPx)
+                                    hasCachedStableHeight = false
+                                    stableHeightCandidate = null
+                                    stableConfirmationAttempts = 0
+                                }
+                            },
+                            onUrlClick = { url -> currentOnUrlClick.value(url) },
+                            onDocumentLoaded = {
+                                installImageManager(view)
+                                scheduleHeightUpdates(view)
+                            },
+                            onReattached = { scheduleHeightUpdates(view) },
+                        ),
+                    )
                     view.allowVerticalScroll = useInternalScroll
-                    if (view.tag != htmlDocument) {
+                    if (shouldLoadRichHtmlDocument(view.tag, htmlDocument)) {
                         view.tag = htmlDocument
                         view.loadDataWithBaseURL(
                             "https://www.v2ex.com/",
@@ -282,13 +294,27 @@ fun RichHtmlText(
                         installImageManager(view)
                         scheduleHeightUpdates(view)
                     }
+                    view.resumeAfterReuse()
+                },
+                onReset = { view ->
+                    view.prepareForReuse()
+                },
+                onRelease = { view ->
+                    view.release()
                 },
             )
         }
     }
 }
 
+internal fun shouldLoadRichHtmlDocument(
+    currentDocument: Any?,
+    nextDocument: String,
+): Boolean = currentDocument != nextDocument
+
 private class RichHtmlWebView(context: Context) : WebView(context) {
+    val callbacks = RichHtmlWebViewCallbacks()
+    private val reuseState = RichHtmlWebViewReuseState()
     var allowVerticalScroll: Boolean = false
     private var lastTouchY: Float = 0f
 
@@ -338,10 +364,100 @@ private class RichHtmlWebView(context: Context) : WebView(context) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        resumeAfterReuse()
         post {
             scrollTo(scrollX, 0)
             invalidate()
         }
+    }
+
+    fun prepareForReuse() {
+        callbacks.clear()
+        reuseState.markReset()
+    }
+
+    fun resumeAfterReuse() {
+        if (
+            reuseState.consumeMeasurementRequest(
+                callbacksBound = callbacks.isBound,
+                isAttachedToWindow = isAttachedToWindow,
+            )
+        ) {
+            post { callbacks.reattached() }
+        }
+    }
+
+    fun release() {
+        callbacks.clear()
+        stopLoading()
+        removeJavascriptInterface(NODEFLOW_IMAGE_BRIDGE)
+        webViewClient = WebViewClient()
+        webChromeClient = WebChromeClient()
+        destroy()
+    }
+}
+
+internal data class RichHtmlWebViewCallbackSet(
+    val onImageClick: (String) -> Unit = {},
+    val onContentChanged: () -> Unit = {},
+    val onLayoutInvalidated: () -> Unit = {},
+    val onUrlClick: (String) -> Boolean = { false },
+    val onDocumentLoaded: () -> Unit = {},
+    val onReattached: () -> Unit = {},
+)
+
+internal class RichHtmlWebViewCallbacks {
+    @Volatile
+    private var callbackSet: RichHtmlWebViewCallbackSet? = null
+
+    val isBound: Boolean
+        get() = callbackSet != null
+
+    fun bind(callbackSet: RichHtmlWebViewCallbackSet) {
+        this.callbackSet = callbackSet
+    }
+
+    fun clear() {
+        callbackSet = null
+    }
+
+    fun openImage(url: String) {
+        callbackSet?.onImageClick?.invoke(url)
+    }
+
+    fun contentChanged() {
+        callbackSet?.onContentChanged?.invoke()
+    }
+
+    fun layoutInvalidated() {
+        callbackSet?.onLayoutInvalidated?.invoke()
+    }
+
+    fun openUrl(url: String): Boolean = callbackSet?.onUrlClick?.invoke(url) == true
+
+    fun documentLoaded() {
+        callbackSet?.onDocumentLoaded?.invoke()
+    }
+
+    fun reattached() {
+        callbackSet?.onReattached?.invoke()
+    }
+}
+
+internal class RichHtmlWebViewReuseState {
+    private var needsMeasurementAfterReset = false
+
+    fun markReset() {
+        needsMeasurementAfterReset = true
+    }
+
+    fun consumeMeasurementRequest(
+        callbacksBound: Boolean,
+        isAttachedToWindow: Boolean,
+    ): Boolean {
+        if (!needsMeasurementAfterReset || !callbacksBound || !isAttachedToWindow) return false
+        needsMeasurementAfterReset = false
+        return true
     }
 }
 

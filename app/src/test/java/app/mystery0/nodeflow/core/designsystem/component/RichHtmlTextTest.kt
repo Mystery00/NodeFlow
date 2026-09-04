@@ -113,6 +113,76 @@ class RichHtmlTextTest {
     }
 
     @Test
+    fun webViewDocument_reloadsOnlyWhenDocumentChanges() {
+        assertThat(
+            shouldLoadRichHtmlDocument(currentDocument = null, nextDocument = "document-a"),
+        ).isTrue()
+        assertThat(
+            shouldLoadRichHtmlDocument(currentDocument = "document-a", nextDocument = "document-a"),
+        ).isFalse()
+        assertThat(
+            shouldLoadRichHtmlDocument(currentDocument = "document-a", nextDocument = "document-b"),
+        ).isTrue()
+    }
+
+    @Test
+    fun webViewCallbacks_rebindsAfterReuseWithoutInvokingOldComposition() {
+        val callbacks = RichHtmlWebViewCallbacks()
+        var oldCompositionCalls = 0
+        var currentCompositionCalls = 0
+
+        callbacks.bind(
+            RichHtmlWebViewCallbackSet(
+                onContentChanged = { oldCompositionCalls += 1 },
+            ),
+        )
+        callbacks.contentChanged()
+        callbacks.clear()
+        callbacks.contentChanged()
+        callbacks.bind(
+            RichHtmlWebViewCallbackSet(
+                onContentChanged = { currentCompositionCalls += 1 },
+            ),
+        )
+        callbacks.contentChanged()
+
+        assertThat(oldCompositionCalls).isEqualTo(1)
+        assertThat(currentCompositionCalls).isEqualTo(1)
+    }
+
+    @Test
+    fun webViewReuseState_measuresAfterCallbacksReboundAndViewReattached() {
+        val reuseState = RichHtmlWebViewReuseState()
+
+        reuseState.markReset()
+
+        assertThat(
+            reuseState.consumeMeasurementRequest(
+                callbacksBound = false,
+                isAttachedToWindow = true,
+            ),
+        ).isFalse()
+        assertThat(
+            reuseState.consumeMeasurementRequest(
+                callbacksBound = true,
+                isAttachedToWindow = false,
+            ),
+        ).isFalse()
+        assertThat(
+            reuseState.consumeMeasurementRequest(
+                callbacksBound = true,
+                isAttachedToWindow = true,
+            ),
+        ).isTrue()
+        assertThat(
+            reuseState.consumeMeasurementRequest(
+                callbacksBound = true,
+                isAttachedToWindow = true,
+            ),
+        ).isFalse()
+    }
+
+    @Test
     fun stableHeight_requiresTwoMatchingSettledMeasurements() {
         assertThat(isConfirmedStableRichHtmlHeight(null, heightCssPx = 8_000, allImagesSettled = true)).isFalse()
         assertThat(isConfirmedStableRichHtmlHeight(7_900, heightCssPx = 8_000, allImagesSettled = true)).isFalse()
