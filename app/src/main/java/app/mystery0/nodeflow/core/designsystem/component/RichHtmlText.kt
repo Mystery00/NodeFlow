@@ -4,16 +4,20 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.view.MotionEvent
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -22,10 +26,53 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlin.math.roundToInt
+
+class RichHtmlLayoutCache {
+    private val stableLayouts = mutableMapOf<RichHtmlLayoutCacheKey, RichHtmlCachedLayout>()
+
+    internal fun get(
+        document: String,
+        widthPx: Int,
+    ): RichHtmlCachedLayout? = stableLayouts[RichHtmlLayoutCacheKey(document, widthPx)]
+
+    internal fun put(
+        document: String,
+        widthPx: Int,
+        heightDp: Float,
+        useInternalScroll: Boolean = false,
+    ) {
+        val key = RichHtmlLayoutCacheKey(document, widthPx)
+        if (key !in stableLayouts) {
+            stableLayouts[key] = RichHtmlCachedLayout(
+                heightDp = heightDp,
+                useInternalScroll = useInternalScroll,
+            )
+        }
+    }
+
+    internal fun invalidate(document: String, widthPx: Int) {
+        stableLayouts.remove(RichHtmlLayoutCacheKey(document, widthPx))
+    }
+}
+
+internal data class RichHtmlCachedLayout(
+    val heightDp: Float,
+    val useInternalScroll: Boolean,
+)
+
+private data class RichHtmlLayoutCacheKey(
+    val document: String,
+    val widthPx: Int,
+)
+
+@Composable
+fun rememberRichHtmlLayoutCache(key: Any? = Unit): RichHtmlLayoutCache =
+    remember(key) { RichHtmlLayoutCache() }
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -35,6 +82,7 @@ fun RichHtmlText(
     backgroundColor: Color = Color.Transparent,
     onImageClick: (String) -> Unit = {},
     onUrlClick: (String) -> Boolean = { false },
+    layoutCache: RichHtmlLayoutCache = rememberRichHtmlLayoutCache(html),
 ) {
     if (html.isBlank()) return
     val context = LocalContext.current
@@ -62,94 +110,216 @@ fun RichHtmlText(
             customImageHosts = customImageHosts,
         )
     }
-    var contentHeight by remember(htmlDocument) { mutableStateOf(1.dp) }
-
-    fun updateContentHeight(view: WebView) {
-        view.evaluateJavascript(CONTENT_HEIGHT_SCRIPT) { value ->
-            val heightCssPx = value
-                ?.trim('"')
-                ?.toFloatOrNull()
-                ?.roundToInt()
-                ?: view.contentHeight
-            val nextHeight = webViewCssHeightToDp(heightCssPx)
-            if (kotlin.math.abs(nextHeight.value - contentHeight.value) > 1f) {
-                contentHeight = nextHeight
-            }
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val expectedWidthPx = with(density) { maxWidth.roundToPx() }
+        val cachedLayout = layoutCache.get(htmlDocument, expectedWidthPx)
+        var contentHeight by remember(htmlDocument, expectedWidthPx, layoutCache) {
+            mutableStateOf((cachedLayout?.heightDp ?: 1f).dp)
         }
-    }
-
-    fun scheduleHeightUpdates(view: WebView) {
-        listOf(0L, 80L, 240L, 600L, 1200L).forEach { delayMillis ->
-            view.postDelayed({ updateContentHeight(view) }, delayMillis)
+        var hasCachedStableHeight by remember(htmlDocument, expectedWidthPx, layoutCache) {
+            mutableStateOf(cachedLayout != null)
         }
-    }
+        var useInternalScroll by remember(htmlDocument, expectedWidthPx, layoutCache) {
+            mutableStateOf(cachedLayout?.useInternalScroll == true)
+        }
+        var stableHeightCandidate by remember(htmlDocument, expectedWidthPx, layoutCache) {
+            mutableStateOf<Int?>(null)
+        }
+        var stableConfirmationAttempts by remember(htmlDocument, expectedWidthPx, layoutCache) {
+            mutableIntStateOf(0)
+        }
 
-    fun installImageManager(view: WebView) {
-        view.evaluateJavascript(richHtmlImageScript(), null)
-    }
-
-    AndroidView(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(contentHeight),
-        factory = {
-            val webView = RichHtmlWebView(context)
-            webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            webView.isVerticalScrollBarEnabled = false
-            webView.isHorizontalScrollBarEnabled = false
-            webView.overScrollMode = WebView.OVER_SCROLL_NEVER
-            webView.settings.javaScriptEnabled = true
-            webView.settings.defaultTextEncodingName = "utf-8"
-            webView.settings.loadWithOverviewMode = false
-            webView.settings.useWideViewPort = false
-            webView.settings.builtInZoomControls = false
-            webView.settings.displayZoomControls = false
-            webView.addJavascriptInterface(
-                RichHtmlImageBridge(
-                    onImageClick = { url -> webView.post { currentOnImageClick.value(url) } },
-                    onContentChanged = { webView.post { updateContentHeight(webView) } },
-                ),
-                NODEFLOW_IMAGE_BRIDGE,
-            )
-            webView.webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                    currentOnUrlClick.value(request.url.toString()) || context.openExternalUri(request.url)
-
-                override fun onPageFinished(view: WebView, url: String?) {
-                    installImageManager(view)
-                    scheduleHeightUpdates(view)
+        fun updateContentHeight(view: WebView) {
+            if (!view.isAttachedToWindow || view.width <= 0) return
+            view.evaluateJavascript(CONTENT_HEIGHT_SCRIPT) { value ->
+                val measurement = parseRichHtmlMeasurement(value, view.contentHeight)
+                if (
+                    !isValidRichHtmlMeasurement(
+                        heightCssPx = measurement.heightCssPx,
+                        measuredWidthPx = view.width,
+                        expectedWidthPx = expectedWidthPx,
+                        density = density.density,
+                        isAttachedToWindow = view.isAttachedToWindow,
+                    )
+                ) {
+                    return@evaluateJavascript
+                }
+                val stableHeightConfirmed = isConfirmedStableRichHtmlHeight(
+                    previousHeightCssPx = stableHeightCandidate,
+                    heightCssPx = measurement.heightCssPx,
+                    allImagesSettled = measurement.allImagesSettled,
+                )
+                val oversized = isOversizedRichHtmlMeasurement(
+                    heightCssPx = measurement.heightCssPx,
+                    density = density.density,
+                )
+                if (
+                    !hasCachedStableHeight &&
+                    measurement.allImagesSettled &&
+                    !stableHeightConfirmed &&
+                    stableConfirmationAttempts < MAX_STABLE_HEIGHT_CONFIRM_ATTEMPTS
+                ) {
+                    stableConfirmationAttempts += 1
+                    view.postDelayed(
+                        { updateContentHeight(view) },
+                        STABLE_HEIGHT_CONFIRM_DELAY_MILLIS,
+                    )
+                }
+                if (oversized) {
+                    stableHeightCandidate = measurement.heightCssPx.takeIf { measurement.allImagesSettled }
+                    if (stableHeightConfirmed && !hasCachedStableHeight) {
+                        val fallbackHeightDp = oversizedRichHtmlFallbackHeightDp(
+                            expectedWidthPx = expectedWidthPx,
+                            density = density.density,
+                        )
+                        useInternalScroll = true
+                        (view as? RichHtmlWebView)?.allowVerticalScroll = true
+                        contentHeight = fallbackHeightDp.dp
+                        layoutCache.put(
+                            document = htmlDocument,
+                            widthPx = expectedWidthPx,
+                            heightDp = fallbackHeightDp,
+                            useInternalScroll = true,
+                        )
+                        hasCachedStableHeight = true
+                    }
+                    return@evaluateJavascript
+                }
+                if (
+                    shouldApplyRichHtmlMeasurement(
+                        hasCachedStableHeight = hasCachedStableHeight,
+                    )
+                ) {
+                    useInternalScroll = false
+                    (view as? RichHtmlWebView)?.allowVerticalScroll = false
+                    val nextHeight = webViewCssHeightToDp(measurement.heightCssPx)
+                    if (kotlin.math.abs(nextHeight.value - contentHeight.value) > 1f) {
+                        contentHeight = nextHeight
+                    }
+                }
+                stableHeightCandidate = measurement.heightCssPx.takeIf { measurement.allImagesSettled }
+                if (stableHeightConfirmed && !hasCachedStableHeight) {
+                    layoutCache.put(htmlDocument, expectedWidthPx, measurement.heightCssPx.toFloat())
+                    hasCachedStableHeight = true
                 }
             }
-            webView.webChromeClient = object : WebChromeClient() {
-                override fun onProgressChanged(view: WebView, newProgress: Int) {
-                    if (newProgress == 100) {
+        }
+
+        fun scheduleHeightUpdates(view: WebView) {
+            listOf(0L, 80L, 240L, 600L, 1200L).forEach { delayMillis ->
+                view.postDelayed({ updateContentHeight(view) }, delayMillis)
+            }
+        }
+
+        fun installImageManager(view: WebView) {
+            view.evaluateJavascript(richHtmlImageScript(), null)
+        }
+
+        key(htmlDocument, expectedWidthPx) {
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(contentHeight),
+                factory = {
+                    val webView = RichHtmlWebView(context)
+                    webView.allowVerticalScroll = useInternalScroll
+                    webView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    webView.isVerticalScrollBarEnabled = false
+                    webView.isHorizontalScrollBarEnabled = false
+                    webView.overScrollMode = WebView.OVER_SCROLL_NEVER
+                    webView.settings.javaScriptEnabled = true
+                    webView.settings.defaultTextEncodingName = "utf-8"
+                    webView.settings.loadWithOverviewMode = false
+                    webView.settings.useWideViewPort = false
+                    webView.settings.builtInZoomControls = false
+                    webView.settings.displayZoomControls = false
+                    webView.addJavascriptInterface(
+                        RichHtmlImageBridge(
+                            onImageClick = { url -> webView.post { currentOnImageClick.value(url) } },
+                            onContentChanged = { webView.post { updateContentHeight(webView) } },
+                            onLayoutInvalidated = {
+                                webView.post {
+                                    layoutCache.invalidate(htmlDocument, expectedWidthPx)
+                                    hasCachedStableHeight = false
+                                    stableHeightCandidate = null
+                                    stableConfirmationAttempts = 0
+                                }
+                            },
+                        ),
+                        NODEFLOW_IMAGE_BRIDGE,
+                    )
+                    webView.webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                            currentOnUrlClick.value(request.url.toString()) || context.openExternalUri(request.url)
+
+                        override fun onPageFinished(view: WebView, url: String?) {
+                            installImageManager(view)
+                            scheduleHeightUpdates(view)
+                        }
+                    }
+                    webView.webChromeClient = object : WebChromeClient() {
+                        override fun onProgressChanged(view: WebView, newProgress: Int) {
+                            if (newProgress == 100) {
+                                installImageManager(view)
+                                scheduleHeightUpdates(view)
+                            }
+                        }
+                    }
+                    webView
+                },
+                update = { view ->
+                    view.allowVerticalScroll = useInternalScroll
+                    if (view.tag != htmlDocument) {
+                        view.tag = htmlDocument
+                        view.loadDataWithBaseURL(
+                            "https://www.v2ex.com/",
+                            htmlDocument,
+                            "text/html",
+                            "utf-8",
+                            null,
+                        )
                         installImageManager(view)
                         scheduleHeightUpdates(view)
                     }
-                }
-            }
-            webView
-        },
-        update = { view ->
-            if (view.tag != htmlDocument) {
-                view.tag = htmlDocument
-                view.loadDataWithBaseURL(
-                    "https://www.v2ex.com/",
-                    htmlDocument,
-                    "text/html",
-                    "utf-8",
-                    null,
-                )
-                installImageManager(view)
-                scheduleHeightUpdates(view)
-            }
-        },
-    )
+                },
+            )
+        }
+    }
 }
 
 private class RichHtmlWebView(context: Context) : WebView(context) {
+    var allowVerticalScroll: Boolean = false
+    private var lastTouchY: Float = 0f
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!allowVerticalScroll) return super.onTouchEvent(event)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                lastTouchY = event.y
+                parent?.requestDisallowInterceptTouchEvent(true)
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                val dragDeltaY = event.y - lastTouchY
+                val releaseToParent = shouldReleaseRichHtmlScrollToParent(
+                    dragDeltaY = dragDeltaY,
+                    canScrollUp = canScrollVertically(-1),
+                    canScrollDown = canScrollVertically(1),
+                )
+                parent?.requestDisallowInterceptTouchEvent(!releaseToParent)
+                lastTouchY = event.y
+            }
+
+            MotionEvent.ACTION_UP,
+            MotionEvent.ACTION_CANCEL,
+            -> parent?.requestDisallowInterceptTouchEvent(false)
+        }
+        return super.onTouchEvent(event)
+    }
+
     override fun scrollTo(x: Int, y: Int) {
-        super.scrollTo(x, richHtmlWebViewVerticalScrollY(y))
+        super.scrollTo(x, richHtmlWebViewVerticalScrollY(y, allowVerticalScroll))
     }
 
     override fun onOverScrolled(
@@ -160,9 +330,9 @@ private class RichHtmlWebView(context: Context) : WebView(context) {
     ) {
         super.onOverScrolled(
             scrollX,
-            richHtmlWebViewVerticalScrollY(scrollY),
+            richHtmlWebViewVerticalScrollY(scrollY, allowVerticalScroll),
             clampedX,
-            true,
+            if (allowVerticalScroll) clampedY else true,
         )
     }
 
@@ -178,6 +348,7 @@ private class RichHtmlWebView(context: Context) : WebView(context) {
 private class RichHtmlImageBridge(
     private val onImageClick: (String) -> Unit,
     private val onContentChanged: () -> Unit,
+    private val onLayoutInvalidated: () -> Unit,
 ) {
     @JavascriptInterface
     fun open(url: String) {
@@ -188,9 +359,25 @@ private class RichHtmlImageBridge(
     fun contentChanged() {
         onContentChanged()
     }
+
+    @JavascriptInterface
+    fun layoutInvalidated() {
+        onLayoutInvalidated()
+    }
 }
 
-internal fun richHtmlWebViewVerticalScrollY(requestedY: Int): Int = 0
+internal fun richHtmlWebViewVerticalScrollY(
+    requestedY: Int,
+    allowVerticalScroll: Boolean = false,
+): Int = if (allowVerticalScroll) requestedY.coerceAtLeast(0) else 0
+
+internal fun shouldReleaseRichHtmlScrollToParent(
+    dragDeltaY: Float,
+    canScrollUp: Boolean,
+    canScrollDown: Boolean,
+): Boolean =
+    (dragDeltaY > 0f && !canScrollUp) ||
+        (dragDeltaY < 0f && !canScrollDown)
 
 private fun Color.toCssColor(): String {
     val argb = toArgb()
@@ -200,6 +387,66 @@ private fun Color.toCssColor(): String {
 
 internal fun webViewCssHeightToDp(cssPixels: Int): Dp =
     cssPixels.coerceAtLeast(1).dp
+
+internal data class RichHtmlMeasurement(
+    val heightCssPx: Int,
+    val allImagesSettled: Boolean,
+)
+
+internal fun parseRichHtmlMeasurement(
+    value: String?,
+    fallbackHeightCssPx: Int,
+): RichHtmlMeasurement {
+    val parts = value?.trim('"')?.split('|', limit = 2)
+    val height = parts
+        ?.getOrNull(0)
+        ?.toDoubleOrNull()
+        ?.takeIf { it.isFinite() && it in 1.0..Int.MAX_VALUE.toDouble() }
+        ?.roundToInt()
+    val allImagesSettled = height != null && parts.getOrNull(1) == "1"
+    return RichHtmlMeasurement(
+        heightCssPx = height ?: fallbackHeightCssPx,
+        allImagesSettled = allImagesSettled,
+    )
+}
+
+internal fun isValidRichHtmlMeasurement(
+    heightCssPx: Int,
+    measuredWidthPx: Int,
+    expectedWidthPx: Int,
+    density: Float,
+    isAttachedToWindow: Boolean,
+): Boolean {
+    if (!isAttachedToWindow || heightCssPx <= 0 || measuredWidthPx <= 0 || expectedWidthPx <= 0) return false
+    if (kotlin.math.abs(measuredWidthPx - expectedWidthPx) > 1) return false
+    return density.isFinite() && density > 0f
+}
+
+internal fun isOversizedRichHtmlMeasurement(
+    heightCssPx: Int,
+    density: Float,
+): Boolean {
+    val heightPx = heightCssPx.toDouble() * density.toDouble()
+    return !heightPx.isFinite() || heightPx > MAX_COMPOSE_CONSTRAINT_SIZE_PX
+}
+
+internal fun oversizedRichHtmlFallbackHeightDp(
+    expectedWidthPx: Int,
+    density: Float,
+): Float = (expectedWidthPx / density * 2f).coerceIn(
+    MIN_OVERSIZED_CONTENT_HEIGHT_DP,
+    MAX_OVERSIZED_CONTENT_HEIGHT_DP,
+)
+
+internal fun shouldApplyRichHtmlMeasurement(
+    hasCachedStableHeight: Boolean,
+): Boolean = !hasCachedStableHeight
+
+internal fun isConfirmedStableRichHtmlHeight(
+    previousHeightCssPx: Int?,
+    heightCssPx: Int,
+    allImagesSettled: Boolean,
+): Boolean = allImagesSettled && previousHeightCssPx == heightCssPx
 
 private fun Context.openExternalUri(uri: Uri): Boolean {
     val scheme = uri.scheme ?: return false
@@ -218,7 +465,11 @@ internal const val CONTENT_HEIGHT_SCRIPT =
           var style = window.getComputedStyle(content);
           var marginTop = parseFloat(style.marginTop) || 0;
           var marginBottom = parseFloat(style.marginBottom) || 0;
-          return Math.max(1, Math.ceil(rect.height + marginTop + marginBottom)).toString();
+          var height = Math.max(1, Math.ceil(rect.height + marginTop + marginBottom));
+          var allImagesSettled = Array.from(content.querySelectorAll('img')).every(function(img) {
+            return img.complete;
+          });
+          return height.toString() + '|' + (allImagesSettled ? '1' : '0');
         })();
     """
 
@@ -255,6 +506,12 @@ internal fun richHtmlImageScript(
             }
           }
 
+          function invalidateLayout() {
+            if (window.$bridgeName && window.$bridgeName.layoutInvalidated) {
+              window.$bridgeName.layoutInvalidated();
+            }
+          }
+
           function originalSrc(img) {
             return img.getAttribute('data-nf-src') || img.getAttribute('src') || '';
           }
@@ -283,6 +540,7 @@ internal fun richHtmlImageScript(
               notifyResize();
             }
             function retry() {
+              invalidateLayout();
               var box = wrap.querySelector('.nf-error-box');
               if (box) box.parentNode.removeChild(box);
               wrap.className = 'nf-img nf-loading';
@@ -319,3 +577,8 @@ internal fun richHtmlImageScript(
     """.trimIndent()
 
 private const val NODEFLOW_IMAGE_BRIDGE = "NodeFlowImage"
+private const val MAX_COMPOSE_CONSTRAINT_SIZE_PX = 262_142
+private const val STABLE_HEIGHT_CONFIRM_DELAY_MILLIS = 160L
+private const val MAX_STABLE_HEIGHT_CONFIRM_ATTEMPTS = 4
+private const val MIN_OVERSIZED_CONTENT_HEIGHT_DP = 600f
+private const val MAX_OVERSIZED_CONTENT_HEIGHT_DP = 2_000f

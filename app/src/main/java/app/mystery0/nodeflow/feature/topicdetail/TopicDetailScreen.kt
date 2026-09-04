@@ -96,8 +96,10 @@ import app.mystery0.nodeflow.core.designsystem.component.memberTagsFor
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.designsystem.component.NodeChip
+import app.mystery0.nodeflow.core.designsystem.component.RichHtmlLayoutCache
 import app.mystery0.nodeflow.core.designsystem.component.RichHtmlText
 import app.mystery0.nodeflow.core.designsystem.component.ZoomableImageViewer
+import app.mystery0.nodeflow.core.designsystem.component.rememberRichHtmlLayoutCache
 import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.link.V2exLinkParser
 import app.mystery0.nodeflow.core.model.TopicDetail
@@ -482,6 +484,7 @@ private fun TopicDetailContent(
     onDirectReplyClick: (Reply) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val richHtmlLayoutCache = rememberRichHtmlLayoutCache(detail.topic.id)
     var highlightedReplyId by remember(detail.topic.id) { mutableStateOf<Long?>(null) }
     val replyRefreshKey = if (replyFloorTarget != null) detail.replies.lastOrNull()?.id else null
     // 按需分页下目标楼层可能在补页完成后才出现，用该布尔值的翻转重新触发定位
@@ -581,12 +584,14 @@ private fun TopicDetailContent(
                         html = detail.contentRendered,
                         onImageClick = onImageClick,
                         onUrlClick = openV2exUrl,
+                        layoutCache = richHtmlLayoutCache,
                     )
                     if (detail.appends.isNotEmpty()) {
                         TopicAppendsSection(
                             appends = detail.appends,
                             onImageClick = onImageClick,
                             onUrlClick = openV2exUrl,
+                            richHtmlLayoutCache = richHtmlLayoutCache,
                         )
                     }
                 }
@@ -834,6 +839,7 @@ private fun TopicAppendsSection(
     appends: List<TopicAppend>,
     onImageClick: (String) -> Unit,
     onUrlClick: (String) -> Boolean,
+    richHtmlLayoutCache: RichHtmlLayoutCache,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -844,6 +850,7 @@ private fun TopicAppendsSection(
                 append = append,
                 onImageClick = onImageClick,
                 onUrlClick = onUrlClick,
+                richHtmlLayoutCache = richHtmlLayoutCache,
             )
         }
     }
@@ -854,6 +861,7 @@ private fun TopicAppendCard(
     append: TopicAppend,
     onImageClick: (String) -> Unit,
     onUrlClick: (String) -> Boolean,
+    richHtmlLayoutCache: RichHtmlLayoutCache,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -891,6 +899,7 @@ private fun TopicAppendCard(
                 html = append.contentRendered,
                 onImageClick = onImageClick,
                 onUrlClick = onUrlClick,
+                layoutCache = richHtmlLayoutCache,
             )
         }
     }
