@@ -5,6 +5,10 @@ import app.mystery0.nodeflow.core.crash.NodeFlowCrashHandler
 import app.mystery0.nodeflow.core.datastore.SettingsStore
 import app.mystery0.nodeflow.core.notification.NotificationScheduler
 import app.mystery0.nodeflow.di.nodeFlowModules
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.decode.ImageDecoderDecoder
+import coil.decode.SvgDecoder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,7 +18,15 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 
-class NodeFlowApplication : Application() {
+class NodeFlowApplication : Application(), ImageLoaderFactory {
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .components {
+                add(ImageDecoderDecoder.Factory())
+                add(SvgDecoder.Factory())
+            }
+            .build()
+
     override fun onCreate() {
         super.onCreate()
         if (getProcessName().endsWith(":crash")) return

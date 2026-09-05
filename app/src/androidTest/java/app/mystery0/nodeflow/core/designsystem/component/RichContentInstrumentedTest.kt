@@ -1,5 +1,7 @@
 package app.mystery0.nodeflow.core.designsystem.component
 
+import android.graphics.drawable.Animatable
+import android.util.Base64
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
@@ -10,9 +12,16 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.semantics.CollectionInfo
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.test.platform.app.InstrumentationRegistry
 import app.mystery0.nodeflow.core.parser.RichContentParser
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 
 class RichContentInstrumentedTest {
     @get:Rule
@@ -56,5 +65,30 @@ class RichContentInstrumentedTest {
         composeRule.onNodeWithText("表格内视频请在浏览器中打开").assertExists()
         composeRule.onNodeWithText("暂不支持嵌套表格").assertExists()
         composeRule.onNodeWithContentDescription("打开图片原链接").assertExists()
+    }
+
+    @Test
+    fun imageLoader_decodesAnimatedGifAsAnimatableDrawable() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val gifFile = File(context.cacheDir, "rich-content-animated.gif")
+        gifFile.writeBytes(Base64.decode(ANIMATED_GIF_BASE64, Base64.DEFAULT))
+
+        try {
+            val result = context.imageLoader.execute(
+                ImageRequest.Builder(context)
+                    .data(gifFile)
+                    .build(),
+            )
+
+            assertThat(result).isInstanceOf(SuccessResult::class.java)
+            assertThat((result as SuccessResult).drawable).isInstanceOf(Animatable::class.java)
+        } finally {
+            gifFile.delete()
+        }
+    }
+
+    private companion object {
+        const val ANIMATED_GIF_BASE64 =
+            "R0lGODlhAgACAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQACgAAACwAAAAAAgACAAAIBgABCAQQEAAh+QQBCgABACwAAAAAAgACAIEAAP8AAAAAAAAAAAAIBgABCAQQEAA7"
     }
 }

@@ -103,6 +103,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
     implementation(libs.coil.svg)
     implementation(libs.zoomimage.compose.coil2)
     implementation(libs.jsoup)
