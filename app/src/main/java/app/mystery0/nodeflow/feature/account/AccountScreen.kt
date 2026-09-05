@@ -1,50 +1,54 @@
 package app.mystery0.nodeflow.feature.account
 
 import android.widget.Toast
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import app.mystery0.nodeflow.R
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
-import app.mystery0.nodeflow.core.designsystem.component.UserAvatar
-import app.mystery0.nodeflow.core.model.AccountOverview
-import app.mystery0.nodeflow.core.model.AccountWealth
-import app.mystery0.nodeflow.core.model.DailyCheckIn
-import app.mystery0.nodeflow.core.model.User
-import app.mystery0.nodeflow.core.ui.formatEpochSeconds
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +61,10 @@ fun AccountScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    var showLogoutConfirmation by rememberSaveable(state.session.username) { mutableStateOf(false) }
+    LaunchedEffect(state.isLoggedIn) {
+        if (!state.isLoggedIn) showLogoutConfirmation = false
+    }
     LaunchedEffect(state.toastMessage) {
         state.toastMessage?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -67,272 +75,124 @@ fun AccountScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("我的") },
+                title = { Text(stringResource(R.string.account_title)) },
                 actions = {
                     if (state.isLoggedIn) {
                         IconButton(onClick = { onEvent(AccountUiEvent.Refresh) }) {
-                            Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
+                            Icon(Icons.Outlined.Refresh, stringResource(R.string.favorites_refresh))
                         }
-                    }
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "设置")
                     }
                 },
             )
         },
-    ) { paddingValues ->
-        when {
-            !state.isLoggedIn -> SignedOutContent(
-                onLoginClick = onLoginClick,
-                paddingValues = paddingValues,
-            )
-            state.isLoading && state.user == null -> LoadingContent(paddingValues = paddingValues)
-            state.errorMessage != null && state.user == null -> ErrorContent(
-                message = state.errorMessage,
-                onRetry = { onEvent(AccountUiEvent.Retry) },
-                paddingValues = paddingValues,
-            )
-            state.user != null -> AccountContent(
-                user = state.user,
-                overview = state.overview,
-                isCheckingIn = state.isCheckingIn,
-                onCheckInClick = { onEvent(AccountUiEvent.CheckIn) },
-                onLogoutClick = { onEvent(AccountUiEvent.Logout) },
-                onFavoriteTopicsClick = onFavoriteTopicsClick,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
+    ) { padding ->
+        if (state.isLoggedIn && state.user != null) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-            )
-            else -> EmptyContent(
-                message = "暂无用户信息",
-                paddingValues = paddingValues,
-            )
+                    .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                AccountProfileHeader(user = state.user)
+                state.overview?.let { overview ->
+                    AccountOverviewCard(
+                        overview = overview,
+                        isCheckingIn = state.isCheckingIn,
+                        onCheckInClick = { onEvent(AccountUiEvent.CheckIn) },
+                    )
+                }
+                AccountMenu(true, onFavoriteTopicsClick, onSettingsClick)
+                OutlinedButton(
+                    onClick = { showLogoutConfirmation = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Text(stringResource(R.string.account_logout))
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+                Box(Modifier.weight(1f)) {
+                    when {
+                        !state.isLoggedIn -> SignedOutContent(onLoginClick)
+                        state.isLoading -> LoadingContent()
+                        state.errorMessage != null -> ErrorContent(
+                            message = state.errorMessage,
+                            onRetry = { onEvent(AccountUiEvent.Retry) },
+                        )
+                        else -> EmptyContent(message = stringResource(R.string.account_no_profile))
+                    }
+                }
+                AccountMenu(false, onFavoriteTopicsClick, onSettingsClick)
+            }
         }
+    }
+    if (showLogoutConfirmation && state.isLoggedIn) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirmation = false },
+            title = { Text(stringResource(R.string.account_logout_title)) },
+            text = { Text(stringResource(R.string.account_logout_description)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLogoutConfirmation = false
+                    onEvent(AccountUiEvent.Logout)
+                }) {
+                    Text(stringResource(R.string.account_logout_confirm), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirmation = false }) {
+                    Text(stringResource(R.string.account_cancel))
+                }
+            },
+        )
     }
 }
 
 @Composable
-private fun SignedOutContent(
-    onLoginClick: () -> Unit,
-    paddingValues: PaddingValues,
-) {
+private fun SignedOutContent(onLoginClick: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Text(stringResource(R.string.account_signed_out), style = MaterialTheme.typography.titleLarge)
         Text(
-            text = "尚未登录",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = "登录后可以查看当前用户信息，并为后续回复、发帖和通知功能提供会话。",
-            modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
+            text = stringResource(R.string.account_login_description),
+            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Button(onClick = onLoginClick) {
-            Text("登录")
-        }
+        Button(onClick = onLoginClick) { Text(stringResource(R.string.favorites_login)) }
     }
 }
 
 @Composable
-private fun AccountContent(
-    user: User,
-    overview: AccountOverview?,
-    isCheckingIn: Boolean,
-    onCheckInClick: () -> Unit,
-    onLogoutClick: () -> Unit,
-    onFavoriteTopicsClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+private fun AccountMenu(showFavorites: Boolean, onFavoriteTopicsClick: () -> Unit, onSettingsClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        UserAvatar(
-            avatarUrl = user.avatarUrl,
-            username = user.username,
-            size = 88.dp,
-        )
-        Text(
-            text = user.username,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        user.tagline?.takeIf { it.isNotBlank() }?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        overview?.let {
-            AccountOverviewContent(
-                overview = it,
-                isCheckingIn = isCheckingIn,
-                onCheckInClick = onCheckInClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-            )
-        }
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.favorite_topics)) },
-            leadingContent = { Icon(Icons.Outlined.StarBorder, contentDescription = null) },
-            trailingContent = { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onFavoriteTopicsClick),
-        )
-        user.bio?.takeIf { it.isNotBlank() }?.let {
-            Text(
-                text = it,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-        AccountLine(label = "会员", value = formatMemberNumber(user.memberNumber))
-        AccountLine(label = "今日活跃度排名", value = formatDailyActivityRank(user.dailyActivityRank))
-        AccountLine(label = "加入时间", value = formatEpochSeconds(user.createdAtEpochSeconds))
-        OutlinedButton(
-            onClick = onLogoutClick,
-            modifier = Modifier.padding(top = 12.dp),
-        ) {
-            Text("退出登录")
-        }
-    }
-}
-
-@Composable
-private fun AccountOverviewContent(
-    overview: AccountOverview,
-    isCheckingIn: Boolean,
-    onCheckInClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val wealthText = overview.wealth?.let(::formatWealth)
-    val rows = listOfNotNull(
-        wealthText?.let { "财富" to it },
-    )
-    if (rows.isEmpty() && overview.checkIn == null) return
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
-        rows.forEach { (label, value) ->
-            OverviewLine(label = label, value = value)
-        }
-        overview.checkIn?.let { checkIn ->
-            if (usesCheckInActionLine(checkIn)) {
-                CheckInActionLine(
-                    checkIn = checkIn,
-                    isCheckingIn = isCheckingIn,
-                    onCheckInClick = onCheckInClick,
-                )
-            } else {
-                OverviewLine(label = "签到", value = formatCheckIn(checkIn))
+        Column {
+            if (showFavorites) {
+                AccountMenuItem(stringResource(R.string.favorite_topics), Icons.Outlined.StarBorder, onFavoriteTopicsClick)
             }
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
-    }
-}
-
-@Composable
-private fun CheckInActionLine(
-    checkIn: DailyCheckIn,
-    isCheckingIn: Boolean,
-    onCheckInClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "签到",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = formatCheckIn(checkIn),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-            )
-            Button(
-                onClick = onCheckInClick,
-                enabled = !isCheckingIn,
-            ) {
-                Text(if (isCheckingIn) "签到中…" else "签到")
-            }
+            AccountMenuItem(stringResource(R.string.account_settings), Icons.Outlined.Settings, onSettingsClick)
         }
     }
 }
 
-internal fun usesCheckInActionLine(checkIn: DailyCheckIn): Boolean = checkIn.canCheckIn
-
 @Composable
-private fun OverviewLine(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-        )
-    }
-}
-
-private fun formatCheckIn(checkIn: DailyCheckIn): String {
-    val status = if (checkIn.checkedIn) "已签到" else "待签到"
-    val days = checkIn.continuousDays?.let { " · 连续 ${it.formatCount()} 天" }.orEmpty()
-    return status + days
-}
-
-private fun formatWealth(wealth: AccountWealth): String? {
-    val parts = listOfNotNull(
-        wealth.gold?.let { "金币 ${it.formatCount()}" },
-        wealth.silver?.let { "银币 ${it.formatCount()}" },
-        wealth.bronze?.let { "铜币 ${it.formatCount()}" },
-    )
-    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
-}
-
-private fun formatMemberNumber(memberNumber: Long?): String? =
-    memberNumber?.let { "V2EX 第 ${it.formatCount()} 号会员" }
-
-private fun formatDailyActivityRank(rank: Int?): String? =
-    rank?.let { "第 ${it.formatCount()} 名" }
-
-private fun Int.formatCount(): String = "%,d".format(this)
-
-private fun Long.formatCount(): String = "%,d".format(this)
-
-@Composable
-private fun AccountLine(label: String, value: String?) {
-    if (value.isNullOrBlank()) return
-    Text(
-        text = "$label：$value",
-        modifier = Modifier.fillMaxWidth(),
-        style = MaterialTheme.typography.bodyMedium,
+private fun AccountMenuItem(title: String, icon: ImageVector, onClick: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(title) },
+        leadingContent = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        trailingContent = {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     )
 }
