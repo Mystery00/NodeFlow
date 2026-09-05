@@ -41,6 +41,7 @@
 - [节点详情屏蔽节点设计](plans/2026-08-14-node-blocking-design.md) / [实施计划](plans/2026-08-14-node-blocking.md)
 - [帖子列表置顶标记设计](plans/2026-08-14-topic-pinned-badge-design.md) / [实施计划](plans/2026-08-14-topic-pinned-badge.md)
 - [V2EX 主题与回复感谢支持实施计划](plans/2026-08-30-v2ex-thank-topic-reply.md)
+- [主题正文原生富文本渲染设计](plans/2026-09-05-native-topic-rich-content-design.md) / [实施计划](plans/2026-09-05-native-topic-rich-content.md)
 - [`investigations/`](investigations/)：问题调查、外部行为验证和技术研究记录。
 - [V2EX_Polish 用户标签数据格式调查](investigations/2026-07-17-v2ex-polish-member-tag-format.md)
 - [V2EX 主题与回复感谢接口调查](investigations/2026-08-30-v2ex-thank-topic-reply.md)

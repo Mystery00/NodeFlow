@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -92,19 +93,22 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.LocalMemberTags
+import app.mystery0.nodeflow.core.designsystem.component.LocalCustomImageHosts
 import app.mystery0.nodeflow.core.designsystem.component.memberTagsFor
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.designsystem.component.NodeChip
-import app.mystery0.nodeflow.core.designsystem.component.RichHtmlLayoutCache
-import app.mystery0.nodeflow.core.designsystem.component.RichHtmlText
+import app.mystery0.nodeflow.core.designsystem.component.RichContent
+import app.mystery0.nodeflow.core.designsystem.component.RichContentBlockView
+import app.mystery0.nodeflow.core.designsystem.component.RichContentImageSizeCache
 import app.mystery0.nodeflow.core.designsystem.component.ZoomableImageViewer
-import app.mystery0.nodeflow.core.designsystem.component.rememberRichHtmlLayoutCache
+import app.mystery0.nodeflow.core.designsystem.component.rememberRichContentImageSizeCache
 import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.link.V2exLinkParser
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.model.TopicAppend
 import app.mystery0.nodeflow.core.model.Reply
+import app.mystery0.nodeflow.core.parser.RichContentParser
 import app.mystery0.nodeflow.core.ui.MemberTagChips
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.ReplyItem
@@ -124,6 +128,12 @@ import androidx.lifecycle.LifecycleEventObserver
 private const val SecondsPerMinute = 60L
 private const val SecondsPerHour = 60L * SecondsPerMinute
 private const val SecondsPerDay = 24L * SecondsPerHour
+
+internal fun topicReplyListIndex(
+    bodyBlockCount: Int,
+    hasAppends: Boolean,
+    replyIndex: Int,
+): Int = 1 + bodyBlockCount + (if (hasAppends) 1 else 0) + 1 + replyIndex
 
 internal fun topicMetadataText(
     username: String,
@@ -484,7 +494,16 @@ private fun TopicDetailContent(
     onDirectReplyClick: (Reply) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val richHtmlLayoutCache = rememberRichHtmlLayoutCache(detail.topic.id)
+    val customImageHosts = LocalCustomImageHosts.current
+    val bodyDocument = remember(detail.contentRendered, customImageHosts) {
+        RichContentParser.parse(detail.contentRendered, customImageHosts)
+    }
+    val imageSizeCache = rememberRichContentImageSizeCache(detail.topic.id)
+    val replyListStartIndex = topicReplyListIndex(
+        bodyBlockCount = bodyDocument.blocks.size,
+        hasAppends = detail.appends.isNotEmpty(),
+        replyIndex = 0,
+    )
     var highlightedReplyId by remember(detail.topic.id) { mutableStateOf<Long?>(null) }
     val replyRefreshKey = if (replyFloorTarget != null) detail.replies.lastOrNull()?.id else null
     // 按需分页下目标楼层可能在补页完成后才出现，用该布尔值的翻转重新触发定位
@@ -497,19 +516,22 @@ private fun TopicDetailContent(
         replyRefreshKey,
         targetFloorLoaded,
         isRefreshing,
+        replyListStartIndex,
     ) {
         if (replyFloorTarget != null && isRefreshing) return@LaunchedEffect
         val targetFloor = replyFloorTarget ?: initialReplyFloor
         val targetIndex = detail.replies.indexOfFirst { it.floor == targetFloor }
         if (targetIndex >= 0) {
             val replyId = detail.replies[targetIndex].id
-            listState.scrollToItem(index = targetIndex + 1)
+            listState.scrollToItem(index = replyListStartIndex + targetIndex)
             highlightedReplyId = replyId
             delay(1400)
             if (highlightedReplyId == replyId) highlightedReplyId = null
             if (replyFloorTarget != null) onReplyFloorTargetConsumed()
         } else if (replyFloorTarget != null) {
-            if (detail.replies.isNotEmpty()) listState.scrollToItem(detail.replies.size)
+            if (detail.replies.isNotEmpty()) {
+                listState.scrollToItem(replyListStartIndex + detail.replies.lastIndex)
+            }
             onReplyFloorTargetConsumed()
         }
     }
@@ -583,21 +605,42 @@ private fun TopicDetailContent(
                     if (authorTags.isNotEmpty()) {
                         MemberTagChips(tags = authorTags)
                     }
-                    RichHtmlText(
-                        html = detail.contentRendered,
+                }
+            }
+            itemsIndexed(
+                items = bodyDocument.blocks,
+                key = { index, _ -> "topic-body-$index" },
+                contentType = { _, _ -> TOPIC_DETAIL_BODY_CONTENT_TYPE },
+            ) { _, block ->
+                RichContentBlockView(
+                    block = block,
+                    onUrlClick = openV2exUrl,
+                    onImageClick = onImageClick,
+                    imageSizeCache = imageSizeCache,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 5.dp),
+                )
+            }
+            if (detail.appends.isNotEmpty()) {
+                item(
+                    key = TOPIC_DETAIL_APPENDS_KEY,
+                    contentType = TOPIC_DETAIL_APPENDS_CONTENT_TYPE,
+                ) {
+                    TopicAppendsSection(
+                        appends = detail.appends,
                         onImageClick = onImageClick,
                         onUrlClick = openV2exUrl,
-                        layoutCache = richHtmlLayoutCache,
+                        customImageHosts = customImageHosts,
+                        imageSizeCache = imageSizeCache,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     )
-                    if (detail.appends.isNotEmpty()) {
-                        TopicAppendsSection(
-                            appends = detail.appends,
-                            onImageClick = onImageClick,
-                            onUrlClick = openV2exUrl,
-                            richHtmlLayoutCache = richHtmlLayoutCache,
-                        )
-                    }
                 }
+            }
+            item(
+                key = TOPIC_DETAIL_REPLY_SUMMARY_KEY,
+                contentType = TOPIC_DETAIL_REPLY_SUMMARY_CONTENT_TYPE,
+            ) {
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
                 )
@@ -628,7 +671,7 @@ private fun TopicDetailContent(
                         val targetIndex = detail.replies.indexOfFirst { it.id == reference.replyId }
                         if (targetIndex >= 0) {
                             coroutineScope.launch {
-                                listState.animateScrollToItem(index = targetIndex + 1)
+                                listState.animateScrollToItem(index = replyListStartIndex + targetIndex)
                                 highlightedReplyId = reference.replyId
                                 delay(1400)
                                 if (highlightedReplyId == reference.replyId) {
@@ -705,6 +748,11 @@ private fun ReplyLoadMoreFooter(
 private const val LOAD_MORE_PREFETCH_ITEMS = 10
 private const val TOPIC_DETAIL_HEADER_KEY = "topic-detail-header"
 private const val TOPIC_DETAIL_HEADER_CONTENT_TYPE = "topic-detail-header"
+private const val TOPIC_DETAIL_BODY_CONTENT_TYPE = "topic-detail-body"
+private const val TOPIC_DETAIL_APPENDS_KEY = "topic-detail-appends"
+private const val TOPIC_DETAIL_APPENDS_CONTENT_TYPE = "topic-detail-appends"
+private const val TOPIC_DETAIL_REPLY_SUMMARY_KEY = "topic-detail-reply-summary"
+private const val TOPIC_DETAIL_REPLY_SUMMARY_CONTENT_TYPE = "topic-detail-reply-summary"
 private const val TOPIC_DETAIL_REPLY_CONTENT_TYPE = "topic-detail-reply"
 private const val TOPIC_DETAIL_LOAD_MORE_CONTENT_TYPE = "topic-detail-load-more"
 
@@ -853,10 +901,12 @@ private fun TopicAppendsSection(
     appends: List<TopicAppend>,
     onImageClick: (String) -> Unit,
     onUrlClick: (String) -> Boolean,
-    richHtmlLayoutCache: RichHtmlLayoutCache,
+    customImageHosts: Set<String>,
+    imageSizeCache: RichContentImageSizeCache,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         appends.forEach { append ->
@@ -864,7 +914,8 @@ private fun TopicAppendsSection(
                 append = append,
                 onImageClick = onImageClick,
                 onUrlClick = onUrlClick,
-                richHtmlLayoutCache = richHtmlLayoutCache,
+                customImageHosts = customImageHosts,
+                imageSizeCache = imageSizeCache,
             )
         }
     }
@@ -875,8 +926,12 @@ private fun TopicAppendCard(
     append: TopicAppend,
     onImageClick: (String) -> Unit,
     onUrlClick: (String) -> Boolean,
-    richHtmlLayoutCache: RichHtmlLayoutCache,
+    customImageHosts: Set<String>,
+    imageSizeCache: RichContentImageSizeCache,
 ) {
+    val document = remember(append.contentRendered, customImageHosts) {
+        RichContentParser.parse(append.contentRendered, customImageHosts)
+    }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -909,11 +964,11 @@ private fun TopicAppendCard(
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
             )
-            RichHtmlText(
-                html = append.contentRendered,
+            RichContent(
+                document = document,
+                imageSizeCache = imageSizeCache,
                 onImageClick = onImageClick,
                 onUrlClick = onUrlClick,
-                layoutCache = richHtmlLayoutCache,
             )
         }
     }

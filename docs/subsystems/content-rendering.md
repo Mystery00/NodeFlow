@@ -10,7 +10,13 @@
 
 ## 富文本与链接
 
-- 优先复用 `HtmlText`、`RichHtmlText`、`V2exHtmlDocument` 等现有渲染管线。
+- 主题正文与附言使用原生 Compose 富文本管线；回复与通知继续复用 `HtmlText`。
+- 正文 HTML 先由 Jsoup 清洗并转换为 `RichContentDocument`，再按块进入主题页 `LazyColumn`；
+  段落内的粗体、斜体、删除线、上下标、颜色和链接在同一个 Compose `Text` 中连续排版。
+- 独立图片使用 Coil，并在主题生命周期内缓存成功加载后的宽高比，离屏重挂时不再回到默认高度；
+  视频点击后使用 Media3 Compose `Player`，页面离开前台时暂停，组件销毁时释放播放器。
+- 表格使用原生网格布局并支持 `rowspan`、`colspan`，宽度超出正文时仅表格横向滚动；
+  iframe 不执行，显示可点击的网页占位卡片。
 - `v2ex.com` 与 `www.v2ex.com` 的主题、节点和用户链接优先应用内导航，其他链接交给浏览器。
 - 外部深链和内容点击共用 `V2exLinkParser`，相对 URL 基于正确的 V2EX 地址解析；
   站内内容里的相对路径锚点（如回复中的 `<a href="/t/1226857">`）同样按站内链接识别。
@@ -18,7 +24,7 @@
   `linkifyV2exTopicReferences` 转为绝对地址链接，已有链接和代码块不做二次识别。
 - 图床域名识别（`ImageHostMatcher` + `LocalCustomImageHosts`）：内置常用图床
   （`BUILT_IN_IMAGE_HOSTS`：i.imgur.com、i.v2ex.co）与用户在设置中配置的域名取并集；
-  命中域名的链接在回复（`HtmlText`）与正文（`RichHtmlText`）中按图片尝试加载，
+  命中域名的链接在回复（`HtmlText`）与正文原生富文本中按图片尝试加载，
   失败回退现有占位，原链接保留可点击。
 - Polish 用户标签（`PolishMemberTagParser` + `LocalMemberTags`）：从登录用户记事本中
   前缀为 `V2EX_Polish_settings` 的记事解析 `member-tag` 数据，缓存后在回复列表、
@@ -39,6 +45,7 @@
 - [`../plans/2026-07-12-v2ex-link-routing-design.md`](../plans/2026-07-12-v2ex-link-routing-design.md)
 - [`../plans/2026-07-14-v2ex-reply-embedded-image-design.md`](../plans/2026-07-14-v2ex-reply-embedded-image-design.md)
 - [`../plans/2026-07-14-v2ex-reply-embedded-image.md`](../plans/2026-07-14-v2ex-reply-embedded-image.md)
+- [`../plans/2026-09-05-native-topic-rich-content-design.md`](../plans/2026-09-05-native-topic-rich-content-design.md)
 
 ## 排障入口
 

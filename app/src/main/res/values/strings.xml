@@ -2,4 +2,14 @@
     <string name="app_name">NodeFlow</string>
     <string name="topic_pinned">置顶</string>
     <string name="reply_created">回复成功</string>
+    <string name="rich_video_play">播放视频</string>
+    <string name="rich_video_failed">视频加载失败，点击在浏览器中打开</string>
+    <string name="rich_video_unavailable">没有可播放的视频地址</string>
+    <string name="rich_embed_unsupported">暂不支持此嵌入内容，点击在浏览器中打开</string>
+    <string name="rich_embed_unavailable">暂不支持此嵌入内容，且没有可安全打开的地址</string>
+    <string name="rich_open_in_browser">在浏览器中打开</string>
+    <string name="rich_retry">重试</string>
+    <string name="rich_open_image_link">打开图片原链接</string>
+    <string name="rich_nested_table_unsupported">暂不支持嵌套表格</string>
+    <string name="rich_table_video_unsupported">表格内视频请在浏览器中打开</string>
 </resources>
