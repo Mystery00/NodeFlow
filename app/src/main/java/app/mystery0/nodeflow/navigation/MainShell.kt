@@ -59,6 +59,7 @@ fun MainShell(
     onUserClick: (String) -> Unit,
     onNotificationTopicClick: (Long, Int?) -> Unit,
     onSettingsClick: () -> Unit,
+    onFavoriteTopicsClick: () -> Unit,
     onLoginClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -144,6 +145,7 @@ fun MainShell(
                     state = accountState,
                     onEvent = accountViewModel::onEvent,
                     onSettingsClick = onSettingsClick,
+                    onFavoriteTopicsClick = onFavoriteTopicsClick,
                     onLoginClick = onLoginClick,
                 )
             }

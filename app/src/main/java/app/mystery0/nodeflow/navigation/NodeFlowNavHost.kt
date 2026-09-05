@@ -29,6 +29,8 @@ import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.feature.auth.AuthScreen
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
+import app.mystery0.nodeflow.feature.favorites.FavoriteTopicsScreen
+import app.mystery0.nodeflow.feature.favorites.FavoriteTopicsViewModel
 import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorEffect
 import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorViewModel
 import app.mystery0.nodeflow.feature.node.NodeScreen
@@ -83,9 +85,26 @@ fun NodeFlowNavHost(
                 onSettingsClick = {
                     navController.navigate(NodeFlowDestinations.Settings)
                 },
+                onFavoriteTopicsClick = {
+                    navController.navigate(NodeFlowDestinations.FavoriteTopics)
+                },
                 onLoginClick = {
                     navController.navigate(NodeFlowDestinations.Auth)
                 },
+            )
+        }
+        composable(NodeFlowDestinations.FavoriteTopics) {
+            val viewModel: FavoriteTopicsViewModel = koinViewModel()
+            val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val topics = viewModel.topics.collectAsLazyPagingItems()
+            FavoriteTopicsScreen(
+                state = state,
+                topics = topics,
+                onEvent = viewModel::onEvent,
+                onBackClick = { navController.popBackStack() },
+                onTopicClick = { navController.navigate(NodeFlowDestinations.topic(it)) },
+                onNodeClick = { navController.navigate(NodeFlowDestinations.node(it)) },
+                onLoginClick = { navController.navigate(NodeFlowDestinations.Auth) },
             )
         }
         composable(NodeFlowDestinations.Settings) {

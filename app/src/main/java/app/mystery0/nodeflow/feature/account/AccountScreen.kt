@@ -1,6 +1,9 @@
 package app.mystery0.nodeflow.feature.account
 
 import android.widget.Toast
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,6 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -26,6 +32,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import app.mystery0.nodeflow.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
@@ -45,6 +53,7 @@ fun AccountScreen(
     onEvent: (AccountUiEvent) -> Unit,
     onSettingsClick: () -> Unit,
     onLoginClick: () -> Unit,
+    onFavoriteTopicsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -89,9 +98,11 @@ fun AccountScreen(
                 isCheckingIn = state.isCheckingIn,
                 onCheckInClick = { onEvent(AccountUiEvent.CheckIn) },
                 onLogoutClick = { onEvent(AccountUiEvent.Logout) },
+                onFavoriteTopicsClick = onFavoriteTopicsClick,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
                     .padding(24.dp),
             )
             else -> EmptyContent(
@@ -139,6 +150,7 @@ private fun AccountContent(
     isCheckingIn: Boolean,
     onCheckInClick: () -> Unit,
     onLogoutClick: () -> Unit,
+    onFavoriteTopicsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -173,6 +185,12 @@ private fun AccountContent(
                     .padding(vertical = 8.dp),
             )
         }
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.favorite_topics)) },
+            leadingContent = { Icon(Icons.Outlined.StarBorder, contentDescription = null) },
+            trailingContent = { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onFavoriteTopicsClick),
+        )
         user.bio?.takeIf { it.isNotBlank() }?.let {
             Text(
                 text = it,

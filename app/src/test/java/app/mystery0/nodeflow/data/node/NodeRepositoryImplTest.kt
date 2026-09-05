@@ -186,6 +186,8 @@ class NodeRepositoryImplTest {
 
         override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> = failure()
 
+        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
+
         override suspend fun allTopicsHtml(): Response<ResponseBody> = failure()
 
         override suspend fun planesHtml(): Response<ResponseBody> = failure()

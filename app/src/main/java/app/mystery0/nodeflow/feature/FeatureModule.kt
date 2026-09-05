@@ -4,6 +4,7 @@ import app.mystery0.nodeflow.AppViewModel
 import app.mystery0.nodeflow.feature.account.AccountViewModel
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
 import app.mystery0.nodeflow.feature.home.HomeViewModel
+import app.mystery0.nodeflow.feature.favorites.FavoriteTopicsViewModel
 import app.mystery0.nodeflow.feature.node.NodeListViewModel
 import app.mystery0.nodeflow.feature.node.NodeViewModel
 import app.mystery0.nodeflow.feature.notification.NotificationViewModel
@@ -16,6 +17,8 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val featureModule = module {
+    viewModel { FavoriteTopicsViewModel(get(), get()) }
+
     viewModel {
         AppViewModel(get(), get(), get())
     }

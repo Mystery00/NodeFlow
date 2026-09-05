@@ -29,6 +29,7 @@ class NavigationRouteTest {
         assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.TopicRoute)).isFalse()
         assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.ProfileRoute)).isFalse()
         assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Settings)).isFalse()
+        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.FavoriteTopics)).isFalse()
         assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Auth)).isFalse()
         assertThat(NodeFlowDestinations.isTopLevelRoute(null)).isFalse()
     }

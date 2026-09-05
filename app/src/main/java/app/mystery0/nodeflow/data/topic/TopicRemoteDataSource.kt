@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.data.topic
 import app.mystery0.nodeflow.core.common.isAccessDenied
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.Topic
+import app.mystery0.nodeflow.core.model.FavoriteTopicsPage
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.model.ThankResult
 import app.mystery0.nodeflow.core.network.V2exHtmlAccessTarget
@@ -26,6 +27,35 @@ class TopicRemoteDataSource(
     private val parser: V2exHtmlParser,
     private val thankApi: V2exThankApi? = null,
 ) {
+    suspend fun favoriteTopics(page: Int): FavoriteTopicsPage = safeNetworkCall {
+        val response = api.favoriteTopicsHtml(page)
+        val url = response.raw().request.url
+        val trustedOrigin = url.scheme == "https" && url.host == "www.v2ex.com" && url.port == 443
+        if (trustedOrigin && url.encodedPath == "/signin") {
+            response.body()?.close()
+            throw NodeFlowException(NodeFlowException.Kind.Auth, "登录状态已失效，请重新登录")
+        }
+        // 复用受限登录表单与 /restricted 分类，不能将受限页解析为空收藏。
+        val html = try {
+            response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic)
+        } finally {
+            response.body()?.close()
+            response.errorBody()?.close()
+        }
+        if (!trustedOrigin || url.encodedPath != "/my/topics" ||
+            (url.queryParameter("p")?.toIntOrNull() ?: 1) != page
+        ) {
+            throw NodeFlowException(NodeFlowException.Kind.Parse, "收藏页面地址异常，请稍后重试")
+        }
+        if (parser.hasSignInEntry(html)) {
+            throw NodeFlowException(NodeFlowException.Kind.Auth, "登录状态已失效，请重新登录")
+        }
+        if (parser.hasAccessChallenge(html)) {
+            throw NodeFlowException(NodeFlowException.Kind.AccessDenied, "V2EX 暂时拒绝访问收藏，请稍后重试")
+        }
+        parser.parseFavoriteTopicsPage(html, page)
+    }
+
     suspend fun latestTopics(): List<Topic> = homeTopics(HOME_TOPICS_PAGE)
 
     suspend fun homeTopics(page: Int): List<Topic> = safeNetworkCall {

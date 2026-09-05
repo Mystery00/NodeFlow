@@ -12,6 +12,8 @@ import app.mystery0.nodeflow.data.node.NodeRepositoryImpl
 import app.mystery0.nodeflow.data.notification.NotificationRepositoryImpl
 import app.mystery0.nodeflow.data.settings.SettingsRepositoryImpl
 import app.mystery0.nodeflow.data.topic.TopicRepositoryImpl
+import app.mystery0.nodeflow.data.topic.FavoriteTopicsRepositoryImpl
+import app.mystery0.nodeflow.domain.topic.FavoriteTopicsRepository
 import app.mystery0.nodeflow.data.user.UserRepositoryImpl
 import app.mystery0.nodeflow.domain.account.AccountOverviewRepository
 import app.mystery0.nodeflow.domain.auth.AuthRepository
@@ -31,6 +33,10 @@ import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val repositoryModule = module {
+    single<FavoriteTopicsRepository> {
+        FavoriteTopicsRepositoryImpl(get(), get(named(IO_DISPATCHER)))
+    }
+
     single<TopicRepository> {
         TopicRepositoryImpl(get(), get(), get(named(IO_DISPATCHER)))
     }

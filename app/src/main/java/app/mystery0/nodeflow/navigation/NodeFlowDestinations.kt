@@ -9,6 +9,7 @@ object NodeFlowDestinations {
     const val NodeList = "nodes"
     const val Account = "account"
     const val Settings = "settings"
+    const val FavoriteTopics = "favorite-topics"
     const val NodeRoute = "node/{nodeName}"
     const val TopicRoute = "topic/{topicId}?replyFloor={replyFloor}"
     const val ProfileRoute = "profile/{username}"

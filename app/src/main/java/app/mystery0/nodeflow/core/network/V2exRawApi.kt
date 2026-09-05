@@ -44,6 +44,11 @@ interface V2exRawApi {
     @GET(".?tab=all")
     suspend fun allTopicsHtml(): Response<ResponseBody>
 
+    // 与现有主题列表一致，使用带完整主题元数据的桌面版模板。
+    @Headers("User-Agent: ${V2exUserAgents.DESKTOP}")
+    @GET("my/topics")
+    suspend fun favoriteTopicsHtml(@Query("p") page: Int): Response<ResponseBody>
+
     @GET("planes")
     suspend fun planesHtml(): Response<ResponseBody>
 

@@ -454,6 +454,8 @@ class TopicRemoteDataSourceTest {
             return htmlResponse(recentHtml)
         }
 
+        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
+
         override suspend fun allTopicsHtml(): Response<ResponseBody> {
             allTopicsHtmlRequestCount += 1
             return htmlResponse(allHtml)

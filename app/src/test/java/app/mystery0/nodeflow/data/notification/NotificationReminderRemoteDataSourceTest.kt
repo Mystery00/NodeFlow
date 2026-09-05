@@ -191,6 +191,8 @@ class NotificationReminderRemoteDataSourceTest {
         override suspend fun member(username: String) = empty()
         override suspend fun nodeTopicsHtml(nodeName: String, page: Int?) = empty()
         override suspend fun recentTopicsHtml(page: Int?) = empty()
+        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
+
         override suspend fun allTopicsHtml() = empty()
         override suspend fun planesHtml() = empty()
         override suspend fun topicHtml(topicId: Long, page: Int?) = empty()

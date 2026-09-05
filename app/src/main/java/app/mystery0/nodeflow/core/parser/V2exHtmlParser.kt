@@ -1,5 +1,7 @@
 package app.mystery0.nodeflow.core.parser
 
+import app.mystery0.nodeflow.core.common.NodeFlowException
+import app.mystery0.nodeflow.core.model.FavoriteTopicsPage
 import app.mystery0.nodeflow.core.model.AccountWealth
 import app.mystery0.nodeflow.core.model.DailyCheckIn
 import app.mystery0.nodeflow.core.model.Node
@@ -29,6 +31,38 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
 class V2exHtmlParser {
+    fun parseFavoriteTopicsPage(html: String, page: Int): FavoriteTopicsPage {
+        val document = Jsoup.parse(html, "$V2EX_BASE_URL/my/topics")
+        val main = document.selectFirst("#Main") ?: throw favoriteTopicsParseError()
+        // 当前桌面页的标题和列表分属两个 .box；旧模板则把标题放在 .header 中。
+        val hasHeader = main.select(".box > .header, .box > .cell > h2").any { heading ->
+            val title = heading.text()
+            title.contains("收藏") || title.contains("favorite", ignoreCase = true)
+        }
+        if (!hasHeader) throw favoriteTopicsParseError()
+        val cells = main.select("div.cell.item, div.cell:has(.item_title), div.cell:has(a.topic-link)")
+        // 收藏顺序不保证按最后回复时间排列，不能使用首页的时间异常置顶推断。
+        val topics = cells.map { cell ->
+            parseTopicCell(cell, sourceNodeName = null) ?: throw favoriteTopicsParseError()
+        }.distinctBy { it.id }
+        val linkedPages = main.select("a[href]").mapNotNull { link ->
+            val url = link.absUrl("href").toHttpUrlOrNull() ?: return@mapNotNull null
+            if (url.scheme != "https" || url.host != V2EX_HOST || url.port != 443 ||
+                url.encodedPath != "/my/topics"
+            ) return@mapNotNull null
+            url.queryParameter("p")?.toIntOrNull()?.takeIf { it > page }
+        }
+        val pageCount = main.selectFirst("input.page_input[max]")?.attr("max")?.toIntOrNull()
+        val nextPage = if (linkedPages.isNotEmpty() || (pageCount != null && page < pageCount)) page + 1 else null
+        if (topics.isEmpty() && nextPage != null) throw favoriteTopicsParseError()
+        return FavoriteTopicsPage(topics, nextPage)
+    }
+
+    private fun favoriteTopicsParseError() = NodeFlowException(
+        kind = NodeFlowException.Kind.Parse,
+        message = "收藏页面结构异常，请稍后重试",
+    )
+
     fun parseTopicList(html: String, sourceNodeName: String? = null): List<Topic> {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         return document.select("div.cell:has(a.topic-link)")
@@ -846,7 +880,7 @@ class V2exHtmlParser {
     }
 
     private fun parseTopicCell(cell: Element, sourceNodeName: String?): Topic? {
-        val topicLink = cell.selectFirst("a.topic-link") ?: return null
+        val topicLink = cell.selectFirst("a.topic-link, .item_title a[href^=/t/]") ?: return null
         val topicId = TOPIC_ID_REGEX.find(topicLink.attr("href"))?.groupValues?.getOrNull(1)?.toLongOrNull()
             ?: return null
         val title = topicLink.text().trim().takeIf { it.isNotBlank() } ?: return null

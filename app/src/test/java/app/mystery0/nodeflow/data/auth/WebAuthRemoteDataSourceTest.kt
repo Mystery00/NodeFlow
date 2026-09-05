@@ -243,6 +243,8 @@ class WebAuthRemoteDataSourceTest {
 
         override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> = htmlResponse("")
 
+        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
+
         override suspend fun allTopicsHtml(): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun planesHtml(): Response<ResponseBody> = htmlResponse("")
