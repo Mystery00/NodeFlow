@@ -31,17 +31,17 @@ import app.mystery0.nodeflow.feature.auth.AuthScreen
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
 import app.mystery0.nodeflow.feature.favorites.FavoriteTopicsScreen
 import app.mystery0.nodeflow.feature.favorites.FavoriteTopicsViewModel
-import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorEffect
-import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorViewModel
 import app.mystery0.nodeflow.feature.node.NodeScreen
 import app.mystery0.nodeflow.feature.node.NodeViewModel
 import app.mystery0.nodeflow.feature.profile.ProfileScreen
 import app.mystery0.nodeflow.feature.profile.ProfileViewModel
+import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorEffect
+import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorViewModel
 import app.mystery0.nodeflow.feature.settings.SettingsScreen
 import app.mystery0.nodeflow.feature.settings.SettingsViewModel
 import app.mystery0.nodeflow.feature.topicdetail.TopicDetailScreen
-import app.mystery0.nodeflow.feature.topicdetail.TopicDetailViewModel
 import app.mystery0.nodeflow.feature.topicdetail.TopicDetailUiEvent
+import app.mystery0.nodeflow.feature.topicdetail.TopicDetailViewModel
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -66,6 +66,8 @@ fun NodeFlowNavHost(
         exitTransition = { activityLikeExitTransition() },
         popEnterTransition = { activityLikePopEnterTransition() },
         popExitTransition = { activityLikePopExitTransition() },
+        predictivePopEnterTransition = { activityLikePopEnterTransition() },
+        predictivePopExitTransition = { activityLikePopExitTransition() },
     ) {
         composable(NodeFlowDestinations.Main) {
             MainShell(
@@ -160,10 +162,13 @@ fun NodeFlowNavHost(
                     when (effect) {
                         ReplyEditorEffect.RequestLogin ->
                             navController.navigate(NodeFlowDestinations.Auth)
+
                         ReplyEditorEffect.OpenGallery ->
                             uriHandler.openUri("https://www.v2ex.com/i")
+
                         is ReplyEditorEffect.ReplyCreated -> {
-                            Toast.makeText(context, R.string.reply_created, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, R.string.reply_created, Toast.LENGTH_SHORT)
+                                .show()
                             viewModel.onEvent(TopicDetailUiEvent.ReplyCreated(effect.floor))
                         }
                     }
@@ -231,14 +236,14 @@ private fun activityLikeEnterTransition(): EnterTransition {
             easing = FastOutSlowInEasing,
         ),
     ) +
-        fadeIn(animationSpec = tween(durationMillis = NAV_ENTER_FADE_DURATION_MS)) +
-        scaleIn(
-            initialScale = ACTIVITY_FOREGROUND_INITIAL_SCALE,
-            animationSpec = tween(
-                durationMillis = ACTIVITY_FOREGROUND_DURATION_MS,
-                easing = FastOutSlowInEasing,
-            ),
-        )
+            fadeIn(animationSpec = tween(durationMillis = NAV_ENTER_FADE_DURATION_MS)) +
+            scaleIn(
+                initialScale = ACTIVITY_FOREGROUND_INITIAL_SCALE,
+                animationSpec = tween(
+                    durationMillis = ACTIVITY_FOREGROUND_DURATION_MS,
+                    easing = FastOutSlowInEasing,
+                ),
+            )
 }
 
 private fun activityLikeExitTransition(): ExitTransition {
@@ -249,14 +254,14 @@ private fun activityLikeExitTransition(): ExitTransition {
             easing = FastOutSlowInEasing,
         ),
     ) +
-        activityBackgroundFadeOut() +
-        scaleOut(
-            targetScale = ACTIVITY_BACKGROUND_TARGET_SCALE,
-            animationSpec = tween(
-                durationMillis = ACTIVITY_BACKGROUND_DURATION_MS,
-                easing = FastOutSlowInEasing,
-            ),
-        )
+            activityBackgroundFadeOut() +
+            scaleOut(
+                targetScale = ACTIVITY_BACKGROUND_TARGET_SCALE,
+                animationSpec = tween(
+                    durationMillis = ACTIVITY_BACKGROUND_DURATION_MS,
+                    easing = FastOutSlowInEasing,
+                ),
+            )
 }
 
 private fun activityLikePopEnterTransition(): EnterTransition {
@@ -267,14 +272,14 @@ private fun activityLikePopEnterTransition(): EnterTransition {
             easing = FastOutSlowInEasing,
         ),
     ) +
-        fadeIn(animationSpec = tween(durationMillis = NAV_ENTER_FADE_DURATION_MS)) +
-        scaleIn(
-            initialScale = ACTIVITY_BACKGROUND_TARGET_SCALE,
-            animationSpec = tween(
-                durationMillis = ACTIVITY_BACKGROUND_DURATION_MS,
-                easing = FastOutSlowInEasing,
-            ),
-        )
+            fadeIn(animationSpec = tween(durationMillis = NAV_ENTER_FADE_DURATION_MS)) +
+            scaleIn(
+                initialScale = ACTIVITY_BACKGROUND_TARGET_SCALE,
+                animationSpec = tween(
+                    durationMillis = ACTIVITY_BACKGROUND_DURATION_MS,
+                    easing = FastOutSlowInEasing,
+                ),
+            )
 }
 
 private fun activityLikePopExitTransition(): ExitTransition {
@@ -285,14 +290,14 @@ private fun activityLikePopExitTransition(): ExitTransition {
             easing = FastOutSlowInEasing,
         ),
     ) +
-        activityForegroundFadeOut() +
-        scaleOut(
-            targetScale = ACTIVITY_FOREGROUND_POP_EXIT_SCALE,
-            animationSpec = tween(
-                durationMillis = ACTIVITY_FOREGROUND_DURATION_MS,
-                easing = FastOutSlowInEasing,
-            ),
-        )
+            activityForegroundFadeOut() +
+            scaleOut(
+                targetScale = ACTIVITY_FOREGROUND_POP_EXIT_SCALE,
+                animationSpec = tween(
+                    durationMillis = ACTIVITY_FOREGROUND_DURATION_MS,
+                    easing = FastOutSlowInEasing,
+                ),
+            )
 }
 
 private fun activityBackgroundFadeOut(): ExitTransition {
