@@ -11,6 +11,7 @@
 - [开发工作流](development/workflow.md)：编码、日志、隐私、Git、构建与交付要求。
 - [测试与验证](development/testing.md)：单元测试范围、命令和真机验证要求。
 - [文档规范](development/documentation.md)：目录分类、命名、维护和新文档落位规则。
+- [GPT-6 Astra 指令与工作流审计](investigations/2026-09-12-agent-instructions-audit.md)：官方依据、问题清单、修改范围及验证限制。
 
 ## 子系统
 

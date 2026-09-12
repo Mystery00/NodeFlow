@@ -1,97 +1,39 @@
 # AGENTS.md
 
-本文件是 AI Agent 在 NodeFlow 仓库中的首要入口。开始任务前先阅读本文件，再按“任务文档路由”打开与当前问题直接相关的专题文档；不要无目的加载全部文档。用户当前要求优先于本文件，当前源码与构建配置是实现事实的最终依据。
+NodeFlow 是 Kotlin + Jetpack Compose + Material 3 的 V2EX Android 客户端，单 `app` 模块，包名 `app.mystery0.nodeflow`。SDK 与依赖版本见 `gradle/libs.versions.toml`，构建配置见 `app/build.gradle.kts`。
 
-## 项目速览
+## 工作方式
 
-NodeFlow 是使用 Kotlin、Jetpack Compose 和 Material 3 构建的现代 V2EX Android 第三方客户端，只支持 Android。项目为单 `app` 模块，包名为 `app.mystery0.nodeflow`，最低 SDK 29，Compile/Target SDK 37，JVM target 21。
+- 沟通、注释、KDoc 和文档使用中文，日志使用英文；交付时简述结果、验证和剩余问题。
+- 对明确要求的修改持续完成实现与验证。常规、可逆的实现选择自行决定；只有缺失信息会实质改变结果、涉及未授权的外部操作或不可逆操作时才询问，并先完成不依赖回答的工作。
+- 按任务读取下表中相关文档和源码；已在上下文中的内容无需重复加载。源码与构建配置决定实现事实，当前用户要求决定任务范围。
+- 技能按实际适用范围使用。通用技能的流程建议不额外增加项目审批、提交或文档要求；如确有阻塞，指出具体文件、原文和所需输入。
+- 小改动直接执行；跨层或多阶段任务使用简短计划，只有需要保存设计取舍或交接时才写入 `docs/plans/`。历史计划中的技能调用、审批和提交步骤仅为当时记录，不是当前指令。
+- 独立检索可并行。工具支持时，对能独立交付且能减少耗时或提高质量的子任务使用子代理，明确范围与写入文件；主代理负责整合验证。紧密依赖的改动和同一 Gradle 工作目录中的构建串行执行。
 
-核心数据流为：
+## 项目边界
 
-```text
-Compose Screen → UiEvent → ViewModel → UseCase → Repository
-Repository → RemoteDataSource / LocalDataSource / DataStore → UiState → Screen
-```
+- 数据流：Screen → UiEvent → ViewModel → UseCase → Repository → 数据源。遵守 `core / data / domain / feature` 分层，UI 和 ViewModel 不直接访问网络、Room、DataStore 或 Cookie。
+- UI 使用 Compose，遵循 Material 3、Dynamic Color、深色模式和 edge-to-edge；依赖注入使用 Koin，依赖版本由版本目录统一管理。
+- 复用现有认证、异常、Parser、链接路由、富文本和图片预览能力。修改 V2EX 请求头或页面分类前核查现有协议与回归测试；登录页、受限页、首页重定向和 Cloudflare 页面不能当作正常业务内容。
+- 业务行为变更补充或更新对应测试，网络测试使用替身，不访问真实 V2EX。按[验证矩阵](docs/development/testing.md)选择检查，通过后仅因新增修改、失败或未消除的风险扩大或重复验证。
+- Room 结构变更同步 `app/schemas/`，版本升级提供显式 Migration，禁止破坏性迁移；版本 1 开发基线的背景见[存储说明](docs/subsystems/storage.md)。
+- 不泄露真实凭据、签名材料或用户隐私内容；日志、异常和 fixture 的具体要求见[工作流](docs/development/workflow.md)。
+- 保留用户无关改动；未经要求不提交、推送或创建 PR，不执行破坏性 Git 操作。只报告实际完成的验证，无法执行时说明原因。
 
-主要代码入口：
+## 按需文档
 
-- `core.*`：网络、数据库、DataStore、解析、链接、设计系统和通用能力。
-- `data.*`：远端/本地数据源和 Repository 实现。
-- `domain.*`：Repository 接口与 UseCase。
-- `feature.*`：Screen、UiState、UiEvent 和 ViewModel。
-- `navigation`：根导航、主页面 Shell 和目的地。
-- `app/src/test/`：JVM 单元测试。
-- `app/schemas/`：Room schema。
+下表是查找入口，只读与当前任务直接相关的部分。代码包位于 `app/src/main/java/app/mystery0/nodeflow/`。
 
-完整架构参见 [`docs/architecture/overview.md`](docs/architecture/overview.md)。
-
-## 不可违反的规则
-
-- 与用户沟通使用中文；代码注释、KDoc 和项目文档使用中文；日志使用英文。
-- UI 使用 Jetpack Compose，不新增 XML layout；遵循 Material 3、Dynamic Color、深色模式和 edge-to-edge。
-- 遵守 `core / data / domain / feature` 边界，UI 和 ViewModel 不直接访问网络、Room、DataStore 或 Cookie。
-- 依赖注入使用 Koin；依赖版本统一由 `gradle/libs.versions.toml` 管理。
-- 修改业务逻辑必须补充或更新对应单元测试；网络测试不得访问真实 V2EX。
-- Room 版本变更必须提供 Migration 并更新 `app/schemas/`；禁止破坏性迁移。
-- 不在日志、代码、测试、截图、文档或提交中保存真实 Cookie、Token、密码、签名信息和用户隐私数据。
-- 不随意修改 V2EX 请求的 User-Agent、Referer、Origin、Cookie 或页面分类规则。
-- 不把登录页、受限页、首页重定向或 Cloudflare 页面解析为正常业务内容。
-- 优先复用现有 Cookie、异常、Parser、链接路由、富文本和图片预览能力，避免形成第二套实现。
-- 保留用户未提交的无关修改，不执行破坏性 Git 操作；未经要求不提交、不推送、不创建 PR。
-- 不声称未执行的测试、构建或真机检查已经通过。
-
-## 任务文档路由
-
-| 任务类型 | 必读文档 | 常见代码入口 |
+| 任务 | 文档 | 代码入口 |
 | --- | --- | --- |
-| 了解工程结构、调整分层或 DI | [总体架构](docs/architecture/overview.md) | `core/`、`data/`、`domain/`、`feature/`、`di/` |
-| 日常开发、日志、隐私、构建或 Git | [开发工作流](docs/development/workflow.md) | `app/build.gradle.kts`、`gradle/libs.versions.toml` |
-| 新功能、Bug 修复或测试失败 | [测试与验证](docs/development/testing.md) | `app/src/test/` 与被测代码 |
-| 新建、迁移或更新文档 | [文档规范](docs/development/documentation.md) | `docs/index.md`、`docs/` |
-| 网络请求、登录、签到、通知、访问受限 | [网络、访问控制与登录](docs/subsystems/network-auth.md) | `core/network/`、`core/parser/`、`data/auth/` |
-| Room、缓存、离线回退、设置或会话存储 | [数据库、缓存与设置](docs/subsystems/storage.md) | `core/database/`、`core/datastore/`、`data/*LocalDataSource` |
-| Compose 页面、状态、导航、深链或转场 | [UI、导航与状态管理](docs/subsystems/ui-navigation.md) | `feature/`、`navigation/`、`core/designsystem/` |
-| HTML、正文、回复、链接、图片或大图预览 | [内容渲染](docs/subsystems/content-rendering.md) | `core/parser/`、`core/link/`、`core/ui/`、`core/designsystem/` |
-| 查找历史方案或理解决策背景 | [文档总索引](docs/index.md) | `docs/plans/`、`docs/investigations/` |
+| 分层、工程结构、DI | [总体架构](docs/architecture/overview.md) | `core/`、`data/`、`domain/`、`feature/`、`di/` |
+| 开发流程、日志、隐私、Git、构建 | [工作流](docs/development/workflow.md) | `app/build.gradle.kts` |
+| 选择验证范围、排查测试失败 | [测试与验证](docs/development/testing.md) | `app/src/test/`、`app/src/androidTest/` |
+| 文档、Agent 指令或技能维护 | [文档规范](docs/development/documentation.md) | `AGENTS.md`、`docs/` |
+| 网络、登录、签到、通知、访问受限 | [网络与认证](docs/subsystems/network-auth.md) | `core/network/`、`core/parser/`、`data/auth/` |
+| Room、缓存、设置、会话 | [存储](docs/subsystems/storage.md) | `core/database/`、`core/datastore/`、`data/` |
+| Compose、状态、导航、深链、转场 | [UI 与导航](docs/subsystems/ui-navigation.md) | `feature/`、`navigation/`、`core/designsystem/` |
+| HTML、正文、回复、链接、图片 | [内容渲染](docs/subsystems/content-rendering.md) | `core/parser/`、`core/link/`、`core/ui/` |
 
-进行新需求或复杂修复时，先在 `docs/plans/` 搜索同一子系统的历史设计；排查服务端或页面行为时，再检查 `docs/investigations/`。
-
-## 测试与验证底线
-
-Windows PowerShell 常用命令：
-
-```powershell
-.\gradlew.bat :app:testDebugUnitTest
-.\gradlew.bat :app:assembleDebug
-.\gradlew.bat :app:lintDebug
-```
-
-- 业务逻辑改动：运行相关局部测试和全部 `testDebugUnitTest`。
-- Kotlin、资源或构建改动：至少运行 `assembleDebug`。
-- Room 改动：运行数据库测试、全部测试和构建，并检查 Migration 与 schema。
-- UI、导航、登录、深链、图片和系统行为：在自动化验证外补充模拟器或真机检查。
-- 因环境无法执行的验证必须在最终回复中明确说明。
-
-详细测试矩阵参见 [`docs/development/testing.md`](docs/development/testing.md)。
-
-## 文档规则
-
-- `README.md` 只保存应用图标、项目简述、下载、编译、贡献和许可证等对外概要。
-- 长期架构放在 `docs/architecture/`，开发规范放在 `docs/development/`，子系统说明放在 `docs/subsystems/`。
-- 设计与实施计划统一放在 `docs/plans/`；不再创建 `docs/superpowers/`、`specs/` 或其他计划目录。
-- 调查与外部行为验证放在 `docs/investigations/`。
-- 新文档使用中文；专题文档采用稳定英文文件名，设计/计划/调查采用 `YYYY-MM-DD-主题[-design].md`。
-- 新增、移动或删除文档后更新 `docs/index.md`；影响任务查找时同步更新本文件的路由表。
-
-完整规范参见 [`docs/development/documentation.md`](docs/development/documentation.md)。
-
-## 完成前检查
-
-- 是否阅读了任务对应的专题文档和相关历史计划？
-- 是否保持架构边界并复用现有能力？
-- 是否补充或更新了业务逻辑测试？
-- 是否检查 Cookie、Token、用户内容和签名信息等敏感数据？
-- Room 变更是否包含 Migration 和 schema？Koin 是否注册新增依赖？
-- 注释和文档是否为中文，日志是否为英文？
-- 是否执行对应测试、构建和必要的真机验证？
-- 文档索引与链接是否同步更新？
+复杂改动需要理解既有取舍时搜索 `docs/plans/`；排查服务端或页面行为时搜索 `docs/investigations/`。完整索引见 [docs/index.md](docs/index.md)。
