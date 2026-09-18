@@ -1,4 +1,4 @@
-package app.mystery0.nodeflow.core.ui
+﻿package app.mystery0.nodeflow.core.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -140,6 +140,11 @@ fun topicListMetadata(topic: Topic): String = buildString {
     if (time.isNotBlank()) {
         if (isNotEmpty()) append(" · ")
         append(time)
+    }
+    if (!topic.lastReplyBy.isNullOrBlank()) {
+        if (isNotEmpty()) append(" · ")
+        append("最后回复来自 ")
+        append(topic.lastReplyBy)
     }
 }
 

@@ -1,4 +1,4 @@
-package app.mystery0.nodeflow.core.ui
+﻿package app.mystery0.nodeflow.core.ui
 
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
@@ -57,9 +57,31 @@ class TopicListItemContentTest {
         assertThat(topicPinnedChip(topic(isPinned = false), label = "置顶")).isNull()
     }
 
+    @Test
+    fun topicListMetadata_includesLastReplyBy() {
+        val topic = topic(lastReplyBy = "bob")
+        val metadata = topicListMetadata(topic)
+        assertThat(metadata).contains("最后回复来自 bob")
+    }
+
+    @Test
+    fun topicListMetadata_omitsLastReplyByWhenNull() {
+        val topic = topic(lastReplyBy = null)
+        val metadata = topicListMetadata(topic)
+        assertThat(metadata).doesNotContain("最后回复来自")
+    }
+
+    @Test
+    fun topicListMetadata_omitsLastReplyByWhenBlank() {
+        val topic = topic(lastReplyBy = "  ")
+        val metadata = topicListMetadata(topic)
+        assertThat(metadata).doesNotContain("最后回复来自")
+    }
+
     private fun topic(
         node: Node = Node(name = "android", title = "Android"),
         isPinned: Boolean = false,
+        lastReplyBy: String? = null,
     ): Topic = Topic(
         id = 1L,
         title = "测试主题",
@@ -67,5 +89,6 @@ class TopicListItemContentTest {
         node = node,
         author = User(username = "alice"),
         isPinned = isPinned,
+        lastReplyBy = lastReplyBy,
     )
 }
