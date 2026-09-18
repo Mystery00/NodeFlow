@@ -1,8 +1,9 @@
-package app.mystery0.nodeflow.core.designsystem.component
+﻿package app.mystery0.nodeflow.core.designsystem.component
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -71,11 +72,12 @@ private fun CompactLabelChip(
         }
     }
     val chipModifier = modifier.height(layout.height)
+    val chipShape = RoundedCornerShape(6.dp)
     if (onClick == null) {
         Surface(
             modifier = chipModifier,
-            shape = MaterialTheme.shapes.extraSmall,
-            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+            shape = chipShape,
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             content = content,
         )
@@ -83,8 +85,8 @@ private fun CompactLabelChip(
         Surface(
             onClick = onClick,
             modifier = chipModifier,
-            shape = MaterialTheme.shapes.extraSmall,
-            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+            shape = chipShape,
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             content = content,
         )

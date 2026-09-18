@@ -78,6 +78,22 @@ class TopicListItemContentTest {
     }
 
     @Test
+    fun topicListMetadataWithLastReply_includesLastReplyWhenPresent() {
+        val topic = topic(lastReplyBy = "bob")
+        val metadata = topicListMetadataWithLastReply(topic)
+        assertThat(metadata).contains("alice")
+        assertThat(metadata).contains("最后回复来自 bob")
+    }
+
+    @Test
+    fun topicListMetadataWithLastReply_omitsLastReplyWhenMissing() {
+        val topic = topic(lastReplyBy = null)
+        val metadata = topicListMetadataWithLastReply(topic)
+        assertThat(metadata).contains("alice")
+        assertThat(metadata).doesNotContain("最后回复来自")
+    }
+
+    @Test
     fun topicVotesChip_returnsLabelWhenVotesPositive() {
         val topic = topic(votes = 4)
         val chip = topicVotesChip(topic)

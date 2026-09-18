@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,20 +43,25 @@ data class TopicListItemLayout(
     val contentSpacing: Dp,
     val metadataSpacing: Dp,
     val replyBadgeSpacing: Dp,
-    val dividerHorizontalPadding: Dp,
+    val dividerStartPadding: Dp,
+    val dividerEndPadding: Dp,
     val dividerThickness: Dp,
-)
+) {
+    val dividerHorizontalPadding: Dp
+        get() = dividerEndPadding
+}
 
 fun compactTopicListItemLayout(): TopicListItemLayout = TopicListItemLayout(
     horizontalPadding = 16.dp,
     verticalPadding = 12.dp,
     avatarSize = 40.dp,
-    avatarCornerRadius = 6.dp,
+    avatarCornerRadius = 8.dp,
     avatarToContentSpacing = 12.dp,
-    contentSpacing = 4.dp,
+    contentSpacing = 6.dp,
     metadataSpacing = 8.dp,
     replyBadgeSpacing = 12.dp,
-    dividerHorizontalPadding = 16.dp,
+    dividerStartPadding = 68.dp,
+    dividerEndPadding = 16.dp,
     dividerThickness = 0.5.dp,
 )
 
@@ -68,12 +74,16 @@ fun TopicListItem(
 ) {
     val nodeChip = topicNodeChip(topic)
     val votesLabel = topicVotesChip(topic)
-    val lastReply = topicLastReplyLabel(topic)
     val layout = compactTopicListItemLayout()
+    val backgroundColor = if (topic.isPinned) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(backgroundColor),
     ) {
         Row(
             modifier = Modifier
@@ -95,7 +105,9 @@ fun TopicListItem(
             ) {
                 Text(
                     text = topic.title,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                    ),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -105,12 +117,7 @@ fun TopicListItem(
                     horizontalArrangement = Arrangement.spacedBy(layout.metadataSpacing),
                 ) {
                     if (topic.isPinned) {
-                        Icon(
-                            imageVector = Icons.Filled.PushPin,
-                            contentDescription = stringResource(R.string.topic_pinned),
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
+                        TopicPinnedBadge()
                     }
                     nodeChip?.let { chip ->
                         NodeChip(
@@ -119,18 +126,9 @@ fun TopicListItem(
                         )
                     }
                     Text(
-                        text = topicListMetadata(topic),
+                        text = topicListMetadataWithLastReply(topic),
                         modifier = Modifier.weight(1f, fill = false),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                lastReply?.let { label ->
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -140,6 +138,7 @@ fun TopicListItem(
             if (topic.replyCount > 0 || votesLabel != null) {
                 Spacer(Modifier.width(layout.replyBadgeSpacing))
                 Column(
+                    modifier = Modifier.align(Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
@@ -158,10 +157,41 @@ fun TopicListItem(
             }
         }
         HorizontalDivider(
-            modifier = Modifier.padding(horizontal = layout.dividerHorizontalPadding),
+            modifier = Modifier.padding(
+                start = layout.dividerStartPadding,
+                end = layout.dividerEndPadding,
+            ),
             thickness = layout.dividerThickness,
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
         )
+    }
+}
+
+@Composable
+private fun TopicPinnedBadge(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+        contentColor = MaterialTheme.colorScheme.primary,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PushPin,
+                contentDescription = stringResource(R.string.topic_pinned),
+                modifier = Modifier.size(12.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = stringResource(R.string.topic_pinned),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 
@@ -182,18 +212,39 @@ fun topicLastReplyLabel(topic: Topic): String? {
     return "最后回复来自 $lastReplyBy"
 }
 
+fun topicListMetadataWithLastReply(topic: Topic): String = buildString {
+    append(topicListMetadata(topic))
+    val lastReply = topicLastReplyLabel(topic)
+    if (!lastReply.isNullOrBlank()) {
+        if (isNotEmpty()) append(" · ")
+        append(lastReply)
+    }
+}
+
 @Composable
 private fun ReplyCountBadge(
     replyCount: Int,
     modifier: Modifier = Modifier,
 ) {
+    val isHot = replyCount >= 50
+    val isWarm = replyCount >= 20
+    val backgroundColor = when {
+        isHot -> MaterialTheme.colorScheme.primaryContainer
+        isWarm -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+    }
+    val contentColor = when {
+        isHot -> MaterialTheme.colorScheme.onPrimaryContainer
+        isWarm -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Surface(
         modifier = modifier
-            .height(24.dp)
+            .height(22.dp)
             .defaultMinSize(minWidth = 32.dp),
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(11.dp),
+        color = backgroundColor,
+        contentColor = contentColor,
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -201,7 +252,9 @@ private fun ReplyCountBadge(
         ) {
             Text(
                 text = replyCount.toString(),
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = if (isHot) FontWeight.Bold else FontWeight.Medium,
+                ),
                 maxLines = 1,
             )
         }
