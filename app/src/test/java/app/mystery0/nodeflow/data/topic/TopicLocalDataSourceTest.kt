@@ -31,13 +31,36 @@ class TopicLocalDataSourceTest {
         assertThat(dao.current?.contentRendered).isEqualTo("<p>正文</p>")
     }
 
-    private fun topic(isPinned: Boolean): Topic = Topic(
+    @Test
+    fun cacheTopicDetail_preservesVotesFromExistingListCache() = runTest {
+        val dao = FakeTopicDao(
+            initial = topic(votes = 4).toEntity(cachedAtEpochMillis = 1L),
+        )
+        val dataSource = TopicLocalDataSource(dao)
+        val detail = TopicDetail(
+            topic = topic(votes = 0),
+            content = "正文",
+            contentRendered = "<p>正文</p>",
+            replies = emptyList(),
+        )
+
+        dataSource.cacheTopicDetail(detail)
+
+        assertThat(dao.current?.votes).isEqualTo(4)
+        assertThat(dao.current?.contentRendered).isEqualTo("<p>正文</p>")
+    }
+
+    private fun topic(
+        isPinned: Boolean = false,
+        votes: Int = 0,
+    ): Topic = Topic(
         id = 42L,
         title = "测试主题",
         url = "https://www.v2ex.com/t/42",
         node = Node(name = "android", title = "Android"),
         author = User(username = "alice"),
         isPinned = isPinned,
+        votes = votes,
     )
 
     private class FakeTopicDao(initial: TopicEntity) : TopicDao {

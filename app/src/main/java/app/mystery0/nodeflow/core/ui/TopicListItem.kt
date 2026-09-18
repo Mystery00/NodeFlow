@@ -1,4 +1,4 @@
-﻿package app.mystery0.nodeflow.core.ui
+package app.mystery0.nodeflow.core.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -65,6 +65,7 @@ fun TopicListItem(
 ) {
     val nodeChip = topicNodeChip(topic)
     val pinnedChip = topicPinnedChip(topic, stringResource(R.string.topic_pinned))
+    val votesChip = topicVotesChip(topic)
     val layout = compactTopicListItemLayout()
     Column(
         modifier = modifier
@@ -101,6 +102,9 @@ fun TopicListItem(
                     horizontalArrangement = Arrangement.spacedBy(layout.metadataSpacing),
                 ) {
                     pinnedChip?.let { label ->
+                        StatusChip(title = label)
+                    }
+                    votesChip?.let { label ->
                         StatusChip(title = label)
                     }
                     nodeChip?.let { chip ->

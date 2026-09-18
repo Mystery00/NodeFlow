@@ -24,4 +24,22 @@ class TopicEntityPinnedTest {
         assertThat(entity.isPinned).isTrue()
         assertThat(restored.isPinned).isTrue()
     }
+
+    @Test
+    fun topicEntityMapping_preservesVotes() {
+        val topic = Topic(
+            id = 42L,
+            title = "有投票主题",
+            url = "https://www.v2ex.com/t/42",
+            node = Node(name = "life", title = "生活"),
+            author = User(username = "alice"),
+            votes = 4,
+        )
+
+        val entity = topic.toEntity(cachedAtEpochMillis = 1L)
+        val restored = entity.toTopic()
+
+        assertThat(entity.votes).isEqualTo(4)
+        assertThat(restored.votes).isEqualTo(4)
+    }
 }

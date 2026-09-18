@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "a12ae65fc5ac69ef6ca9e86ef91fa226",
+    "identityHash": "2a9447b687ac7bb83f2a8be8a9616c47",
     "entities": [
       {
         "tableName": "topics",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `title` TEXT NOT NULL, `url` TEXT NOT NULL, `nodeName` TEXT NOT NULL, `nodeTitle` TEXT NOT NULL, `authorName` TEXT NOT NULL, `authorAvatarUrl` TEXT, `replyCount` INTEGER NOT NULL, `createdAtEpochSeconds` INTEGER, `lastTouchedAtEpochSeconds` INTEGER, `lastReplyBy` TEXT, `isPinned` INTEGER NOT NULL, `content` TEXT, `contentRendered` TEXT, `cachedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `title` TEXT NOT NULL, `url` TEXT NOT NULL, `nodeName` TEXT NOT NULL, `nodeTitle` TEXT NOT NULL, `authorName` TEXT NOT NULL, `authorAvatarUrl` TEXT, `replyCount` INTEGER NOT NULL, `createdAtEpochSeconds` INTEGER, `lastTouchedAtEpochSeconds` INTEGER, `lastReplyBy` TEXT, `isPinned` INTEGER NOT NULL, `votes` INTEGER NOT NULL, `content` TEXT, `contentRendered` TEXT, `cachedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -73,6 +73,12 @@
           {
             "fieldPath": "isPinned",
             "columnName": "isPinned",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "votes",
+            "columnName": "votes",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -473,7 +479,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a12ae65fc5ac69ef6ca9e86ef91fa226')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2a9447b687ac7bb83f2a8be8a9616c47')"
     ]
   }
 }

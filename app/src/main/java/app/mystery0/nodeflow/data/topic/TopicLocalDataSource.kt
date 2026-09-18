@@ -36,11 +36,10 @@ class TopicLocalDataSource(
 
     suspend fun cacheTopicDetail(detail: TopicDetail) {
         val cachedTopic = topicDao.topic(detail.topic.id)
-        val topic = if (cachedTopic?.isPinned == true) {
-            detail.topic.copy(isPinned = true)
-        } else {
-            detail.topic
-        }
+        val topic = detail.topic.copy(
+            isPinned = cachedTopic?.isPinned == true || detail.topic.isPinned,
+            votes = maxOf(cachedTopic?.votes ?: 0, detail.topic.votes),
+        )
         topicDao.upsertTopic(
             topic.toEntity(
                 content = detail.content,

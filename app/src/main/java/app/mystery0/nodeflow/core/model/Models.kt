@@ -114,6 +114,7 @@ data class Topic(
     val lastTouchedAtEpochSeconds: Long? = null,
     val lastReplyBy: String? = null,
     val isPinned: Boolean = false,
+    val votes: Int = 0,
 )
 
 data class TopicAppend(

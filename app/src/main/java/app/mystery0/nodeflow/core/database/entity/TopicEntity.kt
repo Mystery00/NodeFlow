@@ -20,6 +20,7 @@ data class TopicEntity(
     val lastTouchedAtEpochSeconds: Long?,
     val lastReplyBy: String?,
     val isPinned: Boolean,
+    val votes: Int,
     val content: String?,
     val contentRendered: String?,
     val cachedAtEpochMillis: Long,
@@ -39,6 +40,7 @@ fun TopicEntity.toTopic(): Topic {
         lastTouchedAtEpochSeconds = lastTouchedAtEpochSeconds,
         lastReplyBy = lastReplyBy,
         isPinned = isPinned,
+        votes = votes,
     )
 }
 
@@ -59,6 +61,7 @@ fun Topic.toEntity(
     lastTouchedAtEpochSeconds = lastTouchedAtEpochSeconds,
     lastReplyBy = lastReplyBy,
     isPinned = isPinned,
+    votes = votes,
     content = content,
     contentRendered = contentRendered,
     cachedAtEpochMillis = cachedAtEpochMillis,

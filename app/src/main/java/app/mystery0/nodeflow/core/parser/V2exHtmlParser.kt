@@ -1,4 +1,4 @@
-﻿package app.mystery0.nodeflow.core.parser
+package app.mystery0.nodeflow.core.parser
 
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.FavoriteTopicsPage
@@ -896,6 +896,7 @@ class V2exHtmlParser {
             ?: REPLY_COUNT_REGEX.find(topicLink.attr("href"))?.groupValues?.getOrNull(1)?.toIntOrNull()
             ?: 0
         val lastReplyBy = memberNames.drop(1).firstOrNull()
+        val votes = cell.selectFirst(".votes")?.text()?.trim()?.toIntOrNull() ?: 0
         val touchedAtEpochSeconds = cell.selectFirst(".topic_info span[title]")
             ?.attr("title")
             ?.parseV2exDateTime()
@@ -916,6 +917,7 @@ class V2exHtmlParser {
             avatarUrl = avatarUrl,
             replyCount = replyCount,
             lastReplyBy = lastReplyBy,
+            votes = votes,
             createdAtEpochSeconds = null,
             lastTouchedAtEpochSeconds = touchedAtEpochSeconds,
             isPinned = cell.hasPinnedTopicMarker(),

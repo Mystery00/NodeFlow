@@ -1,4 +1,4 @@
-﻿package app.mystery0.nodeflow.core.ui
+package app.mystery0.nodeflow.core.ui
 
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
@@ -78,10 +78,25 @@ class TopicListItemContentTest {
         assertThat(metadata).doesNotContain("最后回复来自")
     }
 
+    @Test
+    fun topicVotesChip_returnsLabelWhenVotesPositive() {
+        val topic = topic(votes = 4)
+        val chip = topicVotesChip(topic)
+        assertThat(chip).isEqualTo("▲ 4")
+    }
+
+    @Test
+    fun topicVotesChip_returnsNullWhenVotesZero() {
+        val topic = topic(votes = 0)
+        val chip = topicVotesChip(topic)
+        assertThat(chip).isNull()
+    }
+
     private fun topic(
         node: Node = Node(name = "android", title = "Android"),
         isPinned: Boolean = false,
         lastReplyBy: String? = null,
+        votes: Int = 0,
     ): Topic = Topic(
         id = 1L,
         title = "测试主题",
@@ -90,5 +105,6 @@ class TopicListItemContentTest {
         author = User(username = "alice"),
         isPinned = isPinned,
         lastReplyBy = lastReplyBy,
+        votes = votes,
     )
 }

@@ -1,4 +1,4 @@
-﻿package app.mystery0.nodeflow.core.parser
+package app.mystery0.nodeflow.core.parser
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -804,6 +804,28 @@ class V2exHtmlParserTest {
         assertThat(topics).hasSize(2)
         assertThat(topics[0].isPinned).isTrue()
         assertThat(topics[1].isPinned).isFalse()
+    }
+
+    @Test
+    fun parseTopicList_extractsVotesFromVotesDiv() {
+        val html = """
+            <html><body>
+              <div class="cell item">
+                <a class="topic-link" href="/t/601">voted topic</a>
+                <span class="topic_info"><div class="votes"><li class="fa fa-chevron-up"></li> &nbsp;4 &nbsp;&nbsp; </div></span>
+              </div>
+              <div class="cell item">
+                <a class="topic-link" href="/t/602">unvoted topic</a>
+                <span class="topic_info"><div class="votes"></div></span>
+              </div>
+            </body></html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics).hasSize(2)
+        assertThat(topics[0].votes).isEqualTo(4)
+        assertThat(topics[1].votes).isEqualTo(0)
     }
 
     @Test

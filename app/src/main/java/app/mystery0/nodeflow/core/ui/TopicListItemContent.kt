@@ -17,3 +17,8 @@ fun topicNodeChip(topic: Topic): TopicNodeChip? {
 }
 
 fun topicPinnedChip(topic: Topic, label: String): String? = label.takeIf { topic.isPinned }
+
+fun topicVotesChip(topic: Topic): String? {
+    if (topic.votes <= 0) return null
+    return "▲ ${topic.votes}"
+}
