@@ -29,6 +29,10 @@ import app.mystery0.nodeflow.data.reply.V2exImageRemoteDataSource
 import app.mystery0.nodeflow.domain.reply.ImageUploadRepository
 import app.mystery0.nodeflow.domain.reply.ReplyDraftRepository
 import app.mystery0.nodeflow.domain.reply.ReplyRepository
+import app.mystery0.nodeflow.data.topic.ImageShareRepositoryImpl
+import app.mystery0.nodeflow.domain.topic.ImageShareRepository
+import androidx.core.content.FileProvider
+import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -88,4 +92,19 @@ val repositoryModule = module {
         val remote = get<V2exImageRemoteDataSource>()
         ImageUploadRepositoryImpl(get(), remote::upload, get(named(IO_DISPATCHER)))
     }
+    single<ImageShareRepository> {
+        ImageShareRepositoryImpl(
+            imageDownloader = get(),
+            cacheDirProvider = { androidContext().cacheDir },
+            contentUriProvider = { file ->
+                FileProvider.getUriForFile(
+                    androidContext(),
+                    "${androidContext().packageName}.fileprovider",
+                    file,
+                ).toString()
+            },
+            ioDispatcher = get(named(IO_DISPATCHER)),
+        )
+    }
 }
+

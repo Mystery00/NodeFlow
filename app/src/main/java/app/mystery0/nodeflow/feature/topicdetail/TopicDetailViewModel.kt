@@ -9,6 +9,7 @@ import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
 import app.mystery0.nodeflow.domain.topic.SetFavoriteUseCase
 import app.mystery0.nodeflow.domain.topic.TopicDetailPager
 import app.mystery0.nodeflow.domain.topic.TopicDetailSnapshot
+import app.mystery0.nodeflow.domain.topic.PrepareImageShareUseCase
 import app.mystery0.nodeflow.domain.topic.ThankTopicUseCase
 import app.mystery0.nodeflow.domain.topic.ThankReplyUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,7 @@ class TopicDetailViewModel(
     private val setFavoriteUseCase: SetFavoriteUseCase,
     private val thankTopicUseCase: ThankTopicUseCase,
     private val thankReplyUseCase: ThankReplyUseCase,
+    private val prepareImageShareUseCase: PrepareImageShareUseCase,
 ) : ViewModel() {
     private val topicId: Long = checkNotNull(savedStateHandle["topicId"])
     private val initialReplyFloor: Int? =
@@ -67,8 +69,38 @@ class TopicDetailViewModel(
             TopicDetailUiEvent.ThankTopic -> thankTopic()
             is TopicDetailUiEvent.ThankReply -> thankReply(event.replyId)
             TopicDetailUiEvent.ThankErrorConsumed -> _uiState.update { it.copy(thankError = null) }
+            is TopicDetailUiEvent.ShareImage -> shareImage(event.imageUrl)
+            TopicDetailUiEvent.ShareTargetConsumed -> _uiState.update { it.copy(shareTarget = null) }
+            TopicDetailUiEvent.ShareErrorConsumed -> _uiState.update { it.copy(shareError = null) }
         }
     }
+
+    private fun shareImage(imageUrl: String) {
+        if (_uiState.value.isSharingImage) return
+        _uiState.update { it.copy(isSharingImage = true, shareError = null) }
+        viewModelScope.launch {
+            val result = prepareImageShareUseCase(imageUrl)
+            _uiState.update { current ->
+                result.fold(
+                    onSuccess = { target ->
+                        current.copy(
+                            isSharingImage = false,
+                            shareTarget = target,
+                            shareError = null,
+                        )
+                    },
+                    onFailure = { error ->
+                        current.copy(
+                            isSharingImage = false,
+                            shareTarget = null,
+                            shareError = error.message ?: "准备图片失败，请稍后重试",
+                        )
+                    },
+                )
+            }
+        }
+    }
+
 
     private fun toggleFavorite() {
         val detail = _uiState.value.detail ?: return

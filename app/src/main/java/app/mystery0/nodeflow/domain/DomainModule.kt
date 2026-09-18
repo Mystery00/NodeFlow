@@ -21,6 +21,7 @@ import app.mystery0.nodeflow.domain.topic.GetFavoriteTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.topic.GetLatestTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
 import app.mystery0.nodeflow.domain.topic.SetFavoriteUseCase
+import app.mystery0.nodeflow.domain.topic.PrepareImageShareUseCase
 import app.mystery0.nodeflow.domain.topic.ThankTopicUseCase
 import app.mystery0.nodeflow.domain.topic.ThankReplyUseCase
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
@@ -52,6 +53,8 @@ val domainModule = module {
     factory {
         SetFavoriteUseCase(get())
     }
+
+    factory { PrepareImageShareUseCase(get()) }
 
     factory { ThankTopicUseCase(get()) }
     factory { ThankReplyUseCase(get()) }

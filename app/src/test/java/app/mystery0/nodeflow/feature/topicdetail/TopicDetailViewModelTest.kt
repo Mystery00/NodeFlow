@@ -9,7 +9,9 @@ import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.model.ThankResult
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.network.V2EX_ACCESS_DENIED_MESSAGE
+import app.mystery0.nodeflow.core.model.ImageShareTarget
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
+import app.mystery0.nodeflow.domain.topic.ImageShareRepository
 import app.mystery0.nodeflow.domain.topic.TopicDetailPager
 import app.mystery0.nodeflow.domain.topic.TopicDetailSnapshot
 import app.mystery0.nodeflow.domain.topic.TopicRepository
@@ -467,10 +469,77 @@ class TopicDetailViewModelTest {
         assertThat(viewModel.uiState.value.thankError).isEqualTo("余额不足")
     }
 
+    @Test
+    fun shareImage_success_setsTargetAndClearsIsSharing() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = emptyList(), hasMore = false))
+        val shareRepository = FakeImageShareRepository(
+            prepareResult = Result.success(ImageShareTarget("content://test/img.png", "image/png"))
+        )
+        val viewModel = viewModel(pager, shareRepository = shareRepository)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.ShareImage("https://example.com/img.png"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isSharingImage).isFalse()
+        assertThat(state.shareTarget).isEqualTo(ImageShareTarget("content://test/img.png", "image/png"))
+        assertThat(state.shareError).isNull()
+        assertThat(shareRepository.calls).containsExactly("https://example.com/img.png")
+    }
+
+    @Test
+    fun shareImage_failure_setsErrorAndClearsIsSharing() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = emptyList(), hasMore = false))
+        val shareRepository = FakeImageShareRepository(
+            prepareResult = Result.failure(java.io.IOException("网络超时"))
+        )
+        val viewModel = viewModel(pager, shareRepository = shareRepository)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.ShareImage("https://example.com/img.png"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isSharingImage).isFalse()
+        assertThat(state.shareTarget).isNull()
+        assertThat(state.shareError).isEqualTo("网络超时")
+    }
+
+    @Test
+    fun shareImage_consumedTargetAndError_clearsState() = runTest(testDispatcher) {
+        val pager = FakeTopicDetailPager()
+        pager.loadFirstResults += Result.success(snapshot(replies = emptyList(), hasMore = false))
+        val shareRepository = FakeImageShareRepository(
+            prepareResult = Result.success(ImageShareTarget("content://test/img.png", "image/png"))
+        )
+        val viewModel = viewModel(pager, shareRepository = shareRepository)
+        advanceUntilIdle()
+
+        viewModel.onEvent(TopicDetailUiEvent.ShareImage("https://example.com/img.png"))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.shareTarget).isNotNull()
+
+        viewModel.onEvent(TopicDetailUiEvent.ShareTargetConsumed)
+        assertThat(viewModel.uiState.value.shareTarget).isNull()
+
+        // 模拟错误并消费
+        shareRepository.prepareResult = Result.failure(java.io.IOException("失败"))
+        viewModel.onEvent(TopicDetailUiEvent.ShareImage("https://example.com/img.png"))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.shareError).isNotNull()
+
+        viewModel.onEvent(TopicDetailUiEvent.ShareErrorConsumed)
+        assertThat(viewModel.uiState.value.shareError).isNull()
+    }
+
     private fun viewModel(
         pager: TopicDetailPager,
         replyFloor: Int? = null,
         repository: SinglePagerRepository = SinglePagerRepository(pager),
+        shareRepository: ImageShareRepository = FakeImageShareRepository(),
     ): TopicDetailViewModel = TopicDetailViewModel(
         savedStateHandle = SavedStateHandle(
             buildMap {
@@ -482,7 +551,9 @@ class TopicDetailViewModelTest {
         setFavoriteUseCase = app.mystery0.nodeflow.domain.topic.SetFavoriteUseCase(repository),
         thankTopicUseCase = app.mystery0.nodeflow.domain.topic.ThankTopicUseCase(repository),
         thankReplyUseCase = app.mystery0.nodeflow.domain.topic.ThankReplyUseCase(repository),
+        prepareImageShareUseCase = app.mystery0.nodeflow.domain.topic.PrepareImageShareUseCase(shareRepository),
     )
+
 
     private fun accessDenied(): NodeFlowException =
         NodeFlowException(
@@ -602,4 +673,18 @@ class TopicDetailViewModelTest {
 
         override suspend fun clearCache() = Unit
     }
+
+    private class FakeImageShareRepository(
+        var prepareResult: Result<ImageShareTarget> = Result.success(
+            ImageShareTarget("content://test.app/image.png", "image/png")
+        ),
+        val deferredPrepare: CompletableDeferred<Result<ImageShareTarget>>? = null,
+    ) : ImageShareRepository {
+        val calls = mutableListOf<String>()
+        override suspend fun prepareImageShare(imageUrl: String): Result<ImageShareTarget> {
+            calls += imageUrl
+            return deferredPrepare?.await() ?: prepareResult
+        }
+    }
 }
+

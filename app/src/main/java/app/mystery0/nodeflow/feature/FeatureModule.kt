@@ -36,8 +36,9 @@ val featureModule = module {
     }
 
     viewModel {
-        TopicDetailViewModel(get(), get(), get(), get(), get())
+        TopicDetailViewModel(get(), get(), get(), get(), get(), get())
     }
+
 
     viewModel {
         ProfileViewModel(get(), get(), get(), get(), get())

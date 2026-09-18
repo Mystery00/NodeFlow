@@ -12,4 +12,8 @@ sealed interface TopicDetailUiEvent {
     data object ThankTopic : TopicDetailUiEvent
     data class ThankReply(val replyId: Long) : TopicDetailUiEvent
     data object ThankErrorConsumed : TopicDetailUiEvent
+    data class ShareImage(val imageUrl: String) : TopicDetailUiEvent
+    data object ShareTargetConsumed : TopicDetailUiEvent
+    data object ShareErrorConsumed : TopicDetailUiEvent
 }
+

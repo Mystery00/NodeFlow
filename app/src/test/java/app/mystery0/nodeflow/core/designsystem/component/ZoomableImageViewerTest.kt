@@ -19,6 +19,17 @@ class ZoomableImageViewerTest {
     }
 
     @Test
+    fun zoomableImageViewer_supportsImageShare() {
+        val source = zoomableImageViewerSource()
+
+        assertThat(source).contains("onShare: (() -> Unit)? = null")
+        assertThat(source).contains("Icons.Outlined.Share")
+        assertThat(source).contains("isSharing")
+        assertThat(source).contains("分享图片")
+    }
+
+
+    @Test
     fun zoomableImageLoadFeedback_showsLoadingBeforeResult() {
         assertThat(
             zoomableImageLoadFeedback(
@@ -60,3 +71,4 @@ class ZoomableImageViewerTest {
             ?: error("找不到 ZoomableImageViewer.kt")
     }
 }
+

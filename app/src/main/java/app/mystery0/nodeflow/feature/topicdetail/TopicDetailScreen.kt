@@ -402,13 +402,35 @@ fun TopicDetailScreen(
             },
         )
     }
+    state.shareTarget?.let { target ->
+        LaunchedEffect(target) {
+            val uri = Uri.parse(target.contentUri)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = target.mimeType
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = ClipData.newUri(context.contentResolver, "Image", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "分享图片"))
+            onEvent(TopicDetailUiEvent.ShareTargetConsumed)
+        }
+    }
+    state.shareError?.let { message ->
+        LaunchedEffect(message) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            onEvent(TopicDetailUiEvent.ShareErrorConsumed)
+        }
+    }
     previewImageUrl?.let { imageUrl ->
         ZoomableImageViewer(
             imageUrl = imageUrl,
             onDismiss = { previewImageUrl = null },
+            isSharing = state.isSharingImage,
+            onShare = { onEvent(TopicDetailUiEvent.ShareImage(imageUrl)) },
         )
     }
 }
+
 
 @Composable
 private fun TopicActions(

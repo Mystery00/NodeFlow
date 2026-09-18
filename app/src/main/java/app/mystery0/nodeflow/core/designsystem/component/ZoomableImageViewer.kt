@@ -4,14 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +40,8 @@ fun ZoomableImageViewer(
     imageUrl: String,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    isSharing: Boolean = false,
+    onShare: (() -> Unit)? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -85,22 +90,53 @@ fun ZoomableImageViewer(
                 feedback = loadFeedback,
                 modifier = Modifier.align(Alignment.Center),
             )
-            Surface(
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(WindowInsets.systemBars.asPaddingValues())
                     .padding(12.dp),
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.58f),
-                contentColor = Color.White,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = "关闭大图",
-                    )
+                if (onShare != null) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.58f),
+                        contentColor = Color.White,
+                    ) {
+                        IconButton(
+                            onClick = onShare,
+                            enabled = !isSharing && loadFeedback != ZoomableImageLoadFeedback.Error,
+                        ) {
+                            if (isSharing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White,
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Outlined.Share,
+                                    contentDescription = "分享图片",
+                                )
+                            }
+                        }
+                    }
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.58f),
+                    contentColor = Color.White,
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "关闭大图",
+                        )
+                    }
                 }
             }
+
         }
     }
 }

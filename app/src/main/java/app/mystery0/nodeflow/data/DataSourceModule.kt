@@ -22,6 +22,8 @@ import app.mystery0.nodeflow.data.reply.ImageContentReader
 import app.mystery0.nodeflow.data.reply.ReplyDraftLocalDataSource
 import app.mystery0.nodeflow.data.reply.ReplyRemoteDataSource
 import app.mystery0.nodeflow.data.reply.V2exImageRemoteDataSource
+import app.mystery0.nodeflow.data.topic.DefaultImageDownloader
+import app.mystery0.nodeflow.data.topic.ImageDownloader
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -89,4 +91,6 @@ val dataSourceModule = module {
     single { V2exImageRemoteDataSource(get(), get()) }
     single { ReplyDraftLocalDataSource(get()) }
     single<ImageContentReader> { AndroidImageContentReader(androidContext().contentResolver) }
+    single<ImageDownloader> { DefaultImageDownloader(androidContext()) }
 }
+

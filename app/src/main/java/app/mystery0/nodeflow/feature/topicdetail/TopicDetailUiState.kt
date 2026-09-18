@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.feature.topicdetail
 
+import app.mystery0.nodeflow.core.model.ImageShareTarget
 import app.mystery0.nodeflow.core.model.TopicDetail
 
 data class TopicDetailUiState(
@@ -17,4 +18,8 @@ data class TopicDetailUiState(
     val isThankingTopic: Boolean = false,
     val thankingReplyId: Long? = null,
     val thankError: String? = null,
+    val isSharingImage: Boolean = false,
+    val shareTarget: ImageShareTarget? = null,
+    val shareError: String? = null,
 )
+
