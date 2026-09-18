@@ -58,24 +58,23 @@ class TopicListItemContentTest {
     }
 
     @Test
-    fun topicListMetadata_includesLastReplyBy() {
+    fun topicListMetadata_doesNotIncludeLastReplyBy() {
         val topic = topic(lastReplyBy = "bob")
         val metadata = topicListMetadata(topic)
-        assertThat(metadata).contains("最后回复来自 bob")
+        assertThat(metadata).doesNotContain("最后回复来自")
+        assertThat(metadata).contains("alice")
     }
 
     @Test
-    fun topicListMetadata_omitsLastReplyByWhenNull() {
-        val topic = topic(lastReplyBy = null)
-        val metadata = topicListMetadata(topic)
-        assertThat(metadata).doesNotContain("最后回复来自")
+    fun topicLastReplyLabel_returnsTextWhenPresent() {
+        val topic = topic(lastReplyBy = "bob")
+        assertThat(topicLastReplyLabel(topic)).isEqualTo("最后回复来自 bob")
     }
 
     @Test
-    fun topicListMetadata_omitsLastReplyByWhenBlank() {
-        val topic = topic(lastReplyBy = "  ")
-        val metadata = topicListMetadata(topic)
-        assertThat(metadata).doesNotContain("最后回复来自")
+    fun topicLastReplyLabel_returnsNullWhenMissing() {
+        assertThat(topicLastReplyLabel(topic(lastReplyBy = null))).isNull()
+        assertThat(topicLastReplyLabel(topic(lastReplyBy = "  "))).isNull()
     }
 
     @Test

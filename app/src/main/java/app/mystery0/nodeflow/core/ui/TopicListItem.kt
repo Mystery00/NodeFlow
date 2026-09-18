@@ -11,9 +11,13 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,7 +30,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.designsystem.component.NodeChip
-import app.mystery0.nodeflow.core.designsystem.component.StatusChip
 import app.mystery0.nodeflow.core.designsystem.component.UserAvatar
 import app.mystery0.nodeflow.core.model.Topic
 
@@ -64,8 +67,8 @@ fun TopicListItem(
     modifier: Modifier = Modifier,
 ) {
     val nodeChip = topicNodeChip(topic)
-    val pinnedChip = topicPinnedChip(topic, stringResource(R.string.topic_pinned))
-    val votesChip = topicVotesChip(topic)
+    val votesLabel = topicVotesChip(topic)
+    val lastReply = topicLastReplyLabel(topic)
     val layout = compactTopicListItemLayout()
     Column(
         modifier = modifier
@@ -101,11 +104,13 @@ fun TopicListItem(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(layout.metadataSpacing),
                 ) {
-                    pinnedChip?.let { label ->
-                        StatusChip(title = label)
-                    }
-                    votesChip?.let { label ->
-                        StatusChip(title = label)
+                    if (topic.isPinned) {
+                        Icon(
+                            imageVector = Icons.Filled.PushPin,
+                            contentDescription = stringResource(R.string.topic_pinned),
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
                     }
                     nodeChip?.let { chip ->
                         NodeChip(
@@ -122,10 +127,34 @@ fun TopicListItem(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                lastReply?.let { label ->
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            if (topic.replyCount > 0) {
+            if (topic.replyCount > 0 || votesLabel != null) {
                 Spacer(Modifier.width(layout.replyBadgeSpacing))
-                ReplyCountBadge(replyCount = topic.replyCount)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    if (topic.replyCount > 0) {
+                        ReplyCountBadge(replyCount = topic.replyCount)
+                    }
+                    votesLabel?.let { label ->
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                }
             }
         }
         HorizontalDivider(
@@ -145,11 +174,12 @@ fun topicListMetadata(topic: Topic): String = buildString {
         if (isNotEmpty()) append(" · ")
         append(time)
     }
-    if (!topic.lastReplyBy.isNullOrBlank()) {
-        if (isNotEmpty()) append(" · ")
-        append("最后回复来自 ")
-        append(topic.lastReplyBy)
-    }
+}
+
+fun topicLastReplyLabel(topic: Topic): String? {
+    val lastReplyBy = topic.lastReplyBy?.trim().orEmpty()
+    if (lastReplyBy.isEmpty()) return null
+    return "最后回复来自 $lastReplyBy"
 }
 
 @Composable
