@@ -226,25 +226,13 @@ private fun ReplyCountBadge(
     replyCount: Int,
     modifier: Modifier = Modifier,
 ) {
-    val isHot = replyCount >= 50
-    val isWarm = replyCount >= 20
-    val backgroundColor = when {
-        isHot -> MaterialTheme.colorScheme.primaryContainer
-        isWarm -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
-        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-    }
-    val contentColor = when {
-        isHot -> MaterialTheme.colorScheme.onPrimaryContainer
-        isWarm -> MaterialTheme.colorScheme.onSecondaryContainer
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
     Surface(
         modifier = modifier
             .height(22.dp)
             .defaultMinSize(minWidth = 32.dp),
         shape = RoundedCornerShape(11.dp),
-        color = backgroundColor,
-        contentColor = contentColor,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -253,10 +241,11 @@ private fun ReplyCountBadge(
             Text(
                 text = replyCount.toString(),
                 style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = if (isHot) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = FontWeight.Medium,
                 ),
                 maxLines = 1,
             )
         }
     }
 }
+
