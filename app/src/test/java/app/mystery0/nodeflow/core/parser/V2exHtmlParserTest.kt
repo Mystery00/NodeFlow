@@ -1,4 +1,4 @@
-package app.mystery0.nodeflow.core.parser
+﻿package app.mystery0.nodeflow.core.parser
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -781,6 +781,29 @@ class V2exHtmlParserTest {
         val topics = parser.parseTopicList(html)
 
         assertThat(topics.map { it.isPinned }).containsExactly(true, true, true).inOrder()
+    }
+
+    @Test
+    fun parseTopicList_detectsCornerStarBackgroundAsPinned() {
+        val html = """
+            <html><body>
+              <div class="cell item" style="background-image: url('/static/img/corner_star.png');
+                  background-repeat: no-repeat;
+                  background-size: 20px 20px;
+                  background-position: right top;">
+                <a class="topic-link" href="/t/501">corner star pinned</a>
+              </div>
+              <div class="cell item" style="">
+                <a class="topic-link" href="/t/502">normal topic</a>
+              </div>
+            </body></html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics).hasSize(2)
+        assertThat(topics[0].isPinned).isTrue()
+        assertThat(topics[1].isPinned).isFalse()
     }
 
     @Test
