@@ -551,11 +551,20 @@ class V2exHtmlParser {
     fun parseImageUploadPage(html: String): ParsedImageUploadPage {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
         return when {
+            hasAccessChallenge(html) ->
+                ParsedImageUploadPage.Unrecognized
             hasSignInEntry(html) || document.selectFirst("form[action=/signin]") != null ->
                 ParsedImageUploadPage.AuthenticationRequired
             document.selectFirst("form[action=/i/upload] input[type=file][name=qqfile]") != null ->
                 ParsedImageUploadPage.Available
-            else -> ParsedImageUploadPage.PermissionDenied
+            // 当前上传页由 FineUploader 动态生成文件输入框，原始 HTML 中只有容器和初始化脚本。
+            document.selectFirst("div#uploader") != null && document.select("script:not([src])").any {
+                val script = it.data()
+                FINE_UPLOADER_CONSTRUCTOR.containsMatchIn(script) &&
+                    FINE_UPLOADER_ELEMENT.containsMatchIn(script) &&
+                    FINE_UPLOADER_ENDPOINT.containsMatchIn(script)
+            } -> ParsedImageUploadPage.Available
+            else -> ParsedImageUploadPage.Unrecognized
         }
     }
 
@@ -1147,7 +1156,7 @@ class V2exHtmlParser {
     enum class ParsedImageUploadPage {
         Available,
         AuthenticationRequired,
-        PermissionDenied,
+        Unrecognized,
     }
 
     data class ParsedImageUploadResponse(
@@ -1157,6 +1166,9 @@ class V2exHtmlParser {
     )
 
     private companion object {
+        val FINE_UPLOADER_CONSTRUCTOR = Regex("""\bnew\s+qq\.FineUploader\s*\(""")
+        val FINE_UPLOADER_ELEMENT = Regex("""\belement\s*:\s*document\.getElementById\s*\(\s*["']uploader["']\s*\)""")
+        val FINE_UPLOADER_ENDPOINT = Regex("""\brequest\s*:\s*\{\s*endpoint\s*:\s*["']/i/upload["']""")
         const val V2EX_BASE_URL = "https://www.v2ex.com"
         const val V2EX_HOST = "www.v2ex.com"
         const val DEFAULT_REPLY_MAX_LENGTH = 10_000

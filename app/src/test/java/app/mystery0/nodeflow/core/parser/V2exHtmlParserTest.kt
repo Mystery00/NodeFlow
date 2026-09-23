@@ -1401,7 +1401,46 @@ class V2exHtmlParserTest {
     }
 
     @Test
-    fun parseImageUploadPage_classifiesAvailableLoginAndDeniedPages() {
+    fun parseImageUploadPage_acceptsFineUploaderBeforeJavaScriptRuns() {
+        val html = """
+            <div id="uploader"></div>
+            <script>
+                var uploader = new qq.FineUploader({
+                    element: document.getElementById("uploader"),
+                    request: { endpoint: '/i/upload' }
+                });
+            </script>
+        """.trimIndent()
+
+        assertThat(parser.parseImageUploadPage(html))
+            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.Available)
+    }
+
+    @Test
+    fun parseImageUploadPage_rejectsIncompleteOrUntrustedUploader() {
+        val initializer = """
+            <script>new qq.FineUploader({
+                element: document.getElementById('uploader'),
+                request: { endpoint: '/i/upload' }
+            });</script>
+        """.trimIndent()
+        val available = "<div id='uploader'></div>$initializer"
+        listOf(
+            initializer,
+            "<div id='uploader'></div>",
+            available.replace("'/i/upload'", "'https://example.com/i/upload'"),
+            available.replace("getElementById('uploader')", "getElementById('other')"),
+            "<title>Just a moment...</title>$available",
+        ).forEach { html ->
+            assertThat(parser.parseImageUploadPage(html))
+                .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.Unrecognized)
+        }
+        assertThat(parser.parseImageUploadPage("<form action='/signin'><input type='password'></form>$available"))
+            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.AuthenticationRequired)
+    }
+
+    @Test
+    fun parseImageUploadPage_classifiesAvailableLoginAndUnknownPages() {
         assertThat(
             parser.parseImageUploadPage(
                 """<form action="/i/upload" method="post"><input type="file" name="qqfile" /></form>""",
@@ -1410,7 +1449,7 @@ class V2exHtmlParserTest {
         assertThat(parser.parseImageUploadPage("""<a href="/signin">登录</a>"""))
             .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.AuthenticationRequired)
         assertThat(parser.parseImageUploadPage("""<a href="/i/about">图库介绍</a>"""))
-            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.PermissionDenied)
+            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.Unrecognized)
     }
 
     @Test
