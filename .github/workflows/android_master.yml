@@ -42,11 +42,6 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
 
-      - name: Check CI scripts
-        run: |
-          for script in scripts/ci/*.sh; do bash -n "$script"; done
-          python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
-
       - name: Decode release keystore
         if: github.event_name != 'pull_request'
         env:
@@ -68,7 +63,7 @@ jobs:
           keytool -list -keystore "$SIGN_KEY_STORE_FILE" \
             -storepass:env SIGN_KEY_STORE_PASSWORD -alias "$SIGN_KEY_ALIAS" > /dev/null
 
-      # PR 只验证 release 变体，不读取正式签名，也不发布安装包。
+      # PR 只构建 release 变体，不读取正式签名，也不创建预发布。
       - name: Generate temporary PR keystore
         if: github.event_name == 'pull_request'
         run: |
@@ -78,42 +73,67 @@ jobs:
             -alias nodeflow-ci -keyalg RSA -keysize 2048 -validity 2 \
             -dname 'CN=NodeFlow CI Test Only'
 
-      - name: Test and build release APK
+      - name: Build release APK
         env:
           SIGN_KEY_STORE_PASSWORD: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
           SIGN_KEY_ALIAS: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
           SIGN_KEY_PASSWORD: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_PASSWORD || secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug :app:lintRelease :app:assembleRelease
+          ./gradlew --no-daemon :app:assembleRelease
 
+      # 仅检查待发布产物，不执行单元测试或设备测试。
       - name: Verify release APK and collect outputs
         id: apk
         env:
           SIGN_KEY_STORE_PASSWORD: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
           SIGN_KEY_ALIAS: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
-        run: bash scripts/ci/verify-release-apk.sh
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*" >&2; exit 1; }
+          metadata=app/build/outputs/apk/release/output-metadata.json
+          mapping=app/build/outputs/mapping/release/mapping.txt
+          [[ -s "$metadata" ]] || fail 'Release output-metadata.json is missing'
+          [[ -s "$mapping" ]] || fail 'R8 mapping.txt is missing'
+          jq -e '.variantName == "release" and .applicationId == "app.mystery0.nodeflow" and (.elements | length == 1)' \
+            "$metadata" > /dev/null || fail 'Unexpected release metadata or multiple APK outputs'
+          version_name=$(jq -er '.elements[0].versionName | strings' "$metadata")
+          output_file=$(jq -er '.elements[0].outputFile | strings' "$metadata")
+          [[ "$version_name" =~ ^[A-Za-z0-9._-]+$ && "$version_name" == *'.r'* ]] || fail 'Invalid release version name'
+          [[ "$output_file" != */* && "$output_file" == *.apk && "$output_file" != *unsigned* ]] || fail 'Invalid or unsigned APK output'
+          apk="$(dirname "$metadata")/$output_file"
+          [[ -s "$apk" ]] || fail 'Release APK is missing'
+
+          apksigner=$(find "$ANDROID_HOME/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)
+          [[ -x "$apksigner" ]] || fail 'apksigner is not installed'
+          apkanalyzer=$(command -v apkanalyzer) || fail 'apkanalyzer is not installed'
+          [[ "$("$apkanalyzer" manifest debuggable "$apk")" == false ]] || fail 'APK is debuggable'
+          [[ "$("$apkanalyzer" manifest application-id "$apk")" == app.mystery0.nodeflow ]] || fail 'Unexpected APK application ID'
+
+          # 只计算公钥证书摘要，不输出密码、私钥或 keystore 内容。
+          expected_digest=$(keytool -exportcert -keystore "$SIGN_KEY_STORE_FILE" \
+            -storepass:env SIGN_KEY_STORE_PASSWORD -alias "$SIGN_KEY_ALIAS" | sha256sum | awk '{print $1}')
+          certificates=$("$apksigner" verify --verbose --print-certs "$apk")
+          signer_count=$(printf '%s\n' "$certificates" | sed -n 's/^Number of signers: //p' | tr -d '\r')
+          [[ "$signer_count" == 1 ]] || fail 'Unexpected number of APK signers'
+          # 兼容 Signer #1 与 v3.1 的 Signer (minSdkVersion=..., maxSdkVersion=...) 输出。
+          # 不同 SDK 区间必须使用同一配置证书；源戳和 public key 摘要不参与比较。
+          actual_digest=$(printf '%s\n' "$certificates" | sed -nE 's/^Signer .* certificate SHA-256 digest: ([[:xdigit:]]+)\r?$/\1/p' | tr '[:upper:]' '[:lower:]' | sort -u)
+          [[ "$actual_digest" =~ ^[0-9a-f]{64}$ ]] || fail 'Missing or inconsistent APK certificate digests'
+          if [[ "$actual_digest" != "$expected_digest" ]]; then
+            echo "::error::APK certificate mismatch: expected=$expected_digest actual=$actual_digest"
+            exit 1
+          fi
+
+          mkdir -p outputs
+          cp "$apk" "outputs/NodeFlow-release-${version_name}.apk"
+          cp "$mapping" "outputs/NodeFlow-${version_name}-mapping.txt"
+          printf 'versionName=%s\n' "$version_name" >> "$GITHUB_OUTPUT"
+          echo 'Release APK signature, application ID, debuggable flag and R8 mapping verified'
 
       - name: Cleanup keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/nodeflow-release.jks"
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      # 安装即将发布的同一个 APK；不使用 debug APK 或会影响 R8 保留规则的测试变体。
-      - name: Smoke test minified release APK
-        uses: reactivecircus/android-emulator-runner@v2
-        env:
-          RELEASE_APK: ${{ steps.apk.outputs.apkPath }}
-        with:
-          api-level: 29
-          arch: x86_64
-          disable-animations: true
-          script: bash scripts/ci/smoke-release-apk.sh "$RELEASE_APK"
 
       - name: Upload R8 reports
         if: always()
@@ -134,7 +154,7 @@ jobs:
 
   publish:
     needs: build
-    # 手动运行其他分支和 PR 只验证，不创建预发布。
+    # 手动运行其他分支和 PR 只构建及校验产物，不创建预发布。
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

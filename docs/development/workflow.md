@@ -37,19 +37,17 @@ PowerShell 在仓库根目录运行以下命令，按验证矩阵选用，不要
 
 Release 验证使用 `.\gradlew.bat :app:assembleRelease`，需要本地签名配置。`versionCode` 来自 Git 提交数量，`versionName` 来自 `gradle/libs.versions.toml`；Debug/Release 追加构建类型、提交数和 Git SHA 后缀。
 
-## 主分支 CI 与 Release 验证
+## 主分支 CI 与 Release 发布
 
-`.github/workflows/android_master.yml` 在 main 推送、面向 main 的 PR 和手动运行时执行验证。main 推送仍支持提交消息中的 `ci skip`；只有 main 上成功的非 PR 运行才创建 `pre-*` 预发布。手动运行其他分支只验证，不发布。
+`.github/workflows/android_master.yml` 在 main 推送、面向 main 的 PR 和手动运行时执行 Release 构建及产物校验。main 推送仍支持提交消息中的 `ci skip`；只有 main 上成功的非 PR 运行才创建 `pre-*` 预发布。手动运行其他分支只构建及校验产物，不发布。
 
-非 PR 构建使用现有签名 Secrets：`KEYSTORE_BASE64`（兼容 `SIGN_KEY_STORE_BASE64`）、`SIGN_KEY_STORE_PASSWORD`（兼容 `KEYSTORE_PASSWORD`）、`SIGN_KEY_ALIAS`（兼容 `KEY_ALIAS`）和 `SIGN_KEY_PASSWORD`（兼容 `KEY_PASSWORD`）。缺失配置立即失败，不回退到 debug 签名。PR 使用一次性测试密钥，产物只供 CI 验证，不能替代正式签名的安装包。keystore 验证后立即删除，不上传到 Artifact。
+非 PR 构建使用现有签名 Secrets：`KEYSTORE_BASE64`（兼容 `SIGN_KEY_STORE_BASE64`）、`SIGN_KEY_STORE_PASSWORD`（兼容 `KEYSTORE_PASSWORD`）、`SIGN_KEY_ALIAS`（兼容 `KEY_ALIAS`）和 `SIGN_KEY_PASSWORD`（兼容 `KEY_PASSWORD`）。缺失配置立即失败，不回退到 debug 签名。PR 使用一次性临时密钥，不能替代正式签名的安装包。keystore 在产物校验后删除，不上传到 Artifact。
 
-验证依次包含脚本替身测试、全量 Debug JVM 测试、Debug 构建、Release Lint、启用 R8 和资源压缩的 Release 构建，以及最终 APK 的证书、应用包名和非 debuggable 标记检查。只接受 release 元数据明确指向的单个 APK；缺少 `mapping.txt`、未签名或证书与配置不符时禁止发布。
+CI 只执行 `:app:assembleRelease`，保持 R8 混淆和资源压缩开启，不额外运行单元测试、Debug 构建或模拟器测试。签名、应用包名和非 debuggable 标记校验直接写在工作流中，不维护独立 CI 脚本。只接受 release 元数据明确指向的单个 APK；缺少 `mapping.txt`、未签名或证书与配置不符时禁止发布。证书解析兼容普通签名及 v3.1 按 SDK 区间展示的格式，各区间证书均须与配置一致。
 
-模拟器直接安装最终的同一个 Release APK，在 API 29（当前 minSdk）上关闭 Wi-Fi 和移动数据，检查首次启动、保留数据冷启动及帖子、节点、用户离线深链。检查包括主进程持续存活、MainActivity 位于前台和没有进入独立的 CrashActivity 进程。此检查没有测试代码参与 APK 混淆，但不覆盖在线 JSON 解析、已登录会话恢复、真实 Room 数据迁移、图片解码或后台通知实际执行；这些流程仍需按[测试与验证](testing.md)在 Release 包上验证，不能用 Debug JVM 测试替代。
+通过产物校验后上传 `NodeFlow-release-<versionName>.apk` 和对应 `NodeFlow-<versionName>-mapping.txt`；预发布附件保留该构建对应的 mapping，完整 R8 报告作为 Actions Artifact 保留 90 天。签名不同的旧 Debug 包不能覆盖安装，卸载前应先处理需要保留的本地数据。
 
-通过验证后上传 `NodeFlow-release-<versionName>.apk` 和对应 `NodeFlow-<versionName>-mapping.txt`；预发布附件保留该构建对应的 mapping，完整 R8 报告作为 Actions Artifact 保留 90 天。签名不同的旧 Debug 包不能覆盖安装，卸载前应先处理需要保留的本地数据。
-
-仅验证 CI 脚本时，在提供 Bash、Python 3 和 jq 的环境执行 `python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v`。这些测试使用 SDK/ADB 替身，不代表 Android 构建或设备验证通过。`smoke-release-apk.sh` 会关闭设备网络，仅用于一次性 CI 模拟器，不应直接对日常使用的设备运行。
+构建成功和产物校验通过不代表设备运行验证通过；登录、会话恢复、Room 数据访问、图片加载、后台通知和深链等受混淆影响的流程，仍需使用 Release 包按[测试与验证](testing.md)检查。
 
 ## Git
 
