@@ -1,5 +1,7 @@
 package app.mystery0.nodeflow.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
@@ -103,6 +105,14 @@ fun MainShell(
             navController = navController,
             startDestination = NodeFlowDestinations.Home,
             modifier = Modifier.padding(rootNavHostPadding(paddingValues)),
+            // 一级 Tab 平级切换，不使用页面转场；预测性返回也需显式关闭，
+            // 避免从其他 Tab 返回首页时回退到 Navigation 默认的缩放动画。
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None },
+            predictivePopEnterTransition = { EnterTransition.None },
+            predictivePopExitTransition = { ExitTransition.None },
         ) {
             composable(NodeFlowDestinations.Home) {
                 val viewModel: HomeViewModel = koinViewModel()
