@@ -39,15 +39,15 @@ Release 验证使用 `.\gradlew.bat :app:assembleRelease`，需要本地签名�
 
 ## 主分支 CI 与 Release 发布
 
-`.github/workflows/android_master.yml` 在 main 推送、面向 main 的 PR 和手动运行时执行 Release 构建及产物校验。main 推送仍支持提交消息中的 `ci skip`；只有 main 上成功的非 PR 运行才创建 `pre-*` 预发布。手动运行其他分支只构建及校验产物，不发布。
+`.github/workflows/android_master.yml` 在 main 推送、面向 main 的 PR 和手动运行时执行 Release 构建。main 推送仍支持提交消息中的 `ci skip`；只有 main 上成功的非 PR 运行才创建 `pre-*` 预发布。手动运行其他分支只构建，不发布。
 
-非 PR 构建使用现有签名 Secrets：`KEYSTORE_BASE64`（兼容 `SIGN_KEY_STORE_BASE64`）、`SIGN_KEY_STORE_PASSWORD`（兼容 `KEYSTORE_PASSWORD`）、`SIGN_KEY_ALIAS`（兼容 `KEY_ALIAS`）和 `SIGN_KEY_PASSWORD`（兼容 `KEY_PASSWORD`）。缺失配置立即失败，不回退到 debug 签名。PR 使用一次性临时密钥，不能替代正式签名的安装包。keystore 在产物校验后删除，不上传到 Artifact。
+非 PR 构建使用现有签名 Secrets：`KEYSTORE_BASE64`（兼容 `SIGN_KEY_STORE_BASE64`）、`SIGN_KEY_STORE_PASSWORD`（兼容 `KEYSTORE_PASSWORD`）、`SIGN_KEY_ALIAS`（兼容 `KEY_ALIAS`）和 `SIGN_KEY_PASSWORD`（兼容 `KEY_PASSWORD`）。工作流只负责解码 keystore 并向 Gradle 传入签名配置，不额外预检密码、别名或证书。PR 使用一次性临时密钥，不能替代正式签名的安装包。keystore 在构建和产物收集后清理，不上传到 Artifact。
 
-CI 只执行 `:app:assembleRelease`，保持 R8 混淆和资源压缩开启，不额外运行单元测试、Debug 构建或模拟器测试。签名、应用包名和非 debuggable 标记校验直接写在工作流中，不维护独立 CI 脚本。只接受 release 元数据明确指向的单个 APK；缺少 `mapping.txt`、未签名或证书与配置不符时禁止发布。证书解析兼容普通签名及 v3.1 按 SDK 区间展示的格式，各区间证书均须与配置一致。
+CI 只执行 `:app:assembleRelease`，由 Gradle 完成正常签名，保持 R8 混淆和资源压缩开启，不额外运行单元测试、Debug 构建或模拟器测试。不维护独立 CI 脚本，也不增加 APK 证书摘要、签名数量、包名或 debuggable 标记校验。
 
-通过产物校验后上传 `NodeFlow-release-<versionName>.apk` 和对应 `NodeFlow-<versionName>-mapping.txt`；预发布附件保留该构建对应的 mapping，完整 R8 报告作为 Actions Artifact 保留 90 天。签名不同的旧 Debug 包不能覆盖安装，卸载前应先处理需要保留的本地数据。
+构建成功后，从 release 的 `output-metadata.json` 读取版本号及 APK 文件名，收集并上传 `NodeFlow-release-<versionName>.apk` 和对应 `NodeFlow-<versionName>-mapping.txt`；预发布附件保留该构建对应的 mapping，完整 R8 报告作为 Actions Artifact 保留 90 天。签名不同的旧 Debug 包不能覆盖安装，卸载前应先处理需要保留的本地数据。
 
-构建成功和产物校验通过不代表设备运行验证通过；登录、会话恢复、Room 数据访问、图片加载、后台通知和深链等受混淆影响的流程，仍需使用 Release 包按[测试与验证](testing.md)检查。
+构建成功不代表设备运行验证通过；登录、会话恢复、Room 数据访问、图片加载、后台通知和深链等受混淆影响的流程，仍需使用 Release 包按[测试与验证](testing.md)检查。
 
 ## Git
 
