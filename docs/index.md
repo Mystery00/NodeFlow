@@ -20,6 +20,10 @@
 - [UI、导航与状态管理](subsystems/ui-navigation.md)：Compose、Material 3、UDF/MVI、导航与深链。
 - [HTML、链接、图片与内容渲染](subsystems/content-rendering.md)：解析、富文本、应用内链接和图片预览。
 
+## 待评审设计
+
+- [图床适配模块与 Imgur 网页上传设计](plans/2026-09-24-image-hosting-adapters-design.md)：独立模块、可扩展适配器契约、V2EX 迁移、Imgur 匿名网页上传调研、草稿兼容与验收；尚未实施。
+
 ## 历史设计与计划
 
 - [`plans/`](plans/)：已确认的设计说明和对应实施计划。设计与计划统一放在同一目录，通过文件名中的 `-design` 区分。
