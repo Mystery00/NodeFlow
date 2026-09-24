@@ -19,10 +19,11 @@ jobs:
     if: github.event_name != 'push' || !contains(github.event.head_commit.message, 'ci skip')
     outputs:
       versionName: ${{ steps.apk.outputs.versionName }}
-    env:
-      SIGN_KEY_STORE_FILE: ${{ runner.temp }}/nodeflow-release.jks
 
     steps:
+      - name: Set signing path
+        run: printf 'SIGN_KEY_STORE_FILE=%s\n' "$RUNNER_TEMP/nodeflow-release.jks" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -92,7 +93,7 @@ jobs:
 
       - name: Cleanup keystore
         if: always()
-        run: rm -f "$SIGN_KEY_STORE_FILE"
+        run: rm -f "$RUNNER_TEMP/nodeflow-release.jks"
 
       - name: Enable KVM
         run: |
