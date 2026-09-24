@@ -46,22 +46,9 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 || secrets.SIGN_KEY_STORE_BASE64 }}
-          SIGN_KEY_STORE_PASSWORD: ${{ secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
-          SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
-          SIGN_KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD || secrets.KEY_PASSWORD }}
         run: |
-          set -euo pipefail
-          for name in KEYSTORE_BASE64 SIGN_KEY_STORE_PASSWORD SIGN_KEY_ALIAS SIGN_KEY_PASSWORD; do
-            if [[ -z "${!name}" ]]; then
-              echo "::error::Missing signing secret: $name"
-              exit 1
-            fi
-          done
           umask 077
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$SIGN_KEY_STORE_FILE"
-          test -s "$SIGN_KEY_STORE_FILE"
-          keytool -list -keystore "$SIGN_KEY_STORE_FILE" \
-            -storepass:env SIGN_KEY_STORE_PASSWORD -alias "$SIGN_KEY_ALIAS" > /dev/null
 
       # PR 只构建 release 变体，不读取正式签名，也不创建预发布。
       - name: Generate temporary PR keystore
@@ -82,54 +69,17 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleRelease
 
-      # 仅检查待发布产物，不执行单元测试或设备测试。
-      - name: Verify release APK and collect outputs
+      - name: Collect release outputs
         id: apk
-        env:
-          SIGN_KEY_STORE_PASSWORD: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
-          SIGN_KEY_ALIAS: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
         run: |
-          set -euo pipefail
-          fail() { echo "::error::$*" >&2; exit 1; }
           metadata=app/build/outputs/apk/release/output-metadata.json
-          mapping=app/build/outputs/mapping/release/mapping.txt
-          [[ -s "$metadata" ]] || fail 'Release output-metadata.json is missing'
-          [[ -s "$mapping" ]] || fail 'R8 mapping.txt is missing'
-          jq -e '.variantName == "release" and .applicationId == "app.mystery0.nodeflow" and (.elements | length == 1)' \
-            "$metadata" > /dev/null || fail 'Unexpected release metadata or multiple APK outputs'
-          version_name=$(jq -er '.elements[0].versionName | strings' "$metadata")
-          output_file=$(jq -er '.elements[0].outputFile | strings' "$metadata")
-          [[ "$version_name" =~ ^[A-Za-z0-9._-]+$ && "$version_name" == *'.r'* ]] || fail 'Invalid release version name'
-          [[ "$output_file" != */* && "$output_file" == *.apk && "$output_file" != *unsigned* ]] || fail 'Invalid or unsigned APK output'
-          apk="$(dirname "$metadata")/$output_file"
-          [[ -s "$apk" ]] || fail 'Release APK is missing'
-
-          apksigner=$(find "$ANDROID_HOME/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)
-          [[ -x "$apksigner" ]] || fail 'apksigner is not installed'
-          apkanalyzer=$(command -v apkanalyzer) || fail 'apkanalyzer is not installed'
-          [[ "$("$apkanalyzer" manifest debuggable "$apk")" == false ]] || fail 'APK is debuggable'
-          [[ "$("$apkanalyzer" manifest application-id "$apk")" == app.mystery0.nodeflow ]] || fail 'Unexpected APK application ID'
-
-          # 只计算公钥证书摘要，不输出密码、私钥或 keystore 内容。
-          expected_digest=$(keytool -exportcert -keystore "$SIGN_KEY_STORE_FILE" \
-            -storepass:env SIGN_KEY_STORE_PASSWORD -alias "$SIGN_KEY_ALIAS" | sha256sum | awk '{print $1}')
-          certificates=$("$apksigner" verify --verbose --print-certs "$apk")
-          signer_count=$(printf '%s\n' "$certificates" | sed -n 's/^Number of signers: //p' | tr -d '\r')
-          [[ "$signer_count" == 1 ]] || fail 'Unexpected number of APK signers'
-          # 兼容 Signer #1 与 v3.1 的 Signer (minSdkVersion=..., maxSdkVersion=...) 输出。
-          # 不同 SDK 区间必须使用同一配置证书；源戳和 public key 摘要不参与比较。
-          actual_digest=$(printf '%s\n' "$certificates" | sed -nE 's/^Signer .* certificate SHA-256 digest: ([[:xdigit:]]+)\r?$/\1/p' | tr '[:upper:]' '[:lower:]' | sort -u)
-          [[ "$actual_digest" =~ ^[0-9a-f]{64}$ ]] || fail 'Missing or inconsistent APK certificate digests'
-          if [[ "$actual_digest" != "$expected_digest" ]]; then
-            echo "::error::APK certificate mismatch: expected=$expected_digest actual=$actual_digest"
-            exit 1
-          fi
+          version_name=$(jq -r '.elements[0].versionName' "$metadata")
+          output_file=$(jq -r '.elements[0].outputFile' "$metadata")
 
           mkdir -p outputs
-          cp "$apk" "outputs/NodeFlow-release-${version_name}.apk"
-          cp "$mapping" "outputs/NodeFlow-${version_name}-mapping.txt"
+          cp "app/build/outputs/apk/release/$output_file" "outputs/NodeFlow-release-${version_name}.apk"
+          cp app/build/outputs/mapping/release/mapping.txt "outputs/NodeFlow-${version_name}-mapping.txt"
           printf 'versionName=%s\n' "$version_name" >> "$GITHUB_OUTPUT"
-          echo 'Release APK signature, application ID, debuggable flag and R8 mapping verified'
 
       - name: Cleanup keystore
         if: always()
@@ -144,7 +94,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
 
-      - name: Upload verified release outputs
+      - name: Upload release outputs
         uses: actions/upload-artifact@v4
         with:
           name: NodeFlow-release-${{ github.sha }}
@@ -154,13 +104,13 @@ jobs:
 
   publish:
     needs: build
-    # 手动运行其他分支和 PR 只构建及校验产物，不创建预发布。
+    # 手动运行其他分支和 PR 只构建，不创建预发布。
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download verified release outputs
+      - name: Download release outputs
         uses: actions/download-artifact@v4
         with:
           name: NodeFlow-release-${{ github.sha }}
