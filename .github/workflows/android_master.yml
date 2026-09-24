@@ -4,16 +4,26 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'ci skip')"
-    permissions:
-      contents: write
+    timeout-minutes: 45
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, 'ci skip')
+    outputs:
+      versionName: ${{ steps.apk.outputs.versionName }}
 
     steps:
+      - name: Set signing path
+        run: printf 'SIGN_KEY_STORE_FILE=%s\n' "$RUNNER_TEMP/nodeflow-release.jks" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -26,49 +36,148 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
 
-      - name: Decode Keystore
+      - name: Decode release keystore
+        if: github.event_name != 'pull_request'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 || secrets.SIGN_KEY_STORE_BASE64 }}
-        run: |
-          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/key.jks"
-
-      - name: Build with Gradle
-        env:
-          SIGN_KEY_STORE_FILE: ${{ runner.temp }}/key.jks
           SIGN_KEY_STORE_PASSWORD: ${{ secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
           SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
           SIGN_KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD || secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew assembleDebug
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 SIGN_KEY_STORE_PASSWORD SIGN_KEY_ALIAS SIGN_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing signing secret: $name"
+              exit 1
+            fi
+          done
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$SIGN_KEY_STORE_FILE"
+          test -s "$SIGN_KEY_STORE_FILE"
+          keytool -list -keystore "$SIGN_KEY_STORE_FILE" \
+            -storepass:env SIGN_KEY_STORE_PASSWORD -alias "$SIGN_KEY_ALIAS" > /dev/null
 
-      - name: Parse build files
-        id: apk
+      # PR 只构建 release 变体，不读取正式签名，也不创建预发布。
+      - name: Generate temporary PR keystore
+        if: github.event_name == 'pull_request'
         run: |
-          METADATA_FILE=$(find app/build -name "output-metadata.json" | grep "debug" | head -n 1)
-          APK_FILE=$(find app/build -name "*debug*.apk" | head -n 1)
-          if [ -z "$METADATA_FILE" ] || [ -z "$APK_FILE" ]; then
-            echo "Failed to locate debug APK or output-metadata.json" >&2
+          umask 077
+          keytool -genkeypair -noprompt -keystore "$SIGN_KEY_STORE_FILE" \
+            -storetype PKCS12 -storepass nodeflow-ci -keypass nodeflow-ci \
+            -alias nodeflow-ci -keyalg RSA -keysize 2048 -validity 2 \
+            -dname 'CN=NodeFlow CI Test Only'
+
+      - name: Build release APK
+        env:
+          SIGN_KEY_STORE_PASSWORD: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          SIGN_KEY_ALIAS: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
+          SIGN_KEY_PASSWORD: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_PASSWORD || secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleRelease
+
+      # 仅检查待发布产物，不执行单元测试或设备测试。
+      - name: Verify release APK and collect outputs
+        id: apk
+        env:
+          SIGN_KEY_STORE_PASSWORD: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          SIGN_KEY_ALIAS: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*" >&2; exit 1; }
+          metadata=app/build/outputs/apk/release/output-metadata.json
+          mapping=app/build/outputs/mapping/release/mapping.txt
+          [[ -s "$metadata" ]] || fail 'Release output-metadata.json is missing'
+          [[ -s "$mapping" ]] || fail 'R8 mapping.txt is missing'
+          jq -e '.variantName == "release" and .applicationId == "app.mystery0.nodeflow" and (.elements | length == 1)' \
+            "$metadata" > /dev/null || fail 'Unexpected release metadata or multiple APK outputs'
+          version_name=$(jq -er '.elements[0].versionName | strings' "$metadata")
+          output_file=$(jq -er '.elements[0].outputFile | strings' "$metadata")
+          [[ "$version_name" =~ ^[A-Za-z0-9._-]+$ && "$version_name" == *'.r'* ]] || fail 'Invalid release version name'
+          [[ "$output_file" != */* && "$output_file" == *.apk && "$output_file" != *unsigned* ]] || fail 'Invalid or unsigned APK output'
+          apk="$(dirname "$metadata")/$output_file"
+          [[ -s "$apk" ]] || fail 'Release APK is missing'
+
+          apksigner=$(find "$ANDROID_HOME/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)
+          [[ -x "$apksigner" ]] || fail 'apksigner is not installed'
+          apkanalyzer=$(command -v apkanalyzer) || fail 'apkanalyzer is not installed'
+          [[ "$("$apkanalyzer" manifest debuggable "$apk")" == false ]] || fail 'APK is debuggable'
+          [[ "$("$apkanalyzer" manifest application-id "$apk")" == app.mystery0.nodeflow ]] || fail 'Unexpected APK application ID'
+
+          # 只计算公钥证书摘要，不输出密码、私钥或 keystore 内容。
+          expected_digest=$(keytool -exportcert -keystore "$SIGN_KEY_STORE_FILE" \
+            -storepass:env SIGN_KEY_STORE_PASSWORD -alias "$SIGN_KEY_ALIAS" | sha256sum | awk '{print $1}')
+          certificates=$("$apksigner" verify --verbose --print-certs "$apk")
+          signer_count=$(printf '%s\n' "$certificates" | sed -n 's/^Number of signers: //p' | tr -d '\r')
+          [[ "$signer_count" == 1 ]] || fail 'Unexpected number of APK signers'
+          # 兼容 Signer #1 与 v3.1 的 Signer (minSdkVersion=..., maxSdkVersion=...) 输出。
+          # 不同 SDK 区间必须使用同一配置证书；源戳和 public key 摘要不参与比较。
+          actual_digest=$(printf '%s\n' "$certificates" | sed -nE 's/^Signer .* certificate SHA-256 digest: ([[:xdigit:]]+)\r?$/\1/p' | tr '[:upper:]' '[:lower:]' | sort -u)
+          [[ "$actual_digest" =~ ^[0-9a-f]{64}$ ]] || fail 'Missing or inconsistent APK certificate digests'
+          if [[ "$actual_digest" != "$expected_digest" ]]; then
+            echo "::error::APK certificate mismatch: expected=$expected_digest actual=$actual_digest"
             exit 1
           fi
 
-          versionName=$(jq -r '.elements[0].versionName' "$METADATA_FILE")
+          mkdir -p outputs
+          cp "$apk" "outputs/NodeFlow-release-${version_name}.apk"
+          cp "$mapping" "outputs/NodeFlow-${version_name}-mapping.txt"
+          printf 'versionName=%s\n' "$version_name" >> "$GITHUB_OUTPUT"
+          echo 'Release APK signature, application ID, debuggable flag and R8 mapping verified'
 
-          cp "$APK_FILE" "NodeFlow-debug-${versionName}.apk"
-          echo "versionName=$versionName" >> $GITHUB_OUTPUT
+      - name: Cleanup keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/nodeflow-release.jks"
 
-      - name: Release
+      - name: Upload R8 reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NodeFlow-r8-${{ github.sha }}
+          path: app/build/outputs/mapping/release/
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Upload verified release outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: NodeFlow-release-${{ github.sha }}
+          path: outputs/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: build
+    # 手动运行其他分支和 PR 只构建及校验产物，不创建预发布。
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified release outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: NodeFlow-release-${{ github.sha }}
+          path: outputs
+
+      - name: Publish prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: pre-${{ steps.apk.outputs.versionName }}
-          name: NodeFlow Pre-release ${{ steps.apk.outputs.versionName }}
+          tag_name: pre-${{ needs.build.outputs.versionName }}
+          target_commitish: ${{ github.sha }}
+          name: NodeFlow Pre-release ${{ needs.build.outputs.versionName }}
           prerelease: true
+          fail_on_unmatched_files: true
           body: |
             注意：该版本为测试版本，可能存在一些问题，不建议日常使用。
-          files: NodeFlow-debug-${{ steps.apk.outputs.versionName }}.apk
-
-      - name: Cleanup Keystore
-        if: always()
-        run: rm -f "$RUNNER_TEMP/key.jks"
+            此 APK 使用正式密钥签名，已启用 release 混淆和资源压缩。
+            原 debug 包签名不同，不能直接覆盖安装；卸载旧包前请注意本地数据会被清除。
+          files: |
+            outputs/NodeFlow-release-*.apk
+            outputs/NodeFlow-*-mapping.txt
