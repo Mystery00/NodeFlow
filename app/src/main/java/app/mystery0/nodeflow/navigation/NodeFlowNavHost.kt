@@ -27,6 +27,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.link.V2exLink
 import app.mystery0.nodeflow.core.model.AppSettings
+import app.mystery0.nodeflow.imagehosting.contract.RecoveryAction
 import app.mystery0.nodeflow.feature.auth.AuthScreen
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
 import app.mystery0.nodeflow.feature.favorites.FavoriteTopicsScreen
@@ -163,8 +164,12 @@ fun NodeFlowNavHost(
                         ReplyEditorEffect.RequestLogin ->
                             navController.navigate(NodeFlowDestinations.Auth)
 
-                        ReplyEditorEffect.OpenGallery ->
-                            uriHandler.openUri("https://www.v2ex.com/i")
+                        is ReplyEditorEffect.OpenGallery -> when (val action = effect.recoveryAction) {
+                            is RecoveryAction.OpenHostPage -> uriHandler.openUri(action.url)
+                            RecoveryAction.None,
+                            RecoveryAction.SignInToHost,
+                            -> uriHandler.openUri("https://www.v2ex.com/i")
+                        }
 
                         is ReplyEditorEffect.ReplyCreated -> {
                             Toast.makeText(context, R.string.reply_created, Toast.LENGTH_SHORT)

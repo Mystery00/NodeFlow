@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "NodeFlow"
 include(":app")
+include(":image-hosting")

@@ -46,10 +46,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import app.mystery0.nodeflow.BuildConfig
+import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.model.ThemeMode
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
 
@@ -153,6 +155,38 @@ fun SettingsScreen(
                     },
                     onDismiss = { showAddImageHostDialog = false },
                 )
+            }
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_reply_image_host)) },
+                supportingContent = {
+                    val selected = state.imageHostDescriptors.firstOrNull {
+                        it.id.value == state.settings.replyImageHost
+                    }
+                    if (selected == null) {
+                        Text(stringResource(R.string.settings_image_host_unknown))
+                    } else if (!selected.enabled) {
+                        Text(stringResource(R.string.settings_image_host_disabled_manual))
+                    } else {
+                        Text(selected.displayName)
+                    }
+                },
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                state.imageHostDescriptors.forEach { descriptor ->
+                    FilterChip(
+                        selected = state.settings.replyImageHost == descriptor.id.value,
+                        onClick = {
+                            onEvent(SettingsUiEvent.ReplyImageHostChanged(descriptor.id.value))
+                        },
+                        label = { Text(descriptor.displayName) },
+                    )
+                }
             }
             HorizontalDivider()
             ListItem(

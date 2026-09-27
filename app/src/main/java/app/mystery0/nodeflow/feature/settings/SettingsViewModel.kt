@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.core.notification.NotificationScheduler
+import app.mystery0.nodeflow.imagehosting.registry.ImageHostRegistry
 import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagSyncedAtUseCase
 import app.mystery0.nodeflow.domain.membertag.RefreshMemberTagsUseCase
 import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
@@ -24,8 +25,11 @@ class SettingsViewModel(
     private val clearCache: ClearCacheUseCase,
     private val refreshMemberTags: RefreshMemberTagsUseCase,
     private val applicationContext: Context,
+    private val imageHostRegistry: ImageHostRegistry,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(imageHostDescriptors = imageHostRegistry.descriptors()),
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
@@ -48,6 +52,9 @@ class SettingsViewModel(
             }
             is SettingsUiEvent.DynamicColorChanged -> viewModelScope.launch {
                 updateSettings.setDynamicColor(event.enabled)
+            }
+            is SettingsUiEvent.ReplyImageHostChanged -> viewModelScope.launch {
+                updateSettings.setReplyImageHost(event.hostId)
             }
             is SettingsUiEvent.AddCustomImageHost -> viewModelScope.launch {
                 when (val result = addCustomImageHost(

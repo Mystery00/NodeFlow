@@ -12,6 +12,8 @@ import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.SettingsRepository
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
+import app.mystery0.nodeflow.imagehosting.contract.*
+import app.mystery0.nodeflow.imagehosting.registry.DefaultImageHostRegistry
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +42,31 @@ class SettingsViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun uiState_exposesRegistryDescriptorsWithoutProviderSpecificBranches() = runTest(testDispatcher) {
+        val descriptor = ImageHostDescriptor(
+            id = ImageHostId("custom"),
+            displayName = "Custom host",
+            capabilities = ImageHostCapabilities(emptySet(), 0),
+            enabled = false,
+        )
+        val viewModel = createViewModel(
+            imageHostRegistry = DefaultImageHostRegistry(listOf(object : ImageHostAdapter {
+                override val descriptor = descriptor
+                override suspend fun upload(image: UploadImage): UploadResult = UploadResult.Failure(
+                    UploadFailure(
+                        descriptor.id,
+                        FailureCategory.InteractionRequired,
+                        RequestStage.Preparation,
+                        ResultCertainty.NotSubmitted,
+                    ),
+                )
+            })),
+        )
+
+        assertThat(viewModel.uiState.value.imageHostDescriptors).containsExactly(descriptor)
     }
 
     @Test
@@ -83,7 +110,10 @@ class SettingsViewModelTest {
         assertThat(viewModel.uiState.value.message).isEqualTo("缓存已清除")
     }
 
-    private fun createViewModel(clearCacheError: Throwable? = null): SettingsViewModel {
+    private fun createViewModel(
+        clearCacheError: Throwable? = null,
+        imageHostRegistry: DefaultImageHostRegistry = DefaultImageHostRegistry(emptyList()),
+    ): SettingsViewModel {
         val settingsRepository = FakeSettingsRepository(clearCacheError)
         val memberTagRepository = FakeMemberTagRepository()
         return SettingsViewModel(
@@ -93,6 +123,7 @@ class SettingsViewModelTest {
             clearCache = ClearCacheUseCase(settingsRepository),
             refreshMemberTags = RefreshMemberTagsUseCase(memberTagRepository),
             applicationContext = ContextWrapper(null),
+            imageHostRegistry = imageHostRegistry,
         )
     }
 
@@ -108,6 +139,8 @@ class SettingsViewModelTest {
         override suspend fun setPinnedHomeNode(node: PinnedHomeNode?) = Unit
 
         override suspend fun setCustomImageHosts(hosts: List<String>) = Unit
+
+        override suspend fun setReplyImageHost(hostId: String) = Unit
 
         override suspend fun setShowMemberTags(enabled: Boolean) = Unit
 

@@ -25,7 +25,7 @@ import app.mystery0.nodeflow.domain.user.UserRepository
 import app.mystery0.nodeflow.data.reply.ImageUploadRepositoryImpl
 import app.mystery0.nodeflow.data.reply.ReplyDraftRepositoryImpl
 import app.mystery0.nodeflow.data.reply.ReplyRepositoryImpl
-import app.mystery0.nodeflow.data.reply.V2exImageRemoteDataSource
+import app.mystery0.nodeflow.data.reply.V2exImageUploadDataSource
 import app.mystery0.nodeflow.domain.reply.ImageUploadRepository
 import app.mystery0.nodeflow.domain.reply.ReplyDraftRepository
 import app.mystery0.nodeflow.domain.reply.ReplyRepository
@@ -89,8 +89,11 @@ val repositoryModule = module {
     single<ReplyRepository> { ReplyRepositoryImpl(get(), get(named(IO_DISPATCHER))) }
     single<ReplyDraftRepository> { ReplyDraftRepositoryImpl(get(), get(named(IO_DISPATCHER))) }
     single<ImageUploadRepository> {
-        val remote = get<V2exImageRemoteDataSource>()
-        ImageUploadRepositoryImpl(get(), remote::upload, get(named(IO_DISPATCHER)))
+        ImageUploadRepositoryImpl(
+            get<app.mystery0.nodeflow.data.reply.ImageContentReader>(),
+            get<app.mystery0.nodeflow.imagehosting.registry.ImageHostRegistry>(),
+            get(named(IO_DISPATCHER)),
+        )
     }
     single<ImageShareRepository> {
         ImageShareRepositoryImpl(

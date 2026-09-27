@@ -43,6 +43,7 @@ sealed interface ImageUploadResult {
     data class Failure(
         val reason: ImageUploadFailureReason,
         val message: String,
+        val recoveryAction: app.mystery0.nodeflow.imagehosting.contract.RecoveryAction = app.mystery0.nodeflow.imagehosting.contract.RecoveryAction.None,
     ) : ImageUploadResult
 }
 
@@ -56,4 +57,5 @@ enum class ImageUploadFailureReason {
     UploadUnconfirmed,
     Network,
     Server,
+    HostUnavailable,
 }

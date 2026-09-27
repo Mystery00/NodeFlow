@@ -22,6 +22,10 @@ class UpdateSettingsUseCase(
         repository.setCustomImageHosts(hosts)
     }
 
+    suspend fun setReplyImageHost(hostId: String) {
+        repository.setReplyImageHost(hostId)
+    }
+
     suspend fun setShowMemberTags(enabled: Boolean) {
         repository.setShowMemberTags(enabled)
     }

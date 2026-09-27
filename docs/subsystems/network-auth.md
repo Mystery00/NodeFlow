@@ -8,6 +8,8 @@ NodeFlow 同时使用 V2EX 公开 JSON API、HTML 页面和需要登录态的网
 - 请求声明位于网络 API，调用和响应处理位于 RemoteDataSource。
 - Feature、ViewModel 和 Compose UI 不直接拼接或执行请求。
 - User-Agent、Referer、Origin 和 Cookie 会影响响应，不得随意修改。
+- 回复图片上传复用既有 V2EX 认证客户端，通过 `V2exImageTransport` 交给独立 `V2exImageHostAdapter`；上传页、登录页、挑战页和非预期响应先分类，发送后结果不确定时不自动重传。
+- Imgur 当前结论为 `native-http-supported`：应用注册独立 HTTP descriptor/client，从上传页或同源脚本动态读取公开 client_id，使用独立 CookieJar 完成匿名 album/multipart 流程；不记录或硬编码 client_id，不共享 V2EX Cookie。验证码、协议变化、非 2xx 或无安全直链转为交互/协议失败并可打开 `https://imgur.com/upload`。
 
 ## 页面分类与错误处理
 

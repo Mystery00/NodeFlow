@@ -27,7 +27,8 @@ DataStore 保存普通用户设置。Cookie、Personal Access Token 和用户名
 
 新增普通设置字段应明确默认值、升级兼容、清理方式和是否允许系统备份。Cookie 的具体约束参见[网络、访问控制与登录](network-auth.md)。
 
-- 自定义图床域名列表存于 `custom_image_hosts`（换行分隔字符串），经 `AppSettings.customImageHosts` 暴露。
+- 自定义图床域名列表存于 `custom_image_hosts`（换行分隔字符串），经 `AppSettings.customImageHosts` 暴露；它只控制内容图片匹配，不等同于回复上传 provider。
+- 回复图片上传 provider 存于 `reply_image_host`，缺失时默认为 `v2ex`；设置层保存稳定 ID，未知 ID 保留并在选择器提示重新选择，不静默回退。新图片草稿 ID 使用 `<hostId>:<remoteId>` 命名空间，旧的无冒号值按 V2EX 兼容读取。
 - Polish 用户标签缓存存于 `polish_member_tags`（用户名→标签列表的 JSON）与
   `polish_member_tags_synced_at`（秒级时间戳），由 `MemberTagStore` 管理；
   展示开关存于 `polish_member_tags_enabled`，经 `AppSettings.showMemberTags` 暴露。

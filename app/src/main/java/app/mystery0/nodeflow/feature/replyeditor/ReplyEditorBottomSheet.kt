@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -105,6 +106,20 @@ fun ReplyEditorBottomSheet(
                             Icon(Icons.Outlined.Close, contentDescription = "关闭回复编辑器")
                         }
                     }
+                    if (state.imageHostDescriptors.isNotEmpty()) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(state.imageHostDescriptors, key = { it.id.value }) { descriptor ->
+                                FilterChip(
+                                    selected = state.currentImageHostId == descriptor.id.value,
+                                    enabled = !state.isUploading && !state.isSubmitting,
+                                    onClick = {
+                                        onEvent(ReplyEditorUiEvent.ProviderSelected(descriptor.id.value))
+                                    },
+                                    label = { Text(descriptor.displayName) },
+                                )
+                            }
+                        }
+                    }
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -150,7 +165,7 @@ fun ReplyEditorBottomSheet(
                     ) {
                         IconButton(
                             enabled = !state.isUploading && !state.isSubmitting,
-                            onClick = { if (state.isLoggedIn) onPickImage() else onLoginClick() },
+                            onClick = onPickImage,
                         ) {
                             Icon(Icons.Outlined.AddPhotoAlternate, contentDescription = "插入图片")
                         }
@@ -185,7 +200,7 @@ fun ReplyEditorBottomSheet(
         AlertDialog(
             onDismissRequest = { onEvent(ReplyEditorUiEvent.ClearCancelled) },
             title = { Text("清空草稿？") },
-            text = { Text("只会清除本地草稿，不会删除已上传到 V2EX 图库的图片。") },
+            text = { Text("只会清除本地草稿，不会删除已上传到图床的图片。") },
             confirmButton = {
                 Button(onClick = { onEvent(ReplyEditorUiEvent.ClearConfirmed) }) { Text("清空") }
             },

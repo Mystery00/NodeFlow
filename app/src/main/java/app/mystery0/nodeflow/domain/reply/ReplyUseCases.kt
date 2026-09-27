@@ -10,7 +10,10 @@ class CreateReplyUseCase(private val repository: ReplyRepository) {
 }
 
 class UploadImageUseCase(private val repository: ImageUploadRepository) {
-    suspend operator fun invoke(contentUri: String) = repository.upload(contentUri)
+    suspend operator fun invoke(
+        hostId: app.mystery0.nodeflow.imagehosting.contract.ImageHostId,
+        contentUri: String,
+    ) = repository.upload(hostId, contentUri)
 }
 
 class LoadReplyDraftUseCase(private val repository: ReplyDraftRepository) {

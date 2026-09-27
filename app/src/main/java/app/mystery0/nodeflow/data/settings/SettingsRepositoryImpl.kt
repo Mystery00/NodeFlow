@@ -34,6 +34,10 @@ class SettingsRepositoryImpl(
         settingsStore.setCustomImageHosts(hosts)
     }
 
+    override suspend fun setReplyImageHost(hostId: String) {
+        settingsStore.setReplyImageHost(hostId)
+    }
+
     override suspend fun setShowMemberTags(enabled: Boolean) {
         settingsStore.setShowMemberTags(enabled)
     }

@@ -2,7 +2,7 @@
 
 日期：2026-09-24  
 状态：待评审；仅调研与设计，未实施。  
-代码基线：`71f6cf83dd8e111a509c74a1bacecd8159f76b3d`。
+评审基线：`c11a8c1`（当前 HEAD；工作区无未提交改动）。实施前若基线变化，应以实际代码重新核对本设计。
 
 ## 1. 需求与设计边界
 
@@ -138,6 +138,37 @@ interface ImageHostRegistry {
 
 首版采用不确定进度加载状态，不设计虚假的上传百分比。后续确需进度时通过独立事件契约扩充，不把某家图床的轮询对象返回给编辑器。
 
+### 5.1.1 模块桥接边界
+
+`:image-hosting` 只暴露本节公共契约及适配器所需的窄传输接口，不引用 `app.*`、Retrofit、Koin、Android SDK、Room 或 Compose。V2EX 适配器的传输边界固定为以下语义接口，由 app 使用现有 `V2exWriteApi` 实现桥接；模块不得接收整个 `V2exWriteApi`：
+
+```kotlin
+interface V2exImageTransport {
+    suspend fun getUploadPage(): V2exHttpResponse
+    suspend fun uploadImage(
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray,
+        referer: String,
+    ): V2exHttpResponse
+}
+
+data class V2exHttpResponse(
+    val finalUrl: String,
+    val statusCode: Int,
+    val body: String,
+)
+
+interface V2exPageAccessClassifier {
+    fun classifyUploadPage(finalUrl: String, body: String): V2exUploadPageAccess
+    fun classifyUploadResponse(finalUrl: String, body: String): V2exUploadResponseAccess
+}
+```
+
+`V2exPageAccessClassifier` 的返回值只表达图片上传需要的页面状态（可用、要求登录、访问挑战、不可识别），不泄漏 app 的领域错误类型。模块负责 V2EX 图片响应解析、可信来源校验和错误映射；app 负责把现有认证客户端响应转换为 `V2exHttpResponse`，并保证响应体及时关闭。实施计划必须为上述接口和桥接编写契约测试。
+
+草稿兼容 codec 也属于 app 层而非公共图床模块：没有冒号的旧 `imageId` 一律解释为 V2EX remote ID；新值使用 `<hostId>:<remoteId>`，只按第一个冒号分隔并拒绝空 host/remote。保存前统一规范化，加载旧记录时不批量改写数据库；同一 topic 下以规范化 ID 去重。若通用结果没有展示页 URL，app 将直链作为现有非空 `detailUrl` 的兼容值，不能根据 ID 推导 URL。
+
 ### 5.2 注册与扩展
 
 app 作为 composition root，通过 Koin 构造各适配器并向 registry 注入列表；模块内部不绑定 Koin。注册时校验 ID 唯一，重复 ID 直接报配置错误。查找缺失 ID 返回可识别的 `HostUnavailable`，不默默改传到另一家。
@@ -163,11 +194,11 @@ app 作为 composition root，通过 Koin 构造各适配器并向 registry 注�
 
 模块不能引用现有 `V2exWriteApi`、`V2exHtmlParser` 或领域结果类型。实施时：
 
-1. 在模块中定义窄的图片网页请求接口或直接使用注入的 OkHttp 客户端，图片请求端点定义在适配器内，其他回复/感谢接口留在 app。
-2. 提取 `parseImageUploadPage` 和 `parseImageUploadResponse` 所需的图片专用解析逻辑及测试到模块，删除旧图片专用重复实现。
-3. 共用的 V2EX 登录/挑战页识别暂通过窄的 `V2exPageAccessClassifier` 接口注入，由 app 桥接已有分类器；模块中不复制整套分类规则，也不向公共图床契约泄漏 V2EX 语义。
-4. app 注入现有 V2EX 写客户端及其会话依赖，模块只能使用传入的 V2EX 客户端，不能自行寻找全局登录态。
-5. 旧 `V2exImageRemoteDataSource` 在调用方完成迁移后删除，不长期保留两条上传链路。
+1. 在模块中实现 `V2exImageTransport` 和 `V2exPageAccessClassifier` 所需的图片上传协议边界；端点和图片解析属于 V2EX 适配器，其他回复/感谢接口留在 app。
+2. 将 `parseImageUploadPage`、`parseImageUploadResponse` 所需的图片专用解析逻辑及测试迁入模块；app 只保留桥接现有认证客户端的代码，删除旧图片专用重复实现。
+3. 共用的 V2EX 登录/挑战页识别通过已定义的窄 `V2exPageAccessClassifier` 注入，由 app 桥接已有分类器；模块中不复制整套规则，也不向公共图床契约泄漏 V2EX 语义。
+4. app 仅向桥接实现注入现有 V2EX 写客户端及其会话依赖；模块不能自行寻找全局登录态，也不能接受整个 `V2exWriteApi`。
+5. 旧 `V2exImageRemoteDataSource` 在调用方完成迁移和回归测试后删除，不长期保留两条上传链路。
 
 避免把整个 HTML Parser、认证、会话数据库或网络层一起搬入模块。测试先锁定旧行为，再迁移，确保模块化本身不改变用户上传体验。
 
@@ -224,7 +255,7 @@ app 作为 composition root，通过 Koin 构造各适配器并向 registry 注�
 
 点击插图前显示当前图床。选择 Imgur 时明确告知图片发送到该第三方、链接可访问、清草稿不会删除图片。选图取消不创建任务。
 
-app 上传 Repository 固定本次 hostId，查询能力，使用 `AndroidImageContentReader` 有界读取并校验，然后调用 adapter。模块再次校验输入，防止其他调用者绕过限制。MIME、文件签名和返回类型校验分别承担输入与输出责任，不仅相信扩展名。
+app 上传 Repository 固定本次 hostId，查询能力，使用 `AndroidImageContentReader` 有界读取并校验，然后调用 adapter。模块再次校验输入，防止其他调用者绕过限制。MIME、文件签名和返回类型校验分别承担输入与输出责任，不仅相信扩展名。图床选择和图片上传不再先验要求 V2EX 登录：V2EX 适配器返回 `AuthenticationRequired` 时才触发现有 V2EX 登录；Imgur 匿名适配器不因 `currentUsername == null` 被 ViewModel 拦截，但回复发布本身仍保持现有 V2EX 登录要求。
 
 首版应用上限为 6 MiB；适配器可以更小。PNG/JPEG/GIF/WebP 取应用支持集合与适配器已验证集合的交集。没有验证通过的格式不列入该图床可用能力。不会悄悄将动图转成静态图；返回 GIFV/视频但没有可用图片直链时保留可取得的公开链接供用户查看，报告图片插入未完成，不自动再次上传。
 
@@ -272,10 +303,11 @@ app 上传 Repository 固定本次 hostId，查询能力，使用 `AndroidImageC
 - app 以 V2EX adapter 接回原流程，先证明迁移前后行为一致。
 - 测试 registry 重复/未知 ID、能力校验、取消传播、登录/额度/验证页、来源检查和不自动重放。
 
-### 阶段 B：Imgur 网页验证与实现
+### 阶段 B：Imgur 网页协议调查与条件实现
 
-- 完成第 7.4 节的实际协议调查，再填写端点、编码、会话与响应 parser。
-- 用脱敏 fixture 和 MockWebServer 覆盖准备→上传→完成，禁止测试访问真实网站。
+- 先完成第 7.4 节的实际协议调查，并单独记录到 `docs/investigations/2026-09-24-imgur-web-upload.md`；在调查证据形成前，不创建声称可用的 Imgur 自动上传实现。
+- 只有当原生 HTTP 能在目标网页流程中稳定复现且成功响应包含可验证图片直链时，才继续填写端点、编码、会话和响应 parser，并用脱敏 fixture 与 MockWebServer 覆盖准备→上传→完成。
+- 若协议依赖不可复现的脚本交互、验证页或登录墙，则实现明确的 `InteractionRequired`/禁用状态和手动网页回退，停止自动上传实现；不得猜测 endpoint、注册官方 API 或将展示页 URL 当图片直链。
 - 验证不会向 Imgur 发送 V2EX Cookie，也不会向任意重定向目标发送图片。
 - 对结构变化返回 `ProtocolChanged`；发送后的不确定响应不得当作安全失败自动重试。
 
@@ -292,7 +324,7 @@ app 上传 Repository 固定本次 hostId，查询能力，使用 `AndroidImageC
 
 设备验收覆盖：V2EX 原流程、Imgur 匿名网页方式、JPEG/PNG/GIF/WebP 实际输出、V2EX 发帖后的图片展示、上传/图片各自域名可达性、网络断开、取消、旋转、退出页面、进程恢复及暗色模式/无障碍文案。
 
-本次仅文档，执行 diff、相对链接、命名与一致性检查，不运行 Android 构建。后续实施完成后再更新长期的架构、网络、存储和 Agent 模块说明，不在现行说明中提前宣称项目已经多模块化。
+本次仅文档，执行 diff、相对链接、命名与一致性检查，不运行 Android 构建。后续实施完成后再更新长期的架构、网络、存储和 Agent 模块说明，不在现行说明中提前宣称项目已经多模块化。实施计划必须把 `ImageUploadRepositoryImpl` 的 `catch (Throwable)` 改为先透传 `CancellationException` 再映射其他读取错误，并为清空草稿、关闭页面和过期回调补充并发回归测试。
 
 ## 11. 设计状态与上线条件
 

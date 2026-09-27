@@ -21,7 +21,12 @@ import app.mystery0.nodeflow.data.reply.AndroidImageContentReader
 import app.mystery0.nodeflow.data.reply.ImageContentReader
 import app.mystery0.nodeflow.data.reply.ReplyDraftLocalDataSource
 import app.mystery0.nodeflow.data.reply.ReplyRemoteDataSource
-import app.mystery0.nodeflow.data.reply.V2exImageRemoteDataSource
+import app.mystery0.nodeflow.data.reply.V2exImageTransportImpl
+import app.mystery0.nodeflow.imagehosting.imgur.ImgurHttpImageHostAdapter
+import app.mystery0.nodeflow.imagehosting.v2ex.V2exImageHostAdapter
+import app.mystery0.nodeflow.imagehosting.v2ex.V2exImageTransport
+import app.mystery0.nodeflow.imagehosting.registry.ImageHostRegistry
+import app.mystery0.nodeflow.imagehosting.registry.DefaultImageHostRegistry
 import app.mystery0.nodeflow.data.topic.DefaultImageDownloader
 import app.mystery0.nodeflow.data.topic.ImageDownloader
 import org.koin.android.ext.koin.androidContext
@@ -88,7 +93,14 @@ val dataSourceModule = module {
     }
 
     single { ReplyRemoteDataSource(get(), get()) }
-    single { V2exImageRemoteDataSource(get(), get()) }
+    single<V2exImageTransport> { V2exImageTransportImpl(get()) }
+    single { V2exImageHostAdapter(get()) }
+    single { ImgurHttpImageHostAdapter() }
+    single<ImageHostRegistry> {
+        DefaultImageHostRegistry(
+            listOf(get<V2exImageHostAdapter>(), get<ImgurHttpImageHostAdapter>()),
+        )
+    }
     single { ReplyDraftLocalDataSource(get()) }
     single<ImageContentReader> { AndroidImageContentReader(androidContext().contentResolver) }
     single<ImageDownloader> { DefaultImageDownloader(androidContext()) }

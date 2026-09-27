@@ -33,6 +33,7 @@ class SettingsStore(
                     )
                 },
             customImageHosts = decodeCustomImageHosts(preferences[Keys.customImageHosts]),
+            replyImageHost = preferences[Keys.replyImageHost] ?: "v2ex",
             showMemberTags = preferences[Keys.showMemberTags] ?: true,
             notificationReminder = preferences[Keys.notificationReminder] ?: false,
         )
@@ -67,6 +68,12 @@ class SettingsStore(
         }
     }
 
+    suspend fun setReplyImageHost(hostId: String) {
+        context.nodeFlowDataStore.edit { preferences ->
+            preferences[Keys.replyImageHost] = hostId
+        }
+    }
+
     suspend fun setShowMemberTags(enabled: Boolean) {
         context.nodeFlowDataStore.edit { preferences ->
             preferences[Keys.showMemberTags] = enabled
@@ -96,6 +103,7 @@ class SettingsStore(
         val pinnedHomeNodeTitle = stringPreferencesKey("pinned_home_node_title")
         val pinnedHomeNodeAvatarUrl = stringPreferencesKey("pinned_home_node_avatar_url")
         val customImageHosts = stringPreferencesKey("custom_image_hosts")
+        val replyImageHost = stringPreferencesKey("reply_image_host")
         val showMemberTags = booleanPreferencesKey("polish_member_tags_enabled")
         val notificationReminder = booleanPreferencesKey("notification_reminder")
     }

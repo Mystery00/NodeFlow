@@ -87,6 +87,7 @@ ksp {
 }
 
 dependencies {
+    implementation(project(":image-hosting"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(platform(libs.koin.bom))
     implementation(libs.androidx.activity.compose)

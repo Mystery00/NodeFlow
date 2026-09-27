@@ -11,6 +11,7 @@ data class AppSettings(
     val dynamicColor: Boolean = true,
     val pinnedHomeNode: PinnedHomeNode? = null,
     val customImageHosts: List<String> = emptyList(),
+    val replyImageHost: String = "v2ex",
     val showMemberTags: Boolean = true,
     val notificationReminder: Boolean = false,
 )

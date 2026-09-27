@@ -11,6 +11,9 @@ import app.mystery0.nodeflow.feature.notification.NotificationViewModel
 import app.mystery0.nodeflow.feature.profile.ProfileViewModel
 import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorViewModel
 import app.mystery0.nodeflow.feature.settings.SettingsViewModel
+import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
+import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
+import app.mystery0.nodeflow.imagehosting.registry.ImageHostRegistry
 import app.mystery0.nodeflow.feature.topicdetail.TopicDetailViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -45,7 +48,7 @@ val featureModule = module {
     }
 
     viewModel {
-        SettingsViewModel(get(), get(), get(), get(), get(), androidContext())
+        SettingsViewModel(get(), get(), get(), get(), get(), androidContext(), get<ImageHostRegistry>())
     }
 
     viewModel {
@@ -61,6 +64,9 @@ val featureModule = module {
     }
 
     viewModel {
-        ReplyEditorViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get())
+        ReplyEditorViewModel(
+            get(), get(), get(), get(), get(), get(), get(), get(), get(),
+            get<ObserveSettingsUseCase>(), get<UpdateSettingsUseCase>(), get<ImageHostRegistry>(),
+        )
     }
 }

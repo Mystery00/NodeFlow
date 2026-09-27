@@ -41,4 +41,11 @@
     <string name="rich_open_image_link">打开图片原链接</string>
     <string name="rich_nested_table_unsupported">暂不支持嵌套表格</string>
     <string name="rich_table_video_unsupported">表格内视频请在浏览器中打开</string>
+    <string name="settings_reply_image_host">回复图片上传图床</string>
+    <string name="settings_reply_image_host_description">选择回复图片的上传服务</string>
+    <string name="settings_image_host_v2ex">V2EX（自动上传）</string>
+    <string name="settings_image_host_imgur">Imgur（匿名网页流程）</string>
+    <string name="settings_image_host_imgur_disabled">验证码或协议变化时请在网页中完成上传</string>
+    <string name="settings_image_host_disabled_manual">当前图床不支持自动上传，请在其网页中手动上传</string>
+    <string name="settings_image_host_unknown">未知图床，请重新选择</string>
 </resources>

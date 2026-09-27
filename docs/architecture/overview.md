@@ -41,10 +41,15 @@ Compose Screen
 - `domain.*`：Repository 接口和 UseCase。
 - `feature.*`：Screen、UiState、UiEvent 和 ViewModel。
 - `navigation`：目的地、根导航和主页面 Shell。
+- `image-hosting`：独立 Kotlin/JVM 图床契约、descriptor 注册表和 V2EX/Imgur 适配器；app 通过窄传输桥接访问 V2EX 会话，Imgur 当前仅提供交互式禁用适配器。
 
 ## 依赖注入
 
 统一使用 Koin。新增依赖应注册到职责对应的 `NodeFlowModules.kt`、`DataSourceModule.kt`、`RepositoryModule.kt`、`DomainModule.kt`、`FeatureModule.kt` 或 core module。新增抽象前先确认它具有明确边界或复用价值。
+
+## 图床上传边界
+
+回复编辑器只依赖 `ImageHostId`、`ImageHostDescriptor` 和结构化上传结果，不按 provider 编写协议分支。应用从设置读取稳定 host ID，通过 `ImageHostRegistry` 发现 descriptor，并将图片上传结果映射为带命名空间的草稿图片 ID。`:image-hosting` 不依赖 Android、Compose、Koin 或 app 包。
 
 ## 技术栈
 

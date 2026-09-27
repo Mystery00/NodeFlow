@@ -12,6 +12,7 @@
 - [测试与验证](development/testing.md)：单元测试范围、命令和真机验证要求。
 - [文档规范](development/documentation.md)：目录分类、命名、维护和新文档落位规则。
 - [GPT-6 Astra 指令与工作流审计](investigations/2026-09-12-agent-instructions-audit.md)：官方依据、问题清单、修改范围及验证限制。
+- [Imgur 匿名网页上传协议调查](investigations/2026-09-24-imgur-web-upload.md)：脱敏网页流程证据、原生 HTTP 实现边界和交互回退结论。
 
 ## 子系统
 
@@ -22,7 +23,11 @@
 
 ## 待评审设计
 
-- [图床适配模块与 Imgur 网页上传设计](plans/2026-09-24-image-hosting-adapters-design.md)：独立模块、可扩展适配器契约、V2EX 迁移、Imgur 匿名网页上传调研、草稿兼容与验收；尚未实施。
+- [图床适配模块与 Imgur 网页上传设计](plans/2026-09-24-image-hosting-adapters-design.md)：独立模块、可扩展适配器契约、V2EX 迁移、Imgur 匿名网页上传调研、草稿兼容与验收；核心适配器、设置与回复编辑器接入已实施，Task 8 文档与回归验收按当前源码维护。
+
+## 当前已实施的图床能力
+
+`:image-hosting` 提供稳定契约和 registry；V2EX 支持一次性上传，Imgur 使用独立 HTTP 会话完成匿名网页流程，遇验证码或协议变化通过手动网页回退。回复草稿兼容旧 V2EX 图片 ID，并为新上传图片保存 provider 命名空间。详细边界见[网络与认证](subsystems/network-auth.md)、[存储](subsystems/storage.md)和[UI 与导航](subsystems/ui-navigation.md)。
 
 ## 历史设计与计划
 
