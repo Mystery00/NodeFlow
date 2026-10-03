@@ -13,12 +13,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.mystery0.nodeflow.imagehosting.contract.ImageHostCapabilities
+import app.mystery0.nodeflow.imagehosting.contract.ImageHostDescriptor
+import app.mystery0.nodeflow.imagehosting.contract.ImageHostId
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
 import org.junit.Rule
@@ -39,6 +46,40 @@ class ReplyEditorBottomSheetTest {
             composeRule.activity.window,
             composeRule.activity.window.decorView,
         ).isAppearanceLightNavigationBars = false
+    }
+
+    @Test
+    fun openSheet_hidesHostSelectionButKeepsImagePicker() {
+        var pickCount = 0
+        composeRule.setContent {
+            MaterialTheme {
+                ReplyEditorBottomSheet(
+                    state = ReplyEditorUiState(
+                        isOpen = true,
+                        currentImageHostId = "imgur",
+                        imageHostDescriptors = listOf(
+                            ImageHostDescriptor(
+                                ImageHostId("v2ex"), "V2EX",
+                                ImageHostCapabilities(emptySet(), 0), true,
+                            ),
+                            ImageHostDescriptor(
+                                ImageHostId("imgur"), "Imgur",
+                                ImageHostCapabilities(emptySet(), 0), true,
+                            ),
+                        ),
+                    ),
+                    onEvent = {},
+                    onPickImage = { pickCount++ },
+                    onLoginClick = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("创建回复").assertIsDisplayed()
+        composeRule.onNodeWithText("V2EX").assertDoesNotExist()
+        composeRule.onNodeWithText("Imgur").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("插入图片").performClick()
+        composeRule.runOnIdle { assertThat(pickCount).isEqualTo(1) }
     }
 
     @Test
