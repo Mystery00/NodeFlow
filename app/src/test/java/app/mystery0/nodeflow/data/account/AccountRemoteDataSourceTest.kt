@@ -4,6 +4,10 @@ import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
+import app.mystery0.nodeflow.core.model.AuthSession
+import app.mystery0.nodeflow.data.notification.UnreadNotificationStore
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
@@ -38,10 +42,12 @@ class AccountRemoteDataSourceTest {
                 </table>
             """.trimIndent(),
         )
-        val dataSource = AccountRemoteDataSource(api, parser)
+        val store = UnreadNotificationStore(
+            MutableStateFlow(AuthSession(username = "reader", cookieHeader = "test")), backgroundScope,
+        )
+        val overview = AccountRemoteDataSource(api, parser, store).overview()
 
-        val overview = dataSource.overview()
-
+        assertThat(store.unreadCount.first()).isEqualTo(5)
         assertThat(overview.unreadNotificationCount).isEqualTo(5)
         assertThat(overview.checkIn?.checkedIn).isTrue()
         assertThat(overview.checkIn?.continuousDays).isEqualTo(9)
@@ -299,7 +305,7 @@ class AccountRemoteDataSourceTest {
             referer: String,
         ): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun home(): Response<ResponseBody> = htmlResponse(homeHtml)
+        override suspend fun home(): Response<ResponseBody> = htmlResponse(homeHtml, "https://www.v2ex.com/")
 
         override suspend fun dailyMission(): Response<ResponseBody> = htmlResponse(dailyHtml, dailyFinalUrl)
 

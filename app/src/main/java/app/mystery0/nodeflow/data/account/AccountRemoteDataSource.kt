@@ -7,17 +7,31 @@ import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.data.notification.UnreadNotificationStore
 import kotlinx.coroutines.CancellationException
 
 class AccountRemoteDataSource(
     private val api: V2exRawApi,
     private val parser: V2exHtmlParser,
+    private val unreadStore: UnreadNotificationStore? = null,
 ) {
     suspend fun overview(): AccountOverview = safeNetworkCall {
-        val homeHtml = runCatching { api.home().bodyStringOrThrow() }.getOrNull()
+        val unreadRequest = unreadStore?.beginRequest()
+        val homeResponse = runCatching { api.home() }.getOrNull()
+        val homeHtml = runCatching { homeResponse?.bodyStringOrThrow() }.getOrNull()
+        val unreadNotificationCount = homeHtml?.let { parser.parseUnreadNotificationCount(it) }
+        if (homeResponse != null && homeHtml != null) {
+            val raw = homeResponse.raw()
+            val url = raw.request.url
+            if (url.scheme == "https" && url.host == "www.v2ex.com" && url.port == 443 &&
+                url.encodedPath == "/" && (raw.cacheResponse == null || raw.networkResponse != null) &&
+                !parser.hasSignInEntry(homeHtml) && !parser.hasAccessChallenge(homeHtml)
+            ) {
+                unreadStore?.update(unreadRequest, unreadNotificationCount)
+            }
+        }
         val dailyHtml = runCatching { api.dailyMission().bodyStringOrThrow() }.getOrNull()
         val balanceHtml = runCatching { api.balance().bodyStringOrThrow() }.getOrNull()
-        val unreadNotificationCount = homeHtml?.let(parser::parseUnreadNotificationCount)
         val homeIsAnonymous = homeHtml != null &&
             unreadNotificationCount == null &&
             parser.parseLoginAccount(homeHtml) == null

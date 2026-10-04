@@ -8,6 +8,7 @@ import app.mystery0.nodeflow.domain.account.CheckInUseCase
 import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.auth.AuthRepository
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
+import app.mystery0.nodeflow.domain.notification.ObserveUnreadNotificationCountUseCase
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ class AccountViewModel(
     private val getAccountOverview: GetAccountOverviewUseCase,
     private val checkIn: CheckInUseCase,
     private val authRepository: AuthRepository,
+    observeUnreadCount: ObserveUnreadNotificationCountUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AccountUiState())
     val uiState: StateFlow<AccountUiState> = _uiState.asStateFlow()
@@ -31,6 +33,11 @@ class AccountViewModel(
     private var checkInJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            observeUnreadCount().collect { count ->
+                _uiState.update { it.copy(unreadNotificationCount = count) }
+            }
+        }
         viewModelScope.launch {
             observeAuthSession().collectLatest { session ->
                 _uiState.update {
@@ -67,11 +74,6 @@ class AccountViewModel(
                 authRepository.clearSession()
             }
             AccountUiEvent.CheckIn -> startCheckIn()
-            AccountUiEvent.NotificationsOpened -> _uiState.update { current ->
-                current.copy(
-                    overview = current.overview?.copy(unreadNotificationCount = 0),
-                )
-            }
             AccountUiEvent.ToastShown -> _uiState.update { it.copy(toastMessage = null) }
         }
     }

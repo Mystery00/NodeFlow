@@ -5,6 +5,9 @@ import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import app.mystery0.nodeflow.core.model.AuthSession
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
@@ -14,6 +17,18 @@ import org.junit.Test
 import retrofit2.Response
 
 class NotificationRemoteDataSourceTest {
+    @Test
+    fun successfulNotificationLoadClearsUnreadButFailedLoadPreservesIt() = runTest {
+        val store = UnreadNotificationStore(MutableStateFlow(AuthSession(username = "reader", cookieHeader = "test")), backgroundScope)
+        store.update(store.beginRequest(), 7)
+        val failedSource = NotificationRemoteDataSource(FakeV2exRawApi("<html>bad</html>"), V2exHtmlParser(), store)
+        assertThat(runCatching { failedSource.notifications(1) }.isFailure).isTrue()
+        assertThat(store.unreadCount.first()).isEqualTo(7)
+        val source = NotificationRemoteDataSource(FakeV2exRawApi(notificationHtml()), V2exHtmlParser(), store)
+        source.notifications(1)
+        assertThat(store.unreadCount.first()).isEqualTo(0)
+    }
+
     @Test
     fun notifications_parsesExpectedPage() = runTest {
         val api = FakeV2exRawApi(notificationHtml())

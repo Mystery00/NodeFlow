@@ -101,7 +101,7 @@ class NavigationRouteTest {
     @Test
     fun messageBottomBarBadgeText_returnsNullWhenLoggedOut() {
         val state = AccountUiState(
-            overview = AccountOverview(unreadNotificationCount = 8),
+            unreadNotificationCount = 8,
         )
 
         assertThat(messageBottomBarBadgeText(state)).isNull()
@@ -128,7 +128,7 @@ class NavigationRouteTest {
     fun messageBottomBarBadgeText_returnsNullForZeroUnreadCount() {
         val state = AccountUiState(
             session = loggedInSession(),
-            overview = AccountOverview(unreadNotificationCount = 0),
+            unreadNotificationCount = 0,
         )
 
         assertThat(messageBottomBarBadgeText(state)).isNull()
@@ -138,7 +138,7 @@ class NavigationRouteTest {
     fun messageBottomBarBadgeText_returnsUnreadCount() {
         val state = AccountUiState(
             session = loggedInSession(),
-            overview = AccountOverview(unreadNotificationCount = 8),
+            unreadNotificationCount = 8,
         )
 
         assertThat(messageBottomBarBadgeText(state)).isEqualTo("8")
@@ -148,7 +148,7 @@ class NavigationRouteTest {
     fun messageBottomBarBadgeText_capsLargeUnreadCount() {
         val state = AccountUiState(
             session = loggedInSession(),
-            overview = AccountOverview(unreadNotificationCount = 100),
+            unreadNotificationCount = 100,
         )
 
         assertThat(messageBottomBarBadgeText(state)).isEqualTo("99+")

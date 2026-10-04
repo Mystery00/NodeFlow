@@ -13,6 +13,7 @@ import app.mystery0.nodeflow.core.network.accessibleHtmlOrThrow
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.data.notification.UnreadNotificationStore
 import app.mystery0.nodeflow.data.common.V2exReplyDto
 import app.mystery0.nodeflow.data.common.V2exTopicDto
 import app.mystery0.nodeflow.data.common.toReply
@@ -26,6 +27,7 @@ class TopicRemoteDataSource(
     private val json: Json,
     private val parser: V2exHtmlParser,
     private val thankApi: V2exThankApi? = null,
+    private val unreadStore: UnreadNotificationStore? = null,
 ) {
     suspend fun favoriteTopics(page: Int): FavoriteTopicsPage = safeNetworkCall {
         val response = api.favoriteTopicsHtml(page)
@@ -75,12 +77,20 @@ class TopicRemoteDataSource(
         page: Int,
         floorOffset: Int,
     ): V2exHtmlParser.ParsedTopicHtml? = safeNetworkCall {
-        parser.parseTopicHtml(
-            topicId = topicId,
-            html = api.topicHtml(topicId, page = page.takeIf { it > 1 })
-                .accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic),
-            floorOffset = floorOffset,
-        )
+        val unreadRequest = unreadStore?.beginRequest()
+        val response = api.topicHtml(topicId, page = page.takeIf { it > 1 })
+        val html = response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic)
+        val parsed = parser.parseTopicHtml(topicId, html, floorOffset = floorOffset)
+        val url = response.raw().request.url
+        val isFreshResponse = response.raw().cacheResponse == null || response.raw().networkResponse != null
+        if (parsed != null && isFreshResponse &&
+            url.scheme == "https" && url.host == "www.v2ex.com" && url.port == 443 &&
+            url.encodedPath == "/t/$topicId" &&
+            !parser.hasSignInEntry(html) && !parser.hasAccessChallenge(html)
+        ) {
+            unreadStore?.update(unreadRequest, parser.parseUnreadNotificationCount(html, allowImplicitZero = false))
+        }
+        parsed
     }
 
     suspend fun jsonTopicDetailFallback(topicId: Long): TopicDetail = safeNetworkCall {
@@ -94,11 +104,7 @@ class TopicRemoteDataSource(
             .mapIndexed { index, dto -> dto.toReply(topicIdFallback = topicId, floor = index + 1) }
             .withReferencePreviews()
         val supplemental = runCatching {
-            parser.parseTopicHtml(
-                topicId = topicId,
-                html = api.topicHtml(topicId)
-                    .accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic),
-            )
+            topicDetailPage(topicId, page = 1, floorOffset = 0)
         }.getOrElse { error ->
             if (error is CancellationException || error.isAccessDenied()) throw error
             null

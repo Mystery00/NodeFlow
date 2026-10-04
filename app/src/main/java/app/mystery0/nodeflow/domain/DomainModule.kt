@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.domain
 
+import app.mystery0.nodeflow.domain.notification.ObserveUnreadNotificationCountUseCase
 import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.account.CheckInUseCase
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
@@ -36,6 +37,7 @@ import app.mystery0.nodeflow.domain.reply.UploadImageUseCase
 import org.koin.dsl.module
 
 val domainModule = module {
+    factory { ObserveUnreadNotificationCountUseCase(get()) }
     factory { GetFavoriteTopicsPagingUseCase(get()) }
 
     factory {

@@ -52,7 +52,7 @@ val featureModule = module {
     }
 
     viewModel {
-        AccountViewModel(get(), get(), get(), get(), get())
+        AccountViewModel(get(), get(), get(), get(), get(), get())
     }
 
     viewModel {

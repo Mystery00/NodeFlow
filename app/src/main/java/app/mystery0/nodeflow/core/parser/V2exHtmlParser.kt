@@ -246,16 +246,26 @@ class V2exHtmlParser {
         )
     }
 
-    fun parseUnreadNotificationCount(html: String): Int? {
+    fun parseUnreadNotificationCount(html: String, allowImplicitZero: Boolean = true): Int? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
-        val unreadText = document.select("input.super.special.button[value], input[value*=未读], input[value*=unread]")
-            .firstOrNull()
-            ?.attr("value")
-            ?.takeIf { it.isNotBlank() }
-        val unreadCount = unreadText?.firstInt()
-        if (unreadCount != null) return unreadCount
-        val loggedIn = document.select("a[href^=/signout]").isNotEmpty()
-        return if (loggedIn) 0 else null
+        // 页面正文允许用户插入链接，不能把正文中的通知链接当成账号状态。
+        document.select(".topic_content, .reply_content, .payload").remove()
+        val countPattern = Regex(
+            """^(\d[\d,]*)\s*(?:条未读(?:提醒|消息)|unread(?:\s+(?:notifications?|messages?))?)$""",
+            RegexOption.IGNORE_CASE,
+        )
+        val count = document.select("a[href], input[value]").firstNotNullOfOrNull { element ->
+            val isNotificationLink = element.tagName() == "a" &&
+                element.absUrl("href").substringBefore('?').substringBefore('#') == "$V2EX_BASE_URL/notifications"
+            val isNotificationButton = element.tagName() == "input" &&
+                (element.hasClass("super") && element.hasClass("special") ||
+                    element.attr("onclick").contains("/notifications"))
+            if (!isNotificationLink && !isNotificationButton) return@firstNotNullOfOrNull null
+            val text = if (element.tagName() == "input") element.attr("value") else element.text()
+            countPattern.matchEntire(text.trim())?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+        }
+        // 首页移动模板在没有未读时省略按钮；帖子页必须看到显式数量才更新。
+        return count ?: if (allowImplicitZero && document.select("a[href^=/signout]").isNotEmpty()) 0 else null
     }
 
     fun hasSignInEntry(html: String): Boolean {

@@ -8,6 +8,7 @@ data class AccountUiState(
     val session: AuthSession = AuthSession(),
     val user: User? = null,
     val overview: AccountOverview? = null,
+    val unreadNotificationCount: Int? = null,
     val isLoading: Boolean = false,
     val isCheckingIn: Boolean = false,
     val toastMessage: String? = null,

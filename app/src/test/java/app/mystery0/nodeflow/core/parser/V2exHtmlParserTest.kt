@@ -4,6 +4,22 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 class V2exHtmlParserTest {
+    @Test
+    fun unreadCount_readsDesktopNotificationLinkAndExplicitZero() {
+        val parser = V2exHtmlParser()
+        assertThat(parser.parseUnreadNotificationCount("<div id='Right'><a href='/notifications'>12 条未读提醒</a></div>")).isEqualTo(12)
+        assertThat(parser.parseUnreadNotificationCount("<a href='https://www.v2ex.com/notifications'>0 unread notifications</a>")).isEqualTo(0)
+    }
+
+    @Test
+    fun unreadCount_doesNotTreatMissingEntryOrContentAsZeroOrUnreadCount() {
+        val parser = V2exHtmlParser()
+        assertThat(parser.parseUnreadNotificationCount(allowImplicitZero = false, html = "<a href='/signout'>退出</a>")).isNull()
+        assertThat(parser.parseUnreadNotificationCount(allowImplicitZero = false, html = "<input class='super special button' value='领取 20 铜币'>")).isNull()
+        assertThat(parser.parseUnreadNotificationCount(allowImplicitZero = false, html = "<div class='topic_content'><a href='/notifications'>99 条未读提醒</a></div>")).isNull()
+        assertThat(parser.parseUnreadNotificationCount(allowImplicitZero = false, html = "<a href='https://example.com/notifications'>99 条未读提醒</a>")).isNull()
+    }
+
     private val parser = V2exHtmlParser()
 
     @Test

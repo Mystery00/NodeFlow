@@ -1,5 +1,8 @@
 package app.mystery0.nodeflow.data
 
+import app.mystery0.nodeflow.core.datastore.SessionStore
+import app.mystery0.nodeflow.data.notification.UnreadNotificationStore
+import app.mystery0.nodeflow.domain.notification.UnreadNotificationRepository
 import app.mystery0.nodeflow.data.auth.WebAuthRemoteDataSource
 import app.mystery0.nodeflow.data.account.AccountRemoteDataSource
 import app.mystery0.nodeflow.data.node.NodeLocalDataSource
@@ -33,8 +36,11 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val dataSourceModule = module {
+    single { UnreadNotificationStore(get<SessionStore>().session) }
+    single<UnreadNotificationRepository> { get<UnreadNotificationStore>() }
+
     single {
-        TopicRemoteDataSource(get(), get(), get(), get())
+        TopicRemoteDataSource(get(), get(), get(), get(), get())
     }
 
     single {
@@ -62,11 +68,11 @@ val dataSourceModule = module {
     }
 
     single {
-        AccountRemoteDataSource(get(), get())
+        AccountRemoteDataSource(get(), get(), get())
     }
 
     single {
-        NotificationRemoteDataSource(get(), get())
+        NotificationRemoteDataSource(get(), get(), get())
     }
 
     single {

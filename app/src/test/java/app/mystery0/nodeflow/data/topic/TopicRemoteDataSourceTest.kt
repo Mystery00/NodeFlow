@@ -1,5 +1,8 @@
 package app.mystery0.nodeflow.data.topic
 
+import app.mystery0.nodeflow.core.model.AuthSession
+import app.mystery0.nodeflow.data.notification.UnreadNotificationStore
+import kotlinx.coroutines.flow.MutableStateFlow
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.network.V2EX_ACCESS_DENIED_MESSAGE
 import app.mystery0.nodeflow.core.network.V2exRawApi
@@ -7,6 +10,7 @@ import app.mystery0.nodeflow.core.network.V2exThankApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
@@ -23,6 +27,51 @@ import okhttp3.Response as OkHttpResponse
 class TopicRemoteDataSourceTest {
     private val parser = V2exHtmlParser()
     private val json = Json { ignoreUnknownKeys = true }
+
+    @Test
+    fun topicPage_updatesUnreadFromSameResponseWithoutAdditionalRequests() = runTest {
+        val store = UnreadNotificationStore(
+            MutableStateFlow(AuthSession(username = "reader", cookieHeader = "test")),
+            backgroundScope,
+        )
+        val api = FakeV2exRawApi(topicHtmlPages = mapOf(null to """
+            <div id='Right'><a href='/notifications'>6 条未读提醒</a></div>
+            <div class='header'><h1>主题</h1><a href='/member/author'>author</a></div>
+            <div class='topic_content'>正文</div>
+        """))
+        val source = TopicRemoteDataSource(api, json, parser, unreadStore = store)
+        assertThat(source.topicDetailPage(1000, 1, 0)).isNotNull()
+        assertThat(store.unreadCount.first()).isEqualTo(6)
+        assertThat(api.topicHtmlRequests).containsExactly(null)
+        assertThat(api.topicJsonCalls).isEqualTo(0)
+        assertThat(api.repliesJsonCalls).isEqualTo(0)
+    }
+
+    @Test
+    fun topicPage_doesNotOverwriteUnreadForUnknownCachedOrUntrustedPage() = runTest {
+        val store = UnreadNotificationStore(
+            MutableStateFlow(AuthSession(username = "reader", cookieHeader = "test")),
+            backgroundScope,
+        )
+        store.update(store.beginRequest(), 8)
+        val topic = "<div class='header'><h1>主题</h1></div><div class='topic_content'>正文</div>"
+        val count = "<a href='/notifications'>0 条未读提醒</a>"
+        val cases = listOf(
+            Triple(topic + "<a href='/signout'>退出</a>", "https://www.v2ex.com/t/1000", false),
+            Triple(topic + count, "https://example.com/t/1000", false),
+            Triple(topic + count, "https://www.v2ex.com/", false),
+            Triple(topic + count, "https://www.v2ex.com/t/1000", true),
+            Triple(count, "https://www.v2ex.com/t/1000", false),
+            Triple(topic + count, "https://www.v2ex.com/signin", false),
+        )
+        for ((html, url, cached) in cases) {
+            val api = FakeV2exRawApi(
+                topicHtmlPages = mapOf(null to html), topicHtmlFinalUrls = mapOf(null to url), cachedTopic = cached,
+            )
+            runCatching { TopicRemoteDataSource(api, json, parser, unreadStore = store).topicDetailPage(1000, 1, 0) }
+            assertThat(store.unreadCount.first()).isEqualTo(8)
+        }
+    }
 
     @Test
     fun latestTopics_readsHomeTopicsFromAllTabHtml() = runTest {
@@ -416,6 +465,7 @@ class TopicRemoteDataSourceTest {
         private val topicHtmlFinalUrls: Map<Int?, String> = emptyMap(),
         private val topicJson: String = "[]",
         private val repliesJson: String = "[]",
+        private val cachedTopic: Boolean = false,
     ) : V2exRawApi {
         var latestTopicsRequestCount: Int = 0
         var topicJsonCalls: Int = 0
@@ -473,7 +523,10 @@ class TopicRemoteDataSourceTest {
             return htmlResponse(
                 html = topicHtmlPages[page].orEmpty(),
                 finalUrl = topicHtmlFinalUrls[page] ?: defaultUrl,
-            )
+            ).let { response ->
+                if (cachedTopic) Response.success(response.body(), response.raw().newBuilder().cacheResponse(response.raw()).build())
+                else response
+            }
         }
 
         override suspend fun memberHtml(username: String): Response<ResponseBody> = htmlResponse("")
@@ -494,7 +547,7 @@ class TopicRemoteDataSourceTest {
             referer: String,
         ): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun home(): Response<ResponseBody> = htmlResponse("")
+        override suspend fun home(): Response<ResponseBody> = error("Unexpected home request")
 
         override suspend fun dailyMission(): Response<ResponseBody> = htmlResponse("")
 
@@ -502,7 +555,7 @@ class TopicRemoteDataSourceTest {
 
         override suspend fun balance(): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun notifications(page: Int): Response<ResponseBody> = htmlResponse("")
+        override suspend fun notifications(page: Int): Response<ResponseBody> = error("Unexpected notifications request")
 
         override suspend fun notesHtml(): Response<ResponseBody> = htmlResponse("")
 

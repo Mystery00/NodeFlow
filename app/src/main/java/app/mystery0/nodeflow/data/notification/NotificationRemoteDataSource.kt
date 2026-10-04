@@ -10,8 +10,10 @@ import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 class NotificationRemoteDataSource(
     private val api: V2exRawApi,
     private val parser: V2exHtmlParser,
+    private val unreadStore: UnreadNotificationStore? = null,
 ) {
     suspend fun notifications(page: Int): List<Notification> = safeNetworkCall {
+        val unreadRequest = unreadStore?.beginRequest()
         val response = api.notifications(page)
         val url = response.raw().request.url
         if (url.scheme == "https" && url.host == "www.v2ex.com") {
@@ -43,7 +45,12 @@ class NotificationRemoteDataSource(
                 message = "通知页面结构异常，请稍后重试",
             )
         }
-        parser.parseNotifications(html)
+        val notifications = parser.parseNotifications(html)
+        // 服务端在访问通知页时标记已读；失败、异常页面或缓存响应不清角标。
+        if (response.raw().cacheResponse == null || response.raw().networkResponse != null) {
+            unreadStore?.update(unreadRequest, parser.parseUnreadNotificationCount(html, allowImplicitZero = false) ?: 0)
+        }
+        notifications
     }
 
     private fun accessDenied() = NodeFlowException(

@@ -15,6 +15,8 @@ import app.mystery0.nodeflow.domain.account.CheckInUseCase
 import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.auth.AuthRepository
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
+import app.mystery0.nodeflow.domain.notification.ObserveUnreadNotificationCountUseCase
+import app.mystery0.nodeflow.domain.notification.UnreadNotificationRepository
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
 import app.mystery0.nodeflow.domain.user.UserRepository
 import com.google.common.truth.Truth.assertThat
@@ -60,6 +62,7 @@ class AccountViewModelTest {
             getAccountOverview = GetAccountOverviewUseCase(AuthExpiredOverviewRepository()),
             checkIn = CheckInUseCase(AuthExpiredOverviewRepository()),
             authRepository = authRepository,
+            observeUnreadCount = unreadUseCase(),
         )
 
         advanceUntilIdle()
@@ -71,24 +74,31 @@ class AccountViewModelTest {
     }
 
     @Test
-    fun notificationsOpened_clearsDisplayedUnreadBadge() = runTest(testDispatcher) {
-        val repository = SuccessfulOverviewRepository(unreadNotificationCount = 7)
-        val authRepository = FakeAuthRepository(
-            AuthSession(cookieHeader = "test-cookie", username = "currentUser"),
-        )
+    fun unreadUpdatesReachBadgeWithoutReloadingAccountOverview() = runTest(testDispatcher) {
+        val counts = MutableStateFlow<Int?>(7)
+        val repository = SuccessfulOverviewRepository(unreadNotificationCount = 99)
+        val authRepository = FakeAuthRepository(AuthSession(cookieHeader = "test-cookie", username = "currentUser"))
         val viewModel = AccountViewModel(
-            observeAuthSession = ObserveAuthSessionUseCase(authRepository),
-            getUserProfile = GetUserProfileUseCase(FakeUserRepository()),
-            getAccountOverview = GetAccountOverviewUseCase(repository),
-            checkIn = CheckInUseCase(repository),
-            authRepository = authRepository,
+            ObserveAuthSessionUseCase(authRepository), GetUserProfileUseCase(FakeUserRepository()),
+            GetAccountOverviewUseCase(repository), CheckInUseCase(repository), authRepository,
+            unreadUseCase(counts),
         )
         advanceUntilIdle()
-
-        viewModel.onEvent(AccountUiEvent.NotificationsOpened)
-
-        assertThat(viewModel.uiState.value.overview?.unreadNotificationCount).isEqualTo(0)
+        assertThat(viewModel.uiState.value.unreadNotificationCount).isEqualTo(7)
+        counts.value = 0
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.unreadNotificationCount).isEqualTo(0)
+        viewModel.onEvent(AccountUiEvent.Refresh)
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.unreadNotificationCount).isEqualTo(0)
     }
+
+    private fun unreadUseCase(counts: Flow<Int?> = MutableStateFlow(null)) =
+        ObserveUnreadNotificationCountUseCase(
+            object : UnreadNotificationRepository {
+                override val unreadCount = counts
+            },
+        )
 
     @Test
     fun checkIn_ignoresRepeatedClickAndPublishesRewardMessage() = runTest(testDispatcher) {
@@ -102,6 +112,7 @@ class AccountViewModelTest {
             getAccountOverview = GetAccountOverviewUseCase(repository),
             checkIn = CheckInUseCase(repository),
             authRepository = authRepository,
+            observeUnreadCount = unreadUseCase(),
         )
         advanceUntilIdle()
 
@@ -131,6 +142,7 @@ class AccountViewModelTest {
             getAccountOverview = GetAccountOverviewUseCase(repository),
             checkIn = CheckInUseCase(repository),
             authRepository = authRepository,
+            observeUnreadCount = unreadUseCase(),
         )
         advanceUntilIdle()
         viewModel.onEvent(AccountUiEvent.CheckIn)
@@ -153,6 +165,7 @@ class AccountViewModelTest {
             getAccountOverview = GetAccountOverviewUseCase(repository),
             checkIn = CheckInUseCase(repository),
             authRepository = authRepository,
+            observeUnreadCount = unreadUseCase(),
         )
         advanceUntilIdle()
 
@@ -209,6 +222,7 @@ class AccountViewModelTest {
         getAccountOverview = GetAccountOverviewUseCase(overviewRepository),
         checkIn = CheckInUseCase(overviewRepository),
         authRepository = authRepository,
+        observeUnreadCount = unreadUseCase(),
     )
 
     private class FakeAuthRepository(

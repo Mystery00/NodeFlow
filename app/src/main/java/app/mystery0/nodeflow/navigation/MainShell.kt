@@ -37,7 +37,6 @@ import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.feature.account.AccountScreen
-import app.mystery0.nodeflow.feature.account.AccountUiEvent
 import app.mystery0.nodeflow.feature.account.AccountUiState
 import app.mystery0.nodeflow.feature.account.AccountViewModel
 import app.mystery0.nodeflow.feature.home.HomeScreen
@@ -92,7 +91,6 @@ fun MainShell(
                     navController.navigateTopLevel(nodeBottomBarRoute())
                 },
                 onMessageClick = {
-                    accountViewModel.onEvent(AccountUiEvent.NotificationsOpened)
                     navController.navigateTopLevel(messageBottomBarRoute())
                 },
                 onAccountClick = {
@@ -288,7 +286,7 @@ fun isMessageBottomBarSelected(currentRoute: String?): Boolean =
 
 fun messageBottomBarBadgeText(state: AccountUiState): String? {
     if (!state.isLoggedIn) return null
-    val count = state.overview?.unreadNotificationCount
+    val count = state.unreadNotificationCount
     return when {
         count == null && state.isLoading -> null
         count == null -> "!"
