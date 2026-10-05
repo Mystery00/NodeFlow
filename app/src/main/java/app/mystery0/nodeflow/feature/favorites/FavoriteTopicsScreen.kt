@@ -66,7 +66,10 @@ fun FavoriteTopicsScreen(
                 },
                 actions = {
                     if (state.isLoggedIn) {
-                        IconButton(onClick = { onEvent(FavoriteTopicsUiEvent.Refresh) }) {
+                        IconButton(
+                            enabled = topics.loadState.refresh !is LoadState.Loading,
+                            onClick = { onEvent(FavoriteTopicsUiEvent.Refresh) },
+                        ) {
                             Icon(Icons.Outlined.Refresh, stringResource(R.string.favorites_refresh))
                         }
                     }

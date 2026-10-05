@@ -9,6 +9,7 @@ import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagsUseCase
 import app.mystery0.nodeflow.domain.membertag.UpdateMemberTagsForUserUseCase
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
 import app.mystery0.nodeflow.domain.user.GetUserRecentActivityUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,7 @@ class ProfileViewModel(
     observeMemberTags: ObserveMemberTagsUseCase,
     private val updateMemberTags: UpdateMemberTagsForUserUseCase,
 ) : ViewModel() {
+    private var loadJob: Job? = null
     private val username: String = checkNotNull(savedStateHandle["username"])
     private val _uiState = MutableStateFlow(ProfileUiState(username = username))
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
@@ -72,12 +74,21 @@ class ProfileViewModel(
     }
 
     private fun load(forceRefresh: Boolean) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = it.user == null, errorMessage = null, userNotFound = false) }
+        if (loadJob?.isActive == true) return
+        loadJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isLoading = it.user == null,
+                    isRefreshing = it.user != null,
+                    errorMessage = null,
+                    userNotFound = false,
+                )
+            }
             val userDeferred = async { getUserProfile(username, forceRefresh) }
             val activityDeferred = async { getUserRecentActivity(username) }
             val userResult = userDeferred.await()
-            val activity = activityDeferred.await().getOrNull()
+            val activityResult = activityDeferred.await()
+            val activity = activityResult.getOrNull()
             _uiState.update { current ->
                 val topics = activity?.topics ?: current.recentTopics
                 val replies = activity?.replies ?: current.recentReplies
@@ -85,16 +96,18 @@ class ProfileViewModel(
                     onSuccess = { user ->
                         current.copy(
                             isLoading = false,
+                            isRefreshing = false,
                             user = user,
                             recentTopics = topics,
                             recentReplies = replies,
-                            errorMessage = null,
+                            errorMessage = activityResult.exceptionOrNull()?.toUserMessage(),
                             userNotFound = false,
                         )
                     },
                     onFailure = { error ->
                         current.copy(
                             isLoading = false,
+                            isRefreshing = false,
                             recentTopics = topics,
                             recentReplies = replies,
                             errorMessage = error.toUserMessage(),

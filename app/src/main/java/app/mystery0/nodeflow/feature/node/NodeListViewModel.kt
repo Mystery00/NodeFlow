@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.core.common.toUserMessage
 import app.mystery0.nodeflow.domain.node.GetNodePlanesUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 class NodeListViewModel(
     private val getNodePlanes: GetNodePlanesUseCase,
 ) : ViewModel() {
+    private var loadJob: Job? = null
     private val _uiState = MutableStateFlow(NodeListUiState())
     val uiState: StateFlow<NodeListUiState> = _uiState.asStateFlow()
 
@@ -31,7 +33,8 @@ class NodeListViewModel(
     }
 
     private fun load(forceRefresh: Boolean) {
-        viewModelScope.launch {
+        if (loadJob?.isActive == true) return
+        loadJob = viewModelScope.launch {
             _uiState.update {
                 it.copy(
                     isLoading = it.planes.isEmpty(),

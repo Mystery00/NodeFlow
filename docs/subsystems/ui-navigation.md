@@ -9,6 +9,8 @@ Feature 层通常由 `XxxScreen.kt`、`XxxViewModel.kt`、`XxxUiState.kt` 和 `X
 - 加载、刷新、分页、空数据、成功、失败和受限访问应可明确区分。
 - 一次性导航或提示沿用现有事件模式，不作为永久状态反复消费。
 - 可测试的状态与布局计算不应隐藏在大型 Composable 中。
+- 已有内容时刷新保留内容，刷新期间禁用刷新按钮。“我的”、用户资料及列表页使用官方 Material 3 Expressive `PullToRefreshDefaults.LoadingIndicator`，横向刷新和分页进度使用 `LinearWavyProgressIndicator`；不再以自绘圆点或波浪模拟官方效果。相关 Material 3 预发布版本在版本目录中独立固定。
+- 已有内容时，“我的”、用户资料、首页、节点列表、节点详情和消息页的刷新失败通过带重试操作的 Snackbar 显示；收藏列表保留原有行内错误及重试。个人资料或概览部分请求失败也应提示并保留对应旧数据。主题详情的刷新进度和错误提示位于顶部栏下方，不被遮挡。
 
 ## Compose 与 Material 3
 

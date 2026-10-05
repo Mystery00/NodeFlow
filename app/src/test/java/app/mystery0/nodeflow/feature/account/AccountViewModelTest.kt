@@ -213,6 +213,39 @@ class AccountViewModelTest {
         assertThat(viewModel.uiState.value.isCheckingIn).isFalse()
     }
 
+    @Test
+    fun refreshPreservesOverviewAndReportsPartialFailureWithoutRestartingRequest() = runTest(testDispatcher) {
+        val release = CompletableDeferred<Unit>()
+        var requests = 0
+        val overview = AccountOverview(checkIn = DailyCheckIn(checkedIn = true))
+        val repository = object : AccountOverviewRepository {
+            override suspend fun overview(): Result<AccountOverview> {
+                requests++
+                if (requests == 1) return Result.success(overview)
+                release.await()
+                return Result.failure(NodeFlowException(NodeFlowException.Kind.Network, "刷新失败"))
+            }
+            override suspend fun checkIn(): Result<DailyCheckInResult> = error("不应签到")
+        }
+        val auth = FakeAuthRepository(AuthSession(username = "tester", cookieHeader = "test-cookie"))
+        val vm = createViewModel(auth, repository)
+        advanceUntilIdle()
+        vm.onEvent(AccountUiEvent.Refresh)
+        testDispatcher.scheduler.runCurrent()
+        vm.onEvent(AccountUiEvent.Refresh)
+        testDispatcher.scheduler.runCurrent()
+        val requestsWhileRefreshing = requests
+        val refreshingState = vm.uiState.value
+        release.complete(Unit)
+        advanceUntilIdle()
+        assertThat(requestsWhileRefreshing).isEqualTo(2)
+        assertThat(refreshingState.isLoading).isTrue()
+        assertThat(refreshingState.user?.username).isEqualTo("tester")
+        assertThat(vm.uiState.value.isLoading).isFalse()
+        assertThat(vm.uiState.value.overview).isEqualTo(overview)
+        assertThat(vm.uiState.value.errorMessage).isNotEmpty()
+    }
+
     private fun createViewModel(
         authRepository: AuthRepository,
         overviewRepository: AccountOverviewRepository,

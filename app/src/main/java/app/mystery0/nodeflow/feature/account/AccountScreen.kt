@@ -28,6 +28,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,6 +50,8 @@ import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.designsystem.component.EmptyContent
 import app.mystery0.nodeflow.core.designsystem.component.ErrorContent
 import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
+import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
+import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,14 +74,18 @@ fun AccountScreen(
             onEvent(AccountUiEvent.ToastShown)
         }
     }
+    val refreshErrorHost = rememberRefreshErrorSnackbar(
+        state.errorMessage.takeIf { state.isLoggedIn && state.user != null },
+    ) { onEvent(AccountUiEvent.Retry) }
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(refreshErrorHost) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.account_title)) },
                 actions = {
                     if (state.isLoggedIn) {
-                        IconButton(onClick = { onEvent(AccountUiEvent.Refresh) }) {
+                        IconButton(enabled = !state.isLoading, onClick = { onEvent(AccountUiEvent.Refresh) }) {
                             Icon(Icons.Outlined.Refresh, stringResource(R.string.favorites_refresh))
                         }
                     }
@@ -86,46 +93,53 @@ fun AccountScreen(
             )
         },
     ) { padding ->
-        if (state.isLoggedIn && state.user != null) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-            ) {
-                AccountProfileHeader(user = state.user)
-                state.overview?.let { overview ->
-                    AccountOverviewCard(
-                        overview = overview,
-                        isCheckingIn = state.isCheckingIn,
-                        onCheckInClick = { onEvent(AccountUiEvent.CheckIn) },
-                    )
-                }
-                AccountMenu(true, onFavoriteTopicsClick, onSettingsClick)
-                OutlinedButton(
-                    onClick = { showLogoutConfirmation = true },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        Box(Modifier.fillMaxSize()) {
+            if (state.isLoggedIn && state.user != null) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(padding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    Text(stringResource(R.string.account_logout))
-                }
-            }
-        } else {
-            Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-                Box(Modifier.weight(1f)) {
-                    when {
-                        !state.isLoggedIn -> SignedOutContent(onLoginClick)
-                        state.isLoading -> LoadingContent()
-                        state.errorMessage != null -> ErrorContent(
-                            message = state.errorMessage,
-                            onRetry = { onEvent(AccountUiEvent.Retry) },
+                    AccountProfileHeader(user = state.user)
+                    state.overview?.let { overview ->
+                        AccountOverviewCard(
+                            overview = overview,
+                            isCheckingIn = state.isCheckingIn,
+                            onCheckInClick = { onEvent(AccountUiEvent.CheckIn) },
                         )
-                        else -> EmptyContent(message = stringResource(R.string.account_no_profile))
+                    }
+                    AccountMenu(true, onFavoriteTopicsClick, onSettingsClick)
+                    OutlinedButton(
+                        onClick = { showLogoutConfirmation = true },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) {
+                        Text(stringResource(R.string.account_logout))
                     }
                 }
-                AccountMenu(false, onFavoriteTopicsClick, onSettingsClick)
+            } else {
+                Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        when {
+                            !state.isLoggedIn -> SignedOutContent(onLoginClick)
+                            state.isLoading -> LoadingContent()
+                            state.errorMessage != null -> ErrorContent(
+                                message = state.errorMessage,
+                                onRetry = { onEvent(AccountUiEvent.Retry) },
+                            )
+                            else -> EmptyContent(message = stringResource(R.string.account_no_profile))
+                        }
+                    }
+                    AccountMenu(false, onFavoriteTopicsClick, onSettingsClick)
+                }
             }
+            ListRefreshIndicator(
+                isRefreshing = state.isLoggedIn && state.isLoading,
+                itemCount = if (state.user != null) 1 else 0,
+                topPadding = padding.calculateTopPadding(),
+            )
         }
     }
     if (showLogoutConfirmation && state.isLoggedIn) {

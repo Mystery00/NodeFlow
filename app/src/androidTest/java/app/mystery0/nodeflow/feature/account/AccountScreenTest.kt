@@ -7,6 +7,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -101,6 +106,23 @@ class AccountScreenTest {
         composeRule.onNodeWithText("设置").performClick()
         composeRule.runOnIdle { assertThat(opened).isTrue() }
         composeRule.onNodeWithText("退出登录").assertDoesNotExist()
+    }
+
+    @Test
+    fun refreshKeepsContentShowsProgressAndThenError() {
+        val state = mutableStateOf(sampleState().copy(isLoading = true))
+        composeRule.setContent {
+            NodeFlowTheme(AppSettings()) { AccountScreen(state.value, {}, {}, {}, {}) }
+        }
+        composeRule.onNodeWithText("NodeFlow").assertIsDisplayed()
+        composeRule.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("刷新").assertIsNotEnabled()
+        composeRule.runOnIdle {
+            state.value = state.value.copy(isLoading = false, errorMessage = "刷新失败，请重试")
+        }
+        composeRule.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertDoesNotExist()
+        composeRule.onNodeWithText("刷新失败，请重试").assertIsDisplayed()
+        composeRule.onNodeWithText("NodeFlow").assertIsDisplayed()
     }
 
     private fun savePreview(name: String) {

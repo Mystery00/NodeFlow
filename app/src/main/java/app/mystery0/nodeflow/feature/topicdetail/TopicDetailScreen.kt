@@ -254,7 +254,10 @@ fun TopicDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onEvent(TopicDetailUiEvent.Refresh) }) {
+                    IconButton(
+                        enabled = !state.isLoading && !state.isRefreshing,
+                        onClick = { onEvent(TopicDetailUiEvent.Refresh) },
+                    ) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                     if (detail != null) {
@@ -575,7 +578,7 @@ private fun TopicDetailContent(
             null -> false
         }
     }
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding())) {
         if (isRefreshing) {
             NodeFlowHorizontalRefreshIndicator(Modifier.fillMaxWidth())
         }
@@ -596,7 +599,6 @@ private fun TopicDetailContent(
             modifier = Modifier.fillMaxSize(),
             state = listState,
             contentPadding = PaddingValues(
-                top = contentPadding.calculateTopPadding(),
                 bottom = contentPadding.calculateBottomPadding() + 80.dp,
             ),
         ) {

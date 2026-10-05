@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -52,6 +53,7 @@ import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.TopicListItem
+import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,7 +72,12 @@ fun NodeScreen(
     LaunchedEffect(state.blockNodeCompleted) {
         if (state.blockNodeCompleted) showBlockConfirmation = false
     }
+    val refreshErrorHost = rememberRefreshErrorSnackbar(
+        (topics.loadState.refresh as? LoadState.Error)?.error?.toUserMessage()
+            .takeIf { topics.itemCount > 0 },
+    ) { topics.retry() }
     Scaffold(
+        snackbarHost = { SnackbarHost(refreshErrorHost) },
         modifier = modifier,
         topBar = {
             TopAppBar(
@@ -104,7 +111,10 @@ fun NodeScreen(
                             contentDescription = if (state.isPinnedHomeNode) "取消固定" else "固定",
                         )
                     }
-                    IconButton(onClick = { onEvent(NodeUiEvent.Refresh) }) {
+                    IconButton(
+                        enabled = topics.loadState.refresh !is LoadState.Loading,
+                        onClick = { onEvent(NodeUiEvent.Refresh) },
+                    ) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                 },

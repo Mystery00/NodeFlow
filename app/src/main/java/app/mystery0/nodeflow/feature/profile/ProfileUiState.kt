@@ -7,6 +7,7 @@ import app.mystery0.nodeflow.core.model.User
 data class ProfileUiState(
     val username: String = "",
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val user: User? = null,
     val recentTopics: List<Topic> = emptyList(),
     val recentReplies: List<ProfileReply> = emptyList(),

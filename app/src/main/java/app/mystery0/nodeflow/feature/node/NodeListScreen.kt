@@ -22,6 +22,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -41,6 +42,7 @@ import app.mystery0.nodeflow.core.designsystem.component.NodeChip
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
+import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
 
 fun filterNodePlanes(
     planes: List<NodePlane>,
@@ -71,13 +73,20 @@ fun NodeListScreen(
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+    val refreshErrorHost = rememberRefreshErrorSnackbar(state.errorMessage.takeIf { state.planes.isNotEmpty() }) {
+        onEvent(NodeListUiEvent.Retry)
+    }
     Scaffold(
+        snackbarHost = { SnackbarHost(refreshErrorHost) },
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("节点") },
                 actions = {
-                    IconButton(onClick = { onEvent(NodeListUiEvent.Refresh) }) {
+                    IconButton(
+                        enabled = !state.isLoading && !state.isRefreshing,
+                        onClick = { onEvent(NodeListUiEvent.Refresh) },
+                    ) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                 },

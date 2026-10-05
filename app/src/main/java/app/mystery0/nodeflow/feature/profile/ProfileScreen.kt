@@ -2,6 +2,7 @@ package app.mystery0.nodeflow.feature.profile
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -32,6 +33,7 @@ import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -54,9 +56,11 @@ import app.mystery0.nodeflow.core.designsystem.component.UserAvatar
 import app.mystery0.nodeflow.core.designsystem.component.memberTagsFor
 import app.mystery0.nodeflow.core.model.ProfileReply
 import app.mystery0.nodeflow.core.model.User
+import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 import app.mystery0.nodeflow.core.ui.MemberTagChips
 import app.mystery0.nodeflow.core.ui.TopicListItem
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
+import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,8 +72,12 @@ fun ProfileScreen(
     onNodeClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val refreshErrorHost = rememberRefreshErrorSnackbar(state.errorMessage.takeIf { state.user != null }) {
+        onEvent(ProfileUiEvent.Retry)
+    }
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(refreshErrorHost) },
         topBar = {
             TopAppBar(
                 title = { Text(state.username) },
@@ -79,32 +87,42 @@ fun ProfileScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onEvent(ProfileUiEvent.Refresh) }) {
+                    IconButton(
+                        enabled = !state.isLoading && !state.isRefreshing,
+                        onClick = { onEvent(ProfileUiEvent.Refresh) },
+                    ) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                 },
             )
         },
     ) { paddingValues ->
-        when {
-            state.isLoading -> LoadingContent(paddingValues = paddingValues)
-            state.userNotFound && state.user == null -> EmptyContent(
-                message = "该用户不存在，或账号已被停用",
-                paddingValues = paddingValues,
-                icon = Icons.Outlined.PersonOff,
-            )
-            state.errorMessage != null && state.user == null -> ErrorContent(
-                message = state.errorMessage,
-                onRetry = { onEvent(ProfileUiEvent.Retry) },
-                paddingValues = paddingValues,
-            )
-            state.user != null -> ProfileContent(
-                state = state,
-                user = state.user,
-                onEvent = onEvent,
-                onTopicClick = onTopicClick,
-                onNodeClick = onNodeClick,
-                contentPadding = paddingValues,
+        Box(Modifier.fillMaxSize()) {
+            when {
+                state.isLoading -> LoadingContent(paddingValues = paddingValues)
+                state.userNotFound && state.user == null -> EmptyContent(
+                    message = "该用户不存在，或账号已被停用",
+                    paddingValues = paddingValues,
+                    icon = Icons.Outlined.PersonOff,
+                )
+                state.errorMessage != null && state.user == null -> ErrorContent(
+                    message = state.errorMessage,
+                    onRetry = { onEvent(ProfileUiEvent.Retry) },
+                    paddingValues = paddingValues,
+                )
+                state.user != null -> ProfileContent(
+                    state = state,
+                    user = state.user,
+                    onEvent = onEvent,
+                    onTopicClick = onTopicClick,
+                    onNodeClick = onNodeClick,
+                    contentPadding = paddingValues,
+                )
+            }
+            ListRefreshIndicator(
+                isRefreshing = state.isRefreshing,
+                itemCount = if (state.user != null) 1 else 0,
+                topPadding = paddingValues.calculateTopPadding(),
             )
         }
     }

@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.feature.account
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.core.common.NodeFlowException
+import app.mystery0.nodeflow.core.common.toUserMessage
 import app.mystery0.nodeflow.core.model.AccountOverview
 import app.mystery0.nodeflow.domain.account.CheckInUseCase
 import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
@@ -67,6 +68,7 @@ class AccountViewModel(
         when (event) {
             AccountUiEvent.Refresh,
             AccountUiEvent.Retry -> {
+                if (loadJob?.isActive == true) return
                 val username = _uiState.value.session.username ?: return
                 loadAccount(username = username, forceRefresh = true)
             }
@@ -134,16 +136,16 @@ class AccountViewModel(
                     onSuccess = { user ->
                         current.copy(
                             user = user,
-                            overview = overviewResult.getOrNull(),
+                            overview = overviewResult.getOrNull() ?: current.overview,
                             isLoading = false,
-                            errorMessage = null,
+                            errorMessage = overviewError?.toUserMessage(),
                         )
                     },
                     onFailure = { error ->
                         current.copy(
                             isLoading = false,
-                            overview = overviewResult.getOrNull(),
-                            errorMessage = error.message ?: "用户信息加载失败",
+                            overview = overviewResult.getOrNull() ?: current.overview,
+                            errorMessage = error.toUserMessage(),
                         )
                     },
                 )

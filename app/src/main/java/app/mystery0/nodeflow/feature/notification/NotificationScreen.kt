@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,6 +52,7 @@ import app.mystery0.nodeflow.core.model.Notification
 import app.mystery0.nodeflow.core.model.ReplyReference
 import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
+import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,13 +64,21 @@ fun NotificationScreen(
     modifier: Modifier = Modifier,
 ) {
     var previewImageUrl by remember { mutableStateOf<String?>(null) }
+    val refreshErrorHost = rememberRefreshErrorSnackbar(
+        (notifications.loadState.refresh as? LoadState.Error)?.error?.toUserMessage()
+            .takeIf { notifications.itemCount > 0 },
+    ) { notifications.retry() }
     Scaffold(
+        snackbarHost = { SnackbarHost(refreshErrorHost) },
         modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text("消息") },
                 actions = {
-                    IconButton(onClick = { onEvent(NotificationUiEvent.Refresh) }) {
+                    IconButton(
+                        enabled = notifications.loadState.refresh !is LoadState.Loading,
+                        onClick = { onEvent(NotificationUiEvent.Refresh) },
+                    ) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                 },

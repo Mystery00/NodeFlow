@@ -147,6 +147,43 @@ class ProfileViewModelTest {
         assertThat(state.tagEditError).isEqualTo("请先登录后再编辑标签")
     }
 
+    @Test
+    fun refreshDoesNotDuplicateRequestsAndReportsActivityFailure() = runTest(testDispatcher) {
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var requests = 0
+        val repository = object : UserRepository {
+            override suspend fun user(username: String, forceRefresh: Boolean): Result<User> {
+                requests++
+                if (forceRefresh) release.await()
+                return Result.success(User(username = username))
+            }
+            override suspend fun recentActivity(username: String): Result<UserRecentActivity> {
+                if (requests > 1) {
+                    release.await()
+                    return Result.failure(NodeFlowException(NodeFlowException.Kind.Network, "动态刷新失败"))
+                }
+                return Result.success(UserRecentActivity())
+            }
+            override suspend fun clearCache() = Unit
+        }
+        val vm = viewModel(repository)
+        advanceUntilIdle()
+        vm.onEvent(ProfileUiEvent.Refresh)
+        testDispatcher.scheduler.runCurrent()
+        vm.onEvent(ProfileUiEvent.Refresh)
+        testDispatcher.scheduler.runCurrent()
+        val requestsWhileRefreshing = requests
+        val refreshing = vm.uiState.value
+        release.complete(Unit)
+        advanceUntilIdle()
+        assertThat(requestsWhileRefreshing).isEqualTo(2)
+        assertThat(refreshing.isLoading).isFalse()
+        assertThat(refreshing.isRefreshing).isTrue()
+        assertThat(vm.uiState.value.isRefreshing).isFalse()
+        assertThat(vm.uiState.value.user?.username).isEqualTo("alice")
+        assertThat(vm.uiState.value.errorMessage).isEqualTo("动态刷新失败")
+    }
+
     private fun viewModel(
         repository: UserRepository,
         memberTags: FakeMemberTagRepository = FakeMemberTagRepository(),

@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -38,6 +39,7 @@ import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.TopicListItem
+import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.emptyFlow
@@ -72,7 +74,7 @@ fun HomeScreen(
     LaunchedEffect(homeReselectEvents) {
         homeReselectEvents.collect {
             val action = homeReselectAction(topics.itemCount)
-            if (action.shouldRefresh) {
+            if (action.shouldRefresh && topics.loadState.refresh !is LoadState.Loading) {
                 onEvent(HomeUiEvent.Refresh)
             }
             if (action.shouldExpandAppBar) {
@@ -85,13 +87,21 @@ fun HomeScreen(
             }
         }
     }
+    val refreshErrorHost = rememberRefreshErrorSnackbar(
+        (topics.loadState.refresh as? LoadState.Error)?.error?.toUserMessage()
+            .takeIf { topics.itemCount > 0 },
+    ) { topics.retry() }
     Scaffold(
+        snackbarHost = { SnackbarHost(refreshErrorHost) },
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text(state.title) },
                 actions = {
-                    IconButton(onClick = { onEvent(HomeUiEvent.Refresh) }) {
+                    IconButton(
+                        enabled = topics.loadState.refresh !is LoadState.Loading,
+                        onClick = { onEvent(HomeUiEvent.Refresh) },
+                    ) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                 },
