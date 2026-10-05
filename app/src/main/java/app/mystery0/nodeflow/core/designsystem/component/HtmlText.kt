@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -95,7 +96,7 @@ private fun HtmlImage(
             },
         )
     }
-    var retryKey by remember(image.url) { mutableStateOf(0) }
+    var retryKey by remember(image.url) { mutableIntStateOf(0) }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val layoutSize = calculateHtmlImageLayoutSize(
             sourceWidthPx = sourceSize?.width,

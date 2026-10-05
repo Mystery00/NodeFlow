@@ -26,7 +26,7 @@
             </intent-filter>
             <!-- 无法在 v2ex.com 部署 assetlinks.json 做域名验证，Android 12+ 需用户在
                  系统设置 → 应用 → NodeFlow → 默认打开 中手动添加链接后才会自动接管 -->
-            <intent-filter>
+            <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />

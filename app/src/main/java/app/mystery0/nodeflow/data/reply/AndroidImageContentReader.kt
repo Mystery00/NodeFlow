@@ -1,7 +1,7 @@
 package app.mystery0.nodeflow.data.reply
 
 import android.content.ContentResolver
-import android.net.Uri
+import androidx.core.net.toUri
 import android.provider.OpenableColumns
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -20,7 +20,7 @@ class AndroidImageContentReader(
     private val resolver: ContentResolver,
 ) : ImageContentReader {
     override fun read(contentUri: String): ImageContent {
-        val uri = Uri.parse(contentUri)
+        val uri = contentUri.toUri()
         require(uri.scheme == ContentResolver.SCHEME_CONTENT)
         val mimeType = resolver.getType(uri)?.lowercase()
             ?: throw ImageReadException.UnsupportedType

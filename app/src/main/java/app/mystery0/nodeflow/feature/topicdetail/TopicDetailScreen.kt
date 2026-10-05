@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.feature.topicdetail
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -184,12 +185,12 @@ fun TopicDetailScreen(
     onBackClick: () -> Unit,
     onNodeClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
     onTopicClick: (Long) -> Unit = {},
     initialReplyFloor: Int? = null,
     replyEditorState: ReplyEditorUiState = ReplyEditorUiState(),
     onReplyEditorEvent: (ReplyEditorUiEvent) -> Unit = {},
     onLoginClick: () -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val detail = state.detail
@@ -407,7 +408,7 @@ fun TopicDetailScreen(
     }
     state.shareTarget?.let { target ->
         LaunchedEffect(target) {
-            val uri = Uri.parse(target.contentUri)
+            val uri = target.contentUri.toUri()
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = target.mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)

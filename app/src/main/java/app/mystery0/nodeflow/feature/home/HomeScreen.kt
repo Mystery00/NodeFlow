@@ -65,8 +65,8 @@ fun HomeScreen(
     onEvent: (HomeUiEvent) -> Unit,
     onTopicClick: (Topic) -> Unit,
     onNodeClick: (String) -> Unit,
-    homeReselectEvents: Flow<Unit> = emptyFlow(),
     modifier: Modifier = Modifier,
+    homeReselectEvents: Flow<Unit> = emptyFlow(),
 ) {
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(topAppBarState)

@@ -60,8 +60,8 @@ import app.mystery0.nodeflow.core.ui.formatEpochSeconds
 fun SettingsScreen(
     state: SettingsUiState,
     onEvent: (SettingsUiEvent) -> Unit,
-    onBackClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onBackClick: (() -> Unit)? = null,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.message) {
