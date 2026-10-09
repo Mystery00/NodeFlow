@@ -25,6 +25,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import app.mystery0.nodeflow.core.model.containsBase64
+import app.mystery0.nodeflow.core.parser.RichContentParser
+import app.mystery0.nodeflow.core.parser.linkifyContentHtml
+import app.mystery0.nodeflow.core.parser.safeContentUrl
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -45,6 +49,7 @@ import kotlin.math.min
 fun HtmlText(
     html: String,
     modifier: Modifier = Modifier,
+    contentKey: String? = null,
     onUrlClick: (String) -> Boolean = { false },
     onImageClick: (String) -> Unit = {},
 ) {
@@ -52,10 +57,18 @@ fun HtmlText(
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val linkColor = MaterialTheme.colorScheme.primary.toArgb()
     val customImageHosts = LocalCustomImageHosts.current
-    val contentHtml = remember(html) { htmlWithoutImages(linkifyV2exTopicReferences(html)) }
+    val contentHtml = remember(html) { htmlWithoutImages(linkifyContentHtml(html)) }
     val images = remember(html, customImageHosts) { extractHtmlImageSpecs(html, customImageHosts) }
+    val richDocument = remember(contentHtml, contentKey) {
+        contentKey?.let {
+            RichContentParser.parse(contentHtml, contentKey = it, renderLinkedImages = false)
+                .takeIf { document -> document.containsBase64() }
+        }
+    }
     Column(modifier = modifier) {
-        AndroidView(
+        if (richDocument != null) {
+            RichContent(richDocument, onUrlClick = onUrlClick, onImageClick = onImageClick)
+        } else AndroidView(
             modifier = Modifier.fillMaxWidth(),
             factory = {
                 TextView(context).apply {
@@ -157,11 +170,12 @@ private fun CharSequence.withUrlClickHandler(onUrlClick: (String) -> Boolean): C
         val end = spannable.getSpanEnd(span)
         val flags = spannable.getSpanFlags(span)
         spannable.removeSpan(span)
+        val safe = safeContentUrl(span.url) ?: return@forEach
         spannable.setSpan(
-            object : URLSpan(span.url) {
+            object : URLSpan(safe) {
                 override fun onClick(widget: View) {
                     if (!onUrlClick(url)) {
-                        super.onClick(widget)
+                        runCatching { super.onClick(widget) }
                     }
                 }
             },

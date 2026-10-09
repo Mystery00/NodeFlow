@@ -66,6 +66,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.runtime.CompositionLocalProvider
+import app.mystery0.nodeflow.core.designsystem.component.Base64RevealState
+import app.mystery0.nodeflow.core.designsystem.component.LocalBase64RevealState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -521,8 +524,9 @@ private fun TopicDetailContent(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val customImageHosts = LocalCustomImageHosts.current
-    val bodyDocument = remember(detail.contentRendered, customImageHosts) {
-        RichContentParser.parse(detail.contentRendered, customImageHosts)
+    val revealState = remember(detail.topic.id) { Base64RevealState() }
+    val bodyDocument = remember(detail.topic.id, detail.contentRendered, customImageHosts) {
+        RichContentParser.parse(detail.contentRendered, customImageHosts, contentKey = "topic:${detail.topic.id}:body")
     }
     val imageSizeCache = rememberRichContentImageSizeCache(detail.topic.id)
     val replyListStartIndex = topicReplyListIndex(
@@ -579,144 +583,147 @@ private fun TopicDetailContent(
             null -> false
         }
     }
-    Column(Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding())) {
-        if (isRefreshing) {
-            NodeFlowHorizontalRefreshIndicator(Modifier.fillMaxWidth())
-        }
-        if (errorMessage != null) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.errorContainer,
-                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-            ) {
-                Text(
-                    text = errorMessage,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                )
+    CompositionLocalProvider(LocalBase64RevealState provides revealState) {
+        Column(Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding())) {
+            if (isRefreshing) {
+                NodeFlowHorizontalRefreshIndicator(Modifier.fillMaxWidth())
             }
-        }
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding = PaddingValues(
-                bottom = contentPadding.calculateBottomPadding() + 80.dp,
-            ),
-        ) {
-            item(
-                key = TOPIC_DETAIL_HEADER_KEY,
-                contentType = TOPIC_DETAIL_HEADER_CONTENT_TYPE,
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+            if (errorMessage != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 ) {
                     Text(
-                        text = detail.topic.title,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold,
+                        text = errorMessage,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodySmall,
                     )
-                    TopicMetadataRow(
-                        detail = detail,
-                        onUserClick = onUserClick,
-                        onNodeClick = onNodeClick,
-                    )
-                    val authorTags = memberTagsFor(
-                        LocalMemberTags.current,
-                        detail.topic.author.username,
-                    )
-                    if (authorTags.isNotEmpty()) {
-                        MemberTagChips(tags = authorTags)
+                }
+            }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = listState,
+                contentPadding = PaddingValues(
+                    bottom = contentPadding.calculateBottomPadding() + 80.dp,
+                ),
+            ) {
+                item(
+                    key = TOPIC_DETAIL_HEADER_KEY,
+                    contentType = TOPIC_DETAIL_HEADER_CONTENT_TYPE,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = detail.topic.title,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        TopicMetadataRow(
+                            detail = detail,
+                            onUserClick = onUserClick,
+                            onNodeClick = onNodeClick,
+                        )
+                        val authorTags = memberTagsFor(
+                            LocalMemberTags.current,
+                            detail.topic.author.username,
+                        )
+                        if (authorTags.isNotEmpty()) {
+                            MemberTagChips(tags = authorTags)
+                        }
                     }
                 }
-            }
-            itemsIndexed(
-                items = bodyDocument.blocks,
-                key = { index, _ -> "topic-body-$index" },
-                contentType = { _, _ -> TOPIC_DETAIL_BODY_CONTENT_TYPE },
-            ) { _, block ->
-                RichContentBlockView(
-                    block = block,
-                    onUrlClick = openV2exUrl,
-                    onImageClick = onImageClick,
-                    imageSizeCache = imageSizeCache,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 5.dp),
-                )
-            }
-            if (detail.appends.isNotEmpty()) {
-                item(
-                    key = TOPIC_DETAIL_APPENDS_KEY,
-                    contentType = TOPIC_DETAIL_APPENDS_CONTENT_TYPE,
-                ) {
-                    TopicAppendsSection(
-                        appends = detail.appends,
-                        onImageClick = onImageClick,
+                itemsIndexed(
+                    items = bodyDocument.blocks,
+                    key = { index, _ -> "topic-body-$index" },
+                    contentType = { _, _ -> TOPIC_DETAIL_BODY_CONTENT_TYPE },
+                ) { _, block ->
+                    RichContentBlockView(
+                        block = block,
                         onUrlClick = openV2exUrl,
-                        customImageHosts = customImageHosts,
+                        onImageClick = onImageClick,
                         imageSizeCache = imageSizeCache,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 5.dp),
                     )
                 }
-            }
-            item(
-                key = TOPIC_DETAIL_REPLY_SUMMARY_KEY,
-                contentType = TOPIC_DETAIL_REPLY_SUMMARY_CONTENT_TYPE,
-            ) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
-                )
-                ReplySummaryRow(detail = detail, hasMore = hasMoreReplies)
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
-                )
-            }
-            items(
-                items = detail.replies,
-                key = { it.id },
-                contentType = { TOPIC_DETAIL_REPLY_CONTENT_TYPE },
-            ) { reply ->
-                ReplyItem(
-                    reply = reply,
-                    highlighted = highlightedReplyId == reply.id,
-                    isTopicAuthor = isReplyFromTopicAuthor(
-                        replyUsername = reply.author.username,
-                        topicAuthorUsername = detail.topic.author.username,
-                    ),
-                    onUserClick = onUserClick,
-                    onImageClick = onImageClick,
-                    showDirectReplyAction = replyEditorOpen,
-                    onMoreClick = { onReplyMoreClick(reply) },
-                    onReplyClick = { onDirectReplyClick(reply) },
-                    onUrlClick = openV2exUrl,
-                    onReferenceClick = { reference ->
-                        val targetIndex = detail.replies.indexOfFirst { it.id == reference.replyId }
-                        if (targetIndex >= 0) {
-                            coroutineScope.launch {
-                                listState.animateScrollToItem(index = replyListStartIndex + targetIndex)
-                                highlightedReplyId = reference.replyId
-                                delay(1400)
-                                if (highlightedReplyId == reference.replyId) {
-                                    highlightedReplyId = null
+                if (detail.appends.isNotEmpty()) {
+                    item(
+                        key = TOPIC_DETAIL_APPENDS_KEY,
+                        contentType = TOPIC_DETAIL_APPENDS_CONTENT_TYPE,
+                    ) {
+                        TopicAppendsSection(
+                            appends = detail.appends,
+                            topicId = detail.topic.id,
+                            onImageClick = onImageClick,
+                            onUrlClick = openV2exUrl,
+                            customImageHosts = customImageHosts,
+                            imageSizeCache = imageSizeCache,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                }
+                item(
+                    key = TOPIC_DETAIL_REPLY_SUMMARY_KEY,
+                    contentType = TOPIC_DETAIL_REPLY_SUMMARY_CONTENT_TYPE,
+                ) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
+                    )
+                    ReplySummaryRow(detail = detail, hasMore = hasMoreReplies)
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
+                    )
+                }
+                items(
+                    items = detail.replies,
+                    key = { it.id },
+                    contentType = { TOPIC_DETAIL_REPLY_CONTENT_TYPE },
+                ) { reply ->
+                    ReplyItem(
+                        reply = reply,
+                        highlighted = highlightedReplyId == reply.id,
+                        isTopicAuthor = isReplyFromTopicAuthor(
+                            replyUsername = reply.author.username,
+                            topicAuthorUsername = detail.topic.author.username,
+                        ),
+                        onUserClick = onUserClick,
+                        onImageClick = onImageClick,
+                        showDirectReplyAction = replyEditorOpen,
+                        onMoreClick = { onReplyMoreClick(reply) },
+                        onReplyClick = { onDirectReplyClick(reply) },
+                        onUrlClick = openV2exUrl,
+                        onReferenceClick = { reference ->
+                            val targetIndex = detail.replies.indexOfFirst { it.id == reference.replyId }
+                            if (targetIndex >= 0) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(index = replyListStartIndex + targetIndex)
+                                    highlightedReplyId = reference.replyId
+                                    delay(1400)
+                                    if (highlightedReplyId == reference.replyId) {
+                                        highlightedReplyId = null
+                                    }
                                 }
                             }
-                        }
-                    },
-                )
-            }
-            if (hasMoreReplies || loadMoreError != null) {
-                item(
-                    key = "reply-load-more",
-                    contentType = TOPIC_DETAIL_LOAD_MORE_CONTENT_TYPE,
-                ) {
-                    ReplyLoadMoreFooter(
-                        isLoading = isLoadingMore,
-                        errorMessage = loadMoreError,
-                        onRetry = onLoadMore,
+                        },
                     )
+                }
+                if (hasMoreReplies || loadMoreError != null) {
+                    item(
+                        key = "reply-load-more",
+                        contentType = TOPIC_DETAIL_LOAD_MORE_CONTENT_TYPE,
+                    ) {
+                        ReplyLoadMoreFooter(
+                            isLoading = isLoadingMore,
+                            errorMessage = loadMoreError,
+                            onRetry = onLoadMore,
+                        )
+                    }
                 }
             }
         }
@@ -924,6 +931,7 @@ private fun TopicTagChip(tag: String) {
 @Composable
 private fun TopicAppendsSection(
     appends: List<TopicAppend>,
+    topicId: Long,
     onImageClick: (String) -> Unit,
     onUrlClick: (String) -> Boolean,
     customImageHosts: Set<String>,
@@ -937,6 +945,7 @@ private fun TopicAppendsSection(
         appends.forEach { append ->
             TopicAppendCard(
                 append = append,
+                topicId = topicId,
                 onImageClick = onImageClick,
                 onUrlClick = onUrlClick,
                 customImageHosts = customImageHosts,
@@ -949,13 +958,14 @@ private fun TopicAppendsSection(
 @Composable
 private fun TopicAppendCard(
     append: TopicAppend,
+    topicId: Long,
     onImageClick: (String) -> Unit,
     onUrlClick: (String) -> Boolean,
     customImageHosts: Set<String>,
     imageSizeCache: RichContentImageSizeCache,
 ) {
-    val document = remember(append.contentRendered, customImageHosts) {
-        RichContentParser.parse(append.contentRendered, customImageHosts)
+    val document = remember(topicId, append.index, append.contentRendered, customImageHosts) {
+        RichContentParser.parse(append.contentRendered, customImageHosts, contentKey = "topic:$topicId:append:${append.index}")
     }
     Surface(
         modifier = Modifier.fillMaxWidth(),

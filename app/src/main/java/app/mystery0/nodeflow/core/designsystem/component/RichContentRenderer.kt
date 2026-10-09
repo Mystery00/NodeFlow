@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.core.designsystem.component
 
+import app.mystery0.nodeflow.core.parser.safeContentUrl
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -82,7 +83,9 @@ internal fun RichContentBlockView(
 ) {
     val uriHandler = LocalUriHandler.current
     val openUrl: (String) -> Unit = { url ->
-        if (!onUrlClick(url)) runCatching { uriHandler.openUri(url) }
+        safeContentUrl(url)?.let { safe ->
+            if (!onUrlClick(safe)) runCatching { uriHandler.openUri(safe) }
+        }
     }
     when (block) {
         is RichContentBlock.Paragraph -> SelectionContainer {
