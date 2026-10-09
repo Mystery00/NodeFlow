@@ -18,7 +18,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
-import java.net.URI
+import java.security.MessageDigest
 import kotlin.math.ceil
 
 /** 将 V2EX 正文 HTML 转换为安全、可测试的原生富文本模型。 */
@@ -26,13 +26,15 @@ object RichContentParser {
     fun parse(
         html: String,
         customImageHosts: Collection<String> = emptySet(),
+        contentKey: String = "",
+        renderLinkedImages: Boolean = true,
     ): RichContentDocument {
         if (html.isBlank()) return RichContentDocument(emptyList())
         return runCatching {
             val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
             document.select(DROPPED_TAGS.joinToString(",")).remove()
-            document.body().linkifyPlainV2exTopicLinks()
-            BlockCollector(customImageHosts).parse(document.body().childNodes())
+            document.body().linkifyPlainContentLinks()
+            BlockCollector(customImageHosts, Base64Keys(contentKey, html), renderLinkedImages).parse(document.body().childNodes())
         }.getOrElse {
             val plainText = Jsoup.parseBodyFragment(html).text().trim()
             RichContentDocument(
@@ -46,6 +48,8 @@ object RichContentParser {
 
 private class BlockCollector(
     private val customImageHosts: Collection<String>,
+    private val base64Keys: Base64Keys,
+    private val renderLinkedImages: Boolean,
 ) {
     private val blocks = mutableListOf<RichContentBlock>()
     private val inline = mutableListOf<RichInline>()
@@ -101,10 +105,11 @@ private class BlockCollector(
         val nextContext = context.copy(
             style = context.style.withElementStyle(element),
             linkUrl = if (tag == "a") element.safeUrl("href", allowMailTo = true) else context.linkUrl,
+            skipEnhancement = context.skipEnhancement || tag == "a" || tag == "code" || tag == "tt",
         )
         parseNodes(element.childNodes(), nextContext)
         if (
-            tag == "a" &&
+            renderLinkedImages && tag == "a" && !element.hasAttr("data-nodeflow-text-link") &&
             element.selectFirst("img") == null &&
             nextContext.linkUrl != null &&
             ImageHostMatcher.shouldLoadAsImage(nextContext.linkUrl, customImageHosts)
@@ -128,7 +133,7 @@ private class BlockCollector(
 
     private fun emitQuote(element: Element) {
         flushParagraph()
-        val content = BlockCollector(customImageHosts).parse(element.childNodes()).blocks
+        val content = BlockCollector(customImageHosts, base64Keys, renderLinkedImages).parse(element.childNodes()).blocks
         if (content.isNotEmpty()) blocks += RichContentBlock.Quote(content)
     }
 
@@ -137,7 +142,7 @@ private class BlockCollector(
         val items = element.children()
             .filter { it.normalName() == "li" }
             .mapNotNull { item ->
-                BlockCollector(customImageHosts)
+                BlockCollector(customImageHosts, base64Keys, renderLinkedImages)
                     .parse(item.childNodes())
                     .blocks
                     .takeIf(List<RichContentBlock>::isNotEmpty)
@@ -171,7 +176,7 @@ private class BlockCollector(
                     .filter { it.normalName() == "th" || it.normalName() == "td" }
                     .map { cell ->
                         RichTableCell(
-                            blocks = BlockCollector(customImageHosts).parse(cell.childNodes()).blocks,
+                            blocks = BlockCollector(customImageHosts, base64Keys, renderLinkedImages).parse(cell.childNodes()).blocks,
                             isHeader = cell.normalName() == "th",
                             colSpan = cell.attr("colspan").toIntOrNull()?.coerceIn(1, MAX_TABLE_SPAN) ?: 1,
                             rowSpan = cell.attr("rowspan").toIntOrNull()?.coerceIn(1, MAX_TABLE_SPAN) ?: 1,
@@ -235,7 +240,7 @@ private class BlockCollector(
     }
 
     private fun parseInlineContent(nodes: List<Node>, context: InlineContext): List<RichInline> {
-        val collector = BlockCollector(customImageHosts)
+        val collector = BlockCollector(customImageHosts, base64Keys, renderLinkedImages)
         collector.parseNodes(nodes, context)
         collector.flushParagraph()
         return collector.blocks
@@ -248,7 +253,15 @@ private class BlockCollector(
     private fun appendText(rawText: String, context: InlineContext) {
         val text = rawText.replace(WHITESPACE_REGEX, " ")
         if (text.isEmpty()) return
-        inline += RichInline.Text(value = text, style = context.style, linkUrl = context.linkUrl)
+        val matches = if (context.skipEnhancement || context.style.code || context.linkUrl != null) emptyList()
+            else recognizeContentText(text).filter { it.kind == ContentTextKind.Base64 }
+        var end = 0
+        matches.forEach { match ->
+            if (end < match.start) inline += RichInline.Text(text.substring(end, match.start), context.style, context.linkUrl)
+            inline += RichInline.Base64Text(text.substring(match.start, match.end), base64Keys.next(), context.style)
+            end = match.end
+        }
+        if (end < text.length) inline += RichInline.Text(text.substring(end), context.style, context.linkUrl)
     }
 
     private fun flushParagraph() {
@@ -261,6 +274,7 @@ private class BlockCollector(
 private data class InlineContext(
     val style: RichInlineStyle = RichInlineStyle(),
     val linkUrl: String? = null,
+    val skipEnhancement: Boolean = false,
 )
 
 private fun RichInlineStyle.withElementStyle(element: Element): RichInlineStyle {
@@ -325,10 +339,8 @@ private fun Element.safeUrl(attributeName: String, allowMailTo: Boolean = false)
     val absolute = absUrl(attributeName).takeIf(String::isNotBlank)
         ?: attr(attributeName).trim().takeIf(String::isNotBlank)
         ?: return null
-    val uri = runCatching { URI(absolute) }.getOrNull() ?: return null
-    val scheme = uri.scheme?.lowercase()
-    val allowed = scheme == "http" || scheme == "https" || (allowMailTo && scheme == "mailto")
-    return absolute.takeIf { allowed }
+    val safe = safeContentUrl(absolute) ?: return null
+    return safe.takeIf { allowMailTo || !it.startsWith("mailto:", ignoreCase = true) }
 }
 
 private fun Element.imageDimension(attributeName: String): Int? =
@@ -397,3 +409,12 @@ private val DROPPED_TAGS = setOf(
     "script", "style", "object", "embed", "form", "input", "button", "canvas", "noscript", "head",
 )
 private val COMPACT_IMAGE_CLASS_HINTS = listOf("emoji", "emoticon", "smilie", "smiley")
+
+/** 同一原文和来源的标识稳定；不同回复、重复片段以及修改后的原文互不串位。 */
+private class Base64Keys(owner: String, html: String) {
+    private val fingerprint = MessageDigest.getInstance("SHA-256")
+        .digest((owner + "\u0000" + html).toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+    private var occurrence = 0
+    fun next(): String = "$fingerprint:${occurrence++}"
+}

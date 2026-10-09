@@ -134,6 +134,7 @@ fun ReplyItem(
             }
             HtmlText(
                 html = reply.contentRendered,
+                contentKey = "reply:${reply.topicId}:${reply.id}",
                 onImageClick = onImageClick,
                 onUrlClick = { url ->
                     val reference = reply.reference

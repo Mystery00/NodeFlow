@@ -35,6 +35,12 @@ sealed interface RichInline {
         val style: RichInlineStyle = RichInlineStyle(),
         val linkUrl: String? = null,
     ) : RichInline
+    /** 可原位切换的编码片段；key 与来源及原文绑定，明文不进入领域模型。 */
+    data class Base64Text(
+        val encoded: String,
+        val key: String,
+        val style: RichInlineStyle = RichInlineStyle(),
+    ) : RichInline
     data object LineBreak : RichInline
     data class InlineImage(val image: RichImage) : RichInline
 }
@@ -104,7 +110,21 @@ fun RichContentBlock.plainText(): String = when (this) {
 private fun List<RichInline>.plainText(): String = joinToString("") { inline ->
     when (inline) {
         is RichInline.Text -> inline.value
+        is RichInline.Base64Text -> inline.encoded
         is RichInline.InlineImage -> inline.image.alt.orEmpty()
         RichInline.LineBreak -> "\n"
     }
+}
+
+/** 供旧回复渲染器选择混排路径，递归包含引用、列表和表格。 */
+fun RichContentDocument.containsBase64(): Boolean = blocks.any { it.containsBase64() }
+
+private fun RichContentBlock.containsBase64(): Boolean = when (this) {
+    is RichContentBlock.Paragraph -> content.any { it is RichInline.Base64Text }
+    is RichContentBlock.Heading -> content.any { it is RichInline.Base64Text }
+    is RichContentBlock.Quote -> blocks.any { it.containsBase64() }
+    is RichContentBlock.ListBlock -> items.any { it.blocks.any { block -> block.containsBase64() } }
+    is RichContentBlock.Table -> caption.any { it is RichInline.Base64Text } ||
+        rows.any { row -> row.cells.any { cell -> cell.blocks.any { it.containsBase64() } } }
+    else -> false
 }
