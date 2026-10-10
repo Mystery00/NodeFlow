@@ -3,6 +3,7 @@ package app.mystery0.nodeflow.core.designsystem.component
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.InlineTextContent
@@ -33,6 +34,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.TextUnit
+import app.mystery0.nodeflow.core.parser.decodeReadableBase64
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.mystery0.nodeflow.core.model.RichBaseline
@@ -102,23 +105,51 @@ internal sealed interface RichTextChunk {
     data class Block(val token: RichInline.Base64Text) : RichTextChunk
 }
 
-/** 行内占位不可跨行；只有当前文字能完整放入单行时才使用它。 */
+/** 同时检查原文和明文，只允许容器尺寸/字体变化改变模式，不随眼睛开闭切分段落。 */
+internal fun canPlaceBase64Inline(
+    encoded: String,
+    decoded: String?,
+    encodedWidthPx: Int,
+    decodedWidthPx: Int,
+    availableWidthPx: Int,
+): Boolean = decoded != null &&
+    listOf(encoded, decoded).none { text -> text.any { it == '\n' || it == '\r' || it == '\t' } } &&
+    maxOf(encodedWidthPx, decodedWidthPx) <= availableWidthPx
+
+/** 块级降级自带换行，不能再把相邻 <br> 作为 Text 的首尾空行重复渲染。 */
 internal fun splitRichTextChunks(content: List<RichInline>, inlineKeys: Set<String>): List<RichTextChunk> {
+    if (content.none { it is RichInline.Base64Text && it.key !in inlineKeys }) {
+        return listOf(RichTextChunk.Inline(content))
+    }
     val chunks = mutableListOf<RichTextChunk>()
-    val pending = mutableListOf<RichInline>()
-    fun flush() {
-        if (pending.isNotEmpty()) chunks += RichTextChunk.Inline(pending.toList())
-        pending.clear()
+    val line = mutableListOf<RichInline>()
+    fun flushLine() {
+        // 一个真正的空行仍保留，包含作者有意写出的连续、首尾换行。
+        if (line.all { it is RichInline.Text && it.value.isBlank() }) {
+            chunks += RichTextChunk.Inline(emptyList())
+            line.clear()
+            return
+        }
+        val pending = mutableListOf<RichInline>()
+        fun flushInline() {
+            if (pending.any { it !is RichInline.Text || it.value.isNotBlank() }) chunks += RichTextChunk.Inline(pending.toList())
+            pending.clear()
+        }
+        line.forEach { inline ->
+            if (inline is RichInline.Base64Text && inline.key !in inlineKeys) {
+                flushInline()
+                chunks += RichTextChunk.Block(inline)
+            } else pending += inline
+        }
+        flushInline()
+        line.clear()
     }
-    content.forEach { inline ->
-        if (inline is RichInline.Base64Text && inline.key !in inlineKeys) {
-            flush()
-            chunks += RichTextChunk.Block(inline)
-        } else pending += inline
-    }
-    flush()
+    content.forEach { if (it == RichInline.LineBreak) flushLine() else line += it }
+    flushLine()
     return chunks
 }
+
+private data class Base64LayoutPlan(val inline: Boolean, val size: DpSize)
 
 @Composable
 internal fun RichContentText(
@@ -137,25 +168,39 @@ internal fun RichContentText(
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     BoxWithConstraints(modifier) {
-        val sizes = content.filterIsInstance<RichInline.Base64Text>().mapNotNull { token ->
-            val displayed = state.decoded(token) ?: token.encoded
-            if (displayed.any { it == '\n' || it == '\r' || it == '\t' }) return@mapNotNull null
-            val measured = measurer.measure(AnnotatedString(displayed), style = base64TextStyle(token), softWrap = false)
-            val size = with(density) {
-                // 预留两像素以避免测量取整导致末尾字符裁切。
-                DpSize((measured.size.width + 2).toDp() + 8.dp + BASE64_ACTION_SIZE,
-                    maxOf(measured.size.height.toDp() + 24.dp, BASE64_ACTION_SIZE))
+        val plans = content.filterIsInstance<RichInline.Base64Text>().associate { token ->
+            val decoded = remember(token.encoded) { decodeReadableBase64(token.encoded) }
+            val encodedStyle = base64TextStyle(token, expanded = false, base = style)
+            val decodedStyle = base64TextStyle(token, expanded = true, base = style)
+            fun measure(value: String, textStyle: TextStyle): DpSize {
+                val measured = measurer.measure(AnnotatedString(value), style = textStyle, softWrap = false)
+                return with(density) {
+                    // Text、padding 和按钮与真实组件共用规格，舍入留两像素，不估算字数。
+                    DpSize(
+                        (measured.size.width + 2).toDp() + BASE64_TEXT_START_PADDING + BASE64_ACTION_SIZE,
+                        maxOf(measured.size.height.toDp() + BASE64_TEXT_VERTICAL_PADDING * 2, BASE64_ACTION_SIZE),
+                    )
+                }
             }
-            if (size.width <= minOf(maxWidth, 280.dp)) token.key to size else null
-        }.toMap()
+            val originalSize = measure(token.encoded, encodedStyle)
+            val decodedSize = measure(decoded.orEmpty(), decodedStyle)
+            val inline = with(density) {
+                canPlaceBase64Inline(token.encoded, decoded, originalSize.width.roundToPx(),
+                    decodedSize.width.roundToPx(), maxWidth.roundToPx())
+            }
+            val currentSize = if (state.decoded(token) == null) originalSize else decodedSize
+            token.key to Base64LayoutPlan(inline, currentSize.copy(width = minOf(currentSize.width, maxWidth)))
+        }
+        val inlineSizes = plans.filterValues { it.inline }.mapValues { it.value.size }
         Column(Modifier.fillMaxWidth()) {
-            splitRichTextChunks(content, sizes.keys).forEach { chunk ->
+            splitRichTextChunks(content, inlineSizes.keys).forEach { chunk ->
                 when (chunk) {
                     is RichTextChunk.Inline -> RichContentTextLayout(
-                        chunk.content, state, sizes, Modifier.fillMaxWidth(), style, alignment, onUrlClick, onImageClick,
+                        chunk.content, state, inlineSizes, Modifier.fillMaxWidth(), style, alignment, onUrlClick, onImageClick,
                     )
                     is RichTextChunk.Block -> Base64RevealContent(
-                        chunk.token, state, onUrlClick, Modifier.fillMaxWidth(),
+                        chunk.token, state, onUrlClick,
+                        Modifier.width(plans.getValue(chunk.token.key).size.width), bodyStyle = style,
                     )
                 }
             }
@@ -231,7 +276,7 @@ private fun RichContentTextLayout(
             put(token.key, InlineTextContent(
                 with(density) { Placeholder(size.width.toSp(), size.height.toSp(), PlaceholderVerticalAlign.Center) },
             ) {
-                Base64RevealContent(token, state, onUrlClick, Modifier.fillMaxSize(), singleLine = true)
+                Base64RevealContent(token, state, onUrlClick, Modifier.fillMaxSize(), singleLine = true, bodyStyle = style)
             })
         }
     }
@@ -239,7 +284,9 @@ private fun RichContentTextLayout(
         text = annotated,
         inlineContent = inlineContent,
         modifier = modifier,
-        style = style,
+        // 当前 Compose 的固定行高 span 会复用首行 metrics，盖过后续高占位的 metrics。
+        // 含真实组件的段落使用自然行高，让每一行按占位的实际高度排版；不缩小文字。
+        style = if (plan.base64.isEmpty()) style else style.copy(lineHeight = TextUnit.Unspecified, lineHeightStyle = null),
         textAlign = when (alignment) {
             RichTextAlignment.Center -> TextAlign.Center
             RichTextAlignment.End -> TextAlign.End

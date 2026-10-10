@@ -28,6 +28,17 @@ JVM 测试位于 `app/src/test/`，重点覆盖 UseCase、Repository、数据源
 
 需要真实 Room 数据库的 DAO 与 Migration 测试应放入 `app/src/androidTest/`，不能以 JVM 全量测试替代。当前仓库已有设备 UI 测试和使用 Fake DAO 的 JVM 测试，尚无真实 Room DAO/Migration 测试；数据库变更时应补齐对应覆盖。使用已连接的设备或模拟器运行 `:app:connectedDebugAndroidTest`，需要时限定到相关测试类。当前版本 1 开发基线的历史见[存储说明](../subsystems/storage.md)；版本升级应验证已有数据能够保留。
 
+## 富文本布局的 JVM 原生渲染回归
+
+`Base64LayoutRobolectricTest` 使用测试专用 Robolectric 4.17、Android API 35 和 Native Graphics，
+直接运行生产 Compose / HtmlText 组件。覆盖显式换行、自动折行、200% 字号、眼睛重复切换、
+稳定块级模式、作者空行、48dp 触控范围及明文邮箱的独立点击；不会访问真实帖子或使用截图中的邮箱。
+
+聚焦命令：`./gradlew :app:testDebugUnitTest --tests '*Base64LayoutRobolectricTest'`。
+生成的 PNG 位于 `app/build/outputs/layout-screenshots/`，不纳入源码提交。
+几何断言验证占位与文字不重叠，截图还需实际查看，不能仅以编译或断言通过代替视觉检查。
+这些结果不等同于用户手机、OEM 字体、TalkBack 或 Release 真机验收。
+
 ## 真机或模拟器验证
 
 只验证本次受影响的流程，典型范围如下：

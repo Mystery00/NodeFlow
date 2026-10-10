@@ -31,4 +31,37 @@ class Base64RevealContentTest {
         assertThat(plan.text).isEqualTo("前面\uFFFC后面")
         assertThat(plan.ranges.map { it.value }).containsExactly("前面", "后面").inOrder()
     }
+
+    @Test fun mode_usesBothRepresentationsAndActualAvailableWidth() {
+        assertThat(canPlaceBase64Inline("encoded", "decoded", 320, 180, 360)).isTrue()
+        assertThat(canPlaceBase64Inline("encoded", "decoded", 400, 180, 360)).isFalse()
+        assertThat(canPlaceBase64Inline("encoded", "decoded", 180, 400, 360)).isFalse()
+        assertThat(canPlaceBase64Inline("encoded", "line one\nline two", 180, 180, 360)).isFalse()
+    }
+
+    @Test fun blockSplit_preservesBreaksWithoutDuplicatingBoundaryLines() {
+        val before = RichInline.Text("前面")
+        val after = RichInline.Text("后面")
+        val br = RichInline.LineBreak
+        assertThat(splitRichTextChunks(listOf(before, br, token, br, after), emptySet())).containsExactly(
+            RichTextChunk.Inline(listOf(before)), RichTextChunk.Block(token), RichTextChunk.Inline(listOf(after)),
+        ).inOrder()
+        assertThat(splitRichTextChunks(listOf(before, br, br, token, br, br, after), emptySet())).containsExactly(
+            RichTextChunk.Inline(listOf(before)), RichTextChunk.Inline(emptyList()), RichTextChunk.Block(token),
+            RichTextChunk.Inline(emptyList()), RichTextChunk.Inline(listOf(after)),
+        ).inOrder()
+        assertThat(splitRichTextChunks(listOf(br, token, br), emptySet())).containsExactly(
+            RichTextChunk.Inline(emptyList()), RichTextChunk.Block(token), RichTextChunk.Inline(emptyList()),
+        ).inOrder()
+    }
+
+    @Test fun blockSplit_doesNotTurnHtmlIndentationIntoBlankRows() {
+        val br = RichInline.LineBreak
+        val before = RichInline.Text("前面")
+        val after = RichInline.Text("后面")
+        assertThat(splitRichTextChunks(listOf(before, br, RichInline.Text(" "), token, RichInline.Text(" "), br, after), emptySet()))
+            .containsExactly(RichTextChunk.Inline(listOf(before)), RichTextChunk.Block(token), RichTextChunk.Inline(listOf(after)))
+            .inOrder()
+    }
+
 }
