@@ -1,8 +1,9 @@
 package app.mystery0.nodeflow.core.designsystem.component
 
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -11,12 +12,12 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.model.RichInline
 import app.mystery0.nodeflow.core.parser.decodeReadableBase64
@@ -66,6 +68,7 @@ internal fun Base64RevealContent(
     onUrlClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     singleLine: Boolean = false,
+    bodyStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     val decoded = state.decoded(token)
     val expanded = decoded != null
@@ -92,20 +95,24 @@ internal fun Base64RevealContent(
         }
         append(decoded.substring(end))
     }
-    Surface(
-        modifier = modifier.semantics { stateDescription = stateLabel },
-        shape = MaterialTheme.shapes.small,
-        color = colors.secondaryContainer,
-        contentColor = colors.onSecondaryContainer,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 8.dp),
-            verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
-        ) {
+    Box(modifier = modifier.semantics { stateDescription = stateLabel }) {
+        // 底色比实际布局薄；48dp 触控区完整计入布局，不能靠越界扩展覆盖相邻文字。
+        Box(
+            Modifier.matchParentSize()
+                .padding(vertical = BASE64_BACKGROUND_INSET)
+                .clip(MaterialTheme.shapes.small)
+                .background(colors.surfaceVariant.copy(alpha = 0.45f)),
+        )
+        Row(verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top) {
             Text(
                 text = text,
-                modifier = Modifier.weight(1f).padding(vertical = 12.dp),
-                style = base64TextStyle(token),
+                modifier = Modifier.weight(1f, fill = false).padding(
+                    start = BASE64_TEXT_START_PADDING,
+                    top = BASE64_TEXT_VERTICAL_PADDING,
+                    bottom = BASE64_TEXT_VERTICAL_PADDING,
+                ),
+                style = base64TextStyle(token, expanded, bodyStyle),
+                color = colors.onSurface,
                 softWrap = !singleLine,
                 maxLines = if (singleLine) 1 else Int.MAX_VALUE,
             )
@@ -118,6 +125,8 @@ internal fun Base64RevealContent(
                 Icon(
                     imageVector = if (expanded) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
                     contentDescription = if (expanded) hideLabel else showLabel,
+                    modifier = Modifier.size(20.dp),
+                    tint = colors.onSurfaceVariant,
                 )
             }
         }
@@ -126,10 +135,14 @@ internal fun Base64RevealContent(
 
 /** 测量与显示共用同一字形规格，保留片段自身的强调样式。 */
 @Composable
-internal fun base64TextStyle(token: RichInline.Base64Text): TextStyle {
-    val base = MaterialTheme.typography.bodyMedium
+internal fun base64TextStyle(
+    token: RichInline.Base64Text,
+    expanded: Boolean,
+    base: TextStyle = MaterialTheme.typography.bodyLarge,
+): TextStyle {
     return base.copy(
-        fontFamily = FontFamily.Monospace,
+        fontFamily = if (expanded) base.fontFamily else FontFamily.Monospace,
+        letterSpacing = if (expanded) base.letterSpacing else 0.sp,
         fontSize = base.fontSize * token.style.fontScale,
         fontWeight = if (token.style.bold) FontWeight.Bold else base.fontWeight,
         fontStyle = if (token.style.italic) FontStyle.Italic else base.fontStyle,
@@ -141,3 +154,6 @@ internal fun base64TextStyle(token: RichInline.Base64Text): TextStyle {
 }
 
 internal val BASE64_ACTION_SIZE = 48.dp
+internal val BASE64_TEXT_START_PADDING = 8.dp
+internal val BASE64_TEXT_VERTICAL_PADDING = 6.dp
+private val BASE64_BACKGROUND_INSET = 4.dp
