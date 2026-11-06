@@ -371,7 +371,9 @@ class V2exHtmlParser {
         val topicMatch = NOTIFICATION_TOPIC_REGEX.find(topicLink.attr("href")) ?: return null
         val topicId = topicMatch.groupValues.getOrNull(1)?.toLongOrNull() ?: return null
         val replyFloor = topicMatch.groupValues.getOrNull(2)?.toIntOrNull()
-        val actorLink = cell.selectFirst(".fade a[href^=/member/]")
+        // V2EX 新版通知描述使用 gray，兼容旧版 fade。
+        val description = cell.selectFirst(".fade, .gray")
+        val actorLink = description?.selectFirst("a[href^=/member/]")
             ?: cell.selectFirst("a[href^=/member/]")
             ?: return null
         val username = actorLink.attr("href")
@@ -379,9 +381,9 @@ class V2exHtmlParser {
             .substringBefore('?')
             .takeIf(String::isNotBlank)
             ?: return null
-        val action = cell.selectFirst(".fade")
+        val action = description
             ?.clone()
-            ?.also { fade -> fade.select("a").remove() }
+            ?.also { element -> element.select("a").remove() }
             ?.text()
             ?.replace(Regex("""\s*›\s*"""), "")
             ?.replace(Regex("""\s+"""), " ")

@@ -42,6 +42,26 @@ class NotificationRemoteDataSourceTest {
     }
 
     @Test
+    fun notifications_parsesGrayDescriptionFromUpdatedPage() = runTest {
+        // 新版页面仅将通知描述的 fade 样式改为 gray，其余结构保持一致。
+        val html = notificationHtml().replace("class=\"fade\"", "class=\"gray\"")
+        val store = UnreadNotificationStore(MutableStateFlow(AuthSession(username = "reader", cookieHeader = "test")), backgroundScope)
+        store.update(store.beginRequest(), 7)
+        val source = NotificationRemoteDataSource(FakeV2exRawApi(html), V2exHtmlParser(), store)
+
+        val notification = source.notifications(1).single()
+
+        assertThat(notification.actor.username).isEqualTo("actor")
+        assertThat(notification.action).isEqualTo("回复了主题")
+        assertThat(notification.topicId).isEqualTo(99)
+        assertThat(notification.topicTitle).isEqualTo("主题")
+        assertThat(notification.replyFloor).isEqualTo(2)
+        assertThat(notification.relativeTime).isEqualTo("刚刚")
+        assertThat(notification.contentRendered).isEqualTo("内容")
+        assertThat(store.unreadCount.first()).isEqualTo(0)
+    }
+
+    @Test
     fun notifications_reportsAuthenticationExpiry() = runTest {
         val api = FakeV2exRawApi(
             html = "<form action='/signin'><input name='once'></form>",
