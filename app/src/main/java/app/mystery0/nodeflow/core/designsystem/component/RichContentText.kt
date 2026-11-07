@@ -365,7 +365,11 @@ private fun argb(alpha: Int, red: Int, green: Int, blue: Int): Long =
 
 private const val INLINE_IMAGE_REPLACEMENT = '\uFFFC'
 private const val INLINE_IMAGE_EM = 1.2f
-private val SAFE_COLOR_CHARS = ('a'..'z') + ('0'..'9') + setOf('#', '(', ')', ',', '.', ' ', '%')
+private val SAFE_COLOR_CHARS = buildSet {
+    addAll('a'..'z')
+    addAll('0'..'9')
+    addAll(listOf('#', '(', ')', ',', '.', ' ', '%'))
+}
 private val RGB_COLOR_REGEX = Regex("""rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(0(?:\.\d+)?|1(?:\.0+)?))?\s*\)""")
 private val NAMED_COLORS = mapOf(
     "black" to 0xff000000,

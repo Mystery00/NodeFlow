@@ -61,7 +61,6 @@ fun ReplyEditorBottomSheet(
     state: ReplyEditorUiState,
     onEvent: (ReplyEditorUiEvent) -> Unit,
     onPickImage: () -> Unit,
-    onLoginClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(

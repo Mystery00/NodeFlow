@@ -20,7 +20,6 @@ import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -53,7 +52,6 @@ import app.mystery0.nodeflow.core.designsystem.component.LoadingContent
 import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountScreen(
     state: AccountUiState,
@@ -201,7 +199,7 @@ private fun AccountMenu(showFavorites: Boolean, onFavoriteTopicsClick: () -> Uni
 @Composable
 private fun AccountMenuItem(title: String, icon: ImageVector, onClick: () -> Unit) {
     ListItem(
-        headlineContent = { Text(title) },
+        content = { Text(title) },
         leadingContent = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingContent = {
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -23,9 +23,9 @@ class AndroidImageContentReader(
         val uri = contentUri.toUri()
         require(uri.scheme == ContentResolver.SCHEME_CONTENT)
         val mimeType = resolver.getType(uri)?.lowercase()
-            ?: throw ImageReadException.UnsupportedType
+            ?: throw ImageReadException.UnsupportedType()
         val extension = MIME_EXTENSIONS[mimeType]
-            ?: throw ImageReadException.UnsupportedType
+            ?: throw ImageReadException.UnsupportedType()
         val queriedName = resolver.query(
             uri,
             arrayOf(OpenableColumns.DISPLAY_NAME),
@@ -37,7 +37,7 @@ class AndroidImageContentReader(
         }
         val fileName = normalizeImageFileName(queriedName, extension)
         val bytes = resolver.openInputStream(uri)?.use { it.readUpTo(MAX_IMAGE_BYTES + 1) }
-            ?: throw ImageReadException.Unreadable
+            ?: throw ImageReadException.Unreadable()
         return ImageContent(fileName, mimeType, bytes)
     }
 
@@ -59,8 +59,8 @@ internal fun normalizeImageFileName(queriedName: String?, expectedExtension: Str
 }
 
 sealed class ImageReadException : RuntimeException() {
-    data object UnsupportedType : ImageReadException()
-    data object Unreadable : ImageReadException()
+    class UnsupportedType : ImageReadException()
+    class Unreadable : ImageReadException()
 }
 
 internal const val MAX_IMAGE_BYTES = 6 * 1024 * 1024

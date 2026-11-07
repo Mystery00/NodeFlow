@@ -947,7 +947,7 @@ class V2exHtmlParser {
 
         val markedByClass = select("[class]")
             .asSequence()
-            .plus(this)
+            .plus(sequenceOf(this))
             .any { element ->
                 element.classNames().any { className ->
                     className.lowercase() in PINNED_TOPIC_CLASS_NAMES
@@ -1197,8 +1197,8 @@ class V2exHtmlParser {
         val DAILY_ACTIVITY_RANK_REGEX = Regex("""Today's activity rank\s+(\d[\d,]*)""", RegexOption.IGNORE_CASE)
         val CONTINUOUS_DAYS_REGEX = Regex("""(\d+)\s*天""")
         val ONCE_REGEX = Regex("""once=(\d+)""")
-        val TOPIC_THANK_ONCLICK_REGEX = Regex("""thankTopic\(\d+,\s*['\"]?([A-Za-z0-9_-]+)['\"]?\)""")
-        val PAGE_ONCE_REGEX = Regex("""\bonce\s*=\s*['\"]?([A-Za-z0-9_-]+)['\"]?""")
+        val TOPIC_THANK_ONCLICK_REGEX = Regex("""thankTopic\(\d+,\s*['"]?([A-Za-z0-9_-]+)['"]?\)""")
+        val PAGE_ONCE_REGEX = Regex("""\bonce\s*=\s*['"]?([A-Za-z0-9_-]+)['"]?""")
         val DAILY_REWARD_REGEX = Regex("""\+?(\d[\d,]*)""")
         val NOTIFICATION_TOPIC_REGEX = Regex("""^/t/(\d+)(?:#reply(\d+))?""")
         val NOTIFICATION_REFERENCE_REGEX =

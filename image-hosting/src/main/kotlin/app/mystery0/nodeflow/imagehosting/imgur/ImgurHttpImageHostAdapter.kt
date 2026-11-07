@@ -42,7 +42,7 @@ class ImgurHttpImageHostAdapter(
         val clientId = try {
             val page = executeGet(pageBaseUrl.resolve("upload") ?: return protocol(RequestStage.Preparation, ResultCertainty.NotSubmitted))
             if (page.code !in 200..299) return responseFailure(page, RequestStage.Preparation, ResultCertainty.NotSubmitted)
-            val html = page.body?.string() ?: ""
+            val html = page.body.string()
             if (isChallenge(html)) return failure(FailureCategory.InteractionRequired, RequestStage.Preparation, ResultCertainty.NotSubmitted, RecoveryAction.OpenHostPage("https://imgur.com/upload"))
             extractClientId(html) ?: fetchScriptClientId(html)
         } catch (error: CancellationException) {
@@ -57,7 +57,7 @@ class ImgurHttpImageHostAdapter(
                 "".toRequestBody("application/json".toMediaType()),
             )
             if (response.code !in 200..299) return responseFailure(response, RequestStage.Upload, ResultCertainty.NotSubmitted)
-            val body = response.body?.string() ?: return protocol(RequestStage.Upload, ResultCertainty.NotSubmitted)
+            val body = response.body.string()
             if (isChallenge(body)) return interaction(RequestStage.Upload, ResultCertainty.NotSubmitted)
             val id = parseField(body, "id")
             val deleteHash = parseField(body, "deletehash")
@@ -75,7 +75,7 @@ class ImgurHttpImageHostAdapter(
                 "".toRequestBody("application/json".toMediaType()),
             )
             if (captcha.code !in 200..299) return responseFailure(captcha, RequestStage.Upload, ResultCertainty.NotSubmitted)
-            if (isChallenge(captcha.body?.string() ?: "")) return interaction(RequestStage.Upload, ResultCertainty.NotSubmitted)
+            if (isChallenge(captcha.body.string())) return interaction(RequestStage.Upload, ResultCertainty.NotSubmitted)
         } catch (error: CancellationException) {
             throw error
         } catch (_: IOException) {
@@ -91,7 +91,7 @@ class ImgurHttpImageHostAdapter(
             val response = executePost(
                 apiBaseUrl.resolve("3/upload")!!.newBuilder().addQueryParameter("client_id", clientId).build(), body,
             )
-            val responseBody = response.body?.string() ?: ""
+            val responseBody = response.body.string()
             if (isChallenge(responseBody)) return interaction(RequestStage.Upload, ResultCertainty.Unknown)
             if (response.code !in 200..299) return responseFailure(response, RequestStage.Upload, ResultCertainty.Unknown)
             val id = parseField(responseBody, "id")
@@ -102,7 +102,7 @@ class ImgurHttpImageHostAdapter(
                 apiBaseUrl.resolve("3/album/${album.deleteHash}")!!.newBuilder().addQueryParameter("client_id", clientId).build(),
                 "".toRequestBody("application/json".toMediaType()),
             )
-            val completionBody = completion.body?.string() ?: ""
+            val completionBody = completion.body.string()
             if (isChallenge(completionBody)) return interaction(RequestStage.Completion, ResultCertainty.Unknown)
             if (completion.code !in 200..299) return responseFailure(completion, RequestStage.Completion, ResultCertainty.Unknown)
             UploadResult.Success(UploadedImage(descriptor.id, id, link!!, "https://imgur.com/a/${album.id}", image.mimeType))
@@ -116,24 +116,24 @@ class ImgurHttpImageHostAdapter(
     private data class AlbumCredentials(val id: String, val deleteHash: String)
 
     private fun fetchScriptClientId(html: String): String? {
-        val scripts = Regex("<script[^>]+src=[\\\"']([^\\\"']+)[\\\"']", RegexOption.IGNORE_CASE).findAll(html).mapNotNull { it.groupValues.getOrNull(1) }
+        val scripts = Regex("""<script[^>]+src=["']([^"']+)["']""", RegexOption.IGNORE_CASE).findAll(html).mapNotNull { it.groupValues.getOrNull(1) }
         for (src in scripts) {
             val url = pageBaseUrl.resolve(src) ?: continue
             if (url.host !in allowedHosts) continue
             try {
                 val response = executeGet(url)
-                if (response.code in 200..299) extractClientId(response.body?.string() ?: "")?.let { return it }
+                if (response.code in 200..299) extractClientId(response.body.string())?.let { return it }
             } catch (error: CancellationException) { throw error } catch (_: IOException) { return null }
         }
         return null
     }
 
     private fun extractClientId(text: String): String? = listOf(
-        Regex("(?:client_id|clientId)\\s*[:=]\\s*[\\\"']([A-Za-z0-9_-]+)[\\\"']", RegexOption.IGNORE_CASE),
+        Regex("""(?:client_id|clientId)\s*[:=]\s*["']([A-Za-z0-9_-]+)["']""", RegexOption.IGNORE_CASE),
         Regex("(?:[?&]|\\b)client_id=([A-Za-z0-9_-]+)", RegexOption.IGNORE_CASE),
     ).firstNotNullOfOrNull { regex -> regex.find(text)?.groupValues?.getOrNull(1) }
 
-    private fun parseField(json: String, name: String): String? = Regex("\\\"$name\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(json)?.groupValues?.get(1)
+    private fun parseField(json: String, name: String): String? = Regex(""""$name"\s*:\s*"([^"]+)"""").find(json)?.groupValues?.get(1)
 
     private fun isDirectImageUrl(value: String?): Boolean {
         val url = value?.let { runCatching { it.toHttpUrl() }.getOrNull() } ?: return false
@@ -149,15 +149,15 @@ class ImgurHttpImageHostAdapter(
     private fun checked(url: HttpUrl): HttpUrl = url.also { require(it.host in allowedHosts && (it.scheme == "https" || it.host == pageBaseUrl.host)) { "Imgur host is not allowed" } }
 
     private fun responseFailure(response: okhttp3.Response, stage: RequestStage, certainty: ResultCertainty): UploadResult {
-        val body = response.body?.string() ?: ""
+        val body = response.body.string()
         if (isChallenge(body)) return interaction(stage, certainty)
         if (response.code == 429) {
             val retryAfter = response.header("Retry-After")?.trim()?.toLongOrNull()?.takeIf { it >= 0 }
             return UploadResult.Failure(UploadFailure(descriptor.id, FailureCategory.RateLimited, stage, certainty, retryAfterSeconds = retryAfter))
         }
-        val category = when {
-            response.code in 400..499 -> FailureCategory.PermissionDenied
-            response.code in 500..599 -> FailureCategory.Server
+        val category = when (response.code) {
+            in 400..499 -> FailureCategory.PermissionDenied
+            in 500..599 -> FailureCategory.Server
             else -> FailureCategory.ProtocolChanged
         }
         return failure(category, stage, certainty)

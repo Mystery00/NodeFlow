@@ -18,7 +18,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -37,6 +37,8 @@ class ReplyEditorBottomSheetTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
+    // 兼容仍支持设置导航栏颜色的 Android 版本，与生产窗口配置保持一致。
+    @Suppress("DEPRECATION")
     @Before
     fun setUpEdgeToEdgeWindow() {
         WindowCompat.setDecorFitsSystemWindows(composeRule.activity.window, false)
@@ -70,7 +72,6 @@ class ReplyEditorBottomSheetTest {
                     ),
                     onEvent = {},
                     onPickImage = { pickCount++ },
-                    onLoginClick = {},
                 )
             }
         }
@@ -91,7 +92,6 @@ class ReplyEditorBottomSheetTest {
                         state = ReplyEditorUiState(isOpen = true),
                         onEvent = {},
                         onPickImage = {},
-                        onLoginClick = {},
                     )
                 }
             }
@@ -108,6 +108,8 @@ class ReplyEditorBottomSheetTest {
         assertThat(bottomCenterPixel.red).isGreaterThan(bottomCenterPixel.green)
     }
 
+    // 同时检查旧版导航栏颜色和当前仍有效的对比度设置。
+    @Suppress("DEPRECATION")
     @Test
     fun openSheet_disablesNavigationBarContrastAndRestoresItAfterClose() {
         var isOpen by mutableStateOf(false)
@@ -118,7 +120,6 @@ class ReplyEditorBottomSheetTest {
                     state = ReplyEditorUiState(isOpen = isOpen),
                     onEvent = {},
                     onPickImage = {},
-                    onLoginClick = {},
                 )
             }
         }

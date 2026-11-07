@@ -22,7 +22,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -55,7 +54,6 @@ import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.model.ThemeMode
 import app.mystery0.nodeflow.core.ui.formatEpochSeconds
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
@@ -93,7 +91,7 @@ fun SettingsScreen(
         ) {
             SettingsSectionTitle("外观")
             ListItem(
-                headlineContent = { Text("深色模式") },
+                content = { Text("深色模式") },
                 supportingContent = {
                     Row(
                         modifier = Modifier.padding(top = 8.dp),
@@ -111,7 +109,7 @@ fun SettingsScreen(
             )
             HorizontalDivider()
             ListItem(
-                headlineContent = { Text("动态颜色") },
+                content = { Text("动态颜色") },
                 supportingContent = { Text("Android 12 及以上使用系统取色") },
                 trailingContent = {
                     Switch(
@@ -124,7 +122,7 @@ fun SettingsScreen(
             SettingsSectionTitle("内容浏览")
             var showAddImageHostDialog by remember { mutableStateOf(false) }
             ListItem(
-                headlineContent = { Text("自定义图床域名") },
+                content = { Text("自定义图床域名") },
                 supportingContent = {
                     Text("已内置 i.imgur.com、i.v2ex.co；命中这些域名的链接将尝试按图片加载")
                 },
@@ -137,7 +135,7 @@ fun SettingsScreen(
             )
             state.settings.customImageHosts.forEach { host ->
                 ListItem(
-                    headlineContent = { Text(host) },
+                    content = { Text(host) },
                     trailingContent = {
                         IconButton(
                             onClick = { onEvent(SettingsUiEvent.RemoveCustomImageHost(host)) },
@@ -158,7 +156,7 @@ fun SettingsScreen(
             }
             HorizontalDivider()
             ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_reply_image_host)) },
+                content = { Text(stringResource(R.string.settings_reply_image_host)) },
                 supportingContent = {
                     val selected = state.imageHostDescriptors.firstOrNull {
                         it.id.value == state.settings.replyImageHost
@@ -190,7 +188,7 @@ fun SettingsScreen(
             }
             HorizontalDivider()
             ListItem(
-                headlineContent = { Text("Polish 用户标签") },
+                content = { Text("Polish 用户标签") },
                 supportingContent = {
                     val syncedText = state.memberTagSyncedAtEpochSeconds
                         ?.let { "上次同步：${formatEpochSeconds(it)}" }
@@ -223,7 +221,7 @@ fun SettingsScreen(
                 }
             }
             ListItem(
-                headlineContent = { Text("新消息提醒") },
+                content = { Text("新消息提醒") },
                 supportingContent = { Text("每 30 分钟检查一次未读通知，有新消息时发送系统通知") },
                 trailingContent = {
                     Switch(
@@ -252,7 +250,7 @@ fun SettingsScreen(
             HorizontalDivider()
             SettingsSectionTitle("数据")
             ListItem(
-                headlineContent = { Text("清除缓存") },
+                content = { Text("清除缓存") },
                 supportingContent = { Text("清除主题、节点和用户缓存") },
                 trailingContent = {
                     Button(

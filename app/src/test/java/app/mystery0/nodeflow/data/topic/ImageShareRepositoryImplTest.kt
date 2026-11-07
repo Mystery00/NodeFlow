@@ -1,8 +1,6 @@
 package app.mystery0.nodeflow.data.topic
 
 import com.google.common.truth.Truth.assertThat
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
@@ -13,7 +11,6 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class ImageShareRepositoryImplTest {
 
     @get:Rule

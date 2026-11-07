@@ -197,7 +197,6 @@ fun NodeFlowNavHost(
                     ?.takeIf { it > 0 },
                 replyEditorState = replyEditorState,
                 onReplyEditorEvent = replyEditorViewModel::onEvent,
-                onLoginClick = { navController.navigate(NodeFlowDestinations.Auth) },
             )
         }
         composable(

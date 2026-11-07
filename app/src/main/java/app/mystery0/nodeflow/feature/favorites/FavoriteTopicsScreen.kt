@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,7 +37,6 @@ import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.TopicListItem
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoriteTopicsScreen(
     state: FavoriteTopicsUiState,

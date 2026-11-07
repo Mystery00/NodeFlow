@@ -2,7 +2,6 @@ package app.mystery0.nodeflow.feature.account
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,7 +20,6 @@ import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.model.AccountOverview
 import app.mystery0.nodeflow.core.model.DailyCheckIn
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AccountOverviewCard(overview: AccountOverview, isCheckingIn: Boolean, onCheckInClick: () -> Unit) {
     val coins = listOfNotNull(

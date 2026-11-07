@@ -3,7 +3,6 @@ package app.mystery0.nodeflow.feature.node
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,7 +62,6 @@ fun nodePlaneSubtitle(plane: NodePlane): String {
     return "${plane.name} · $count 个节点"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NodeListScreen(
     state: NodeListUiState,
@@ -231,7 +228,6 @@ private fun NodePlaneHeader(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NodeChipRow(
     nodes: List<Node>,

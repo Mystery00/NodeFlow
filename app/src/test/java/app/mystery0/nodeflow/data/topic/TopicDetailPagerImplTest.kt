@@ -333,13 +333,13 @@ class TopicDetailPagerImplTest {
         var jsonCalls = 0
             private set
 
-        suspend fun fetchPage(page: Int, floorOffset: Int): V2exHtmlParser.ParsedTopicHtml? {
+        fun fetchPage(page: Int, floorOffset: Int): V2exHtmlParser.ParsedTopicHtml? {
             pageRequests += page to floorOffset
             failures[page]?.let { throw it }
             return pages[page]
         }
 
-        suspend fun fetchJson(): TopicDetail {
+        fun fetchJson(): TopicDetail {
             jsonCalls += 1
             jsonFallbackFailure?.let { throw it }
             return checkNotNull(jsonFallback) { "json fallback not configured" }

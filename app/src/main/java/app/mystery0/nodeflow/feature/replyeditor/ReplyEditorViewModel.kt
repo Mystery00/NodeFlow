@@ -22,6 +22,7 @@ import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.imagehosting.contract.ImageHostId
 import app.mystery0.nodeflow.imagehosting.contract.RecoveryAction
 import app.mystery0.nodeflow.imagehosting.registry.ImageHostRegistry
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -152,7 +153,7 @@ class ReplyEditorViewModel(
     private fun scheduleSave() {
         saveJob?.cancel()
         saveJob = viewModelScope.launch {
-            delay(SAVE_DEBOUNCE_MILLIS)
+            delay(SAVE_DEBOUNCE)
             persistDraft()
         }
     }
@@ -390,6 +391,6 @@ class ReplyEditorViewModel(
     )
 
     private companion object {
-        const val SAVE_DEBOUNCE_MILLIS = 400L
+        val SAVE_DEBOUNCE = 400.milliseconds
     }
 }

@@ -25,7 +25,7 @@ class SettingsViewModel(
     private val clearCache: ClearCacheUseCase,
     private val refreshMemberTags: RefreshMemberTagsUseCase,
     private val applicationContext: Context,
-    private val imageHostRegistry: ImageHostRegistry,
+    imageHostRegistry: ImageHostRegistry,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         SettingsUiState(imageHostDescriptors = imageHostRegistry.descriptors()),

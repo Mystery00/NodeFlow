@@ -1,7 +1,6 @@
 package app.mystery0.nodeflow.core.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +34,6 @@ fun MemberTagChip(
 }
 
 /** V2EX_Polish 用户标签徽标组，多标签并列可换行。 */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MemberTagChips(
     tags: List<String>,

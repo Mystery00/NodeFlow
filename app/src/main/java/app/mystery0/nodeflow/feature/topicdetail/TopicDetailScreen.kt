@@ -125,6 +125,7 @@ import app.mystery0.nodeflow.core.ui.topicNodeChip
 import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorBottomSheet
 import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorUiEvent
 import app.mystery0.nodeflow.feature.replyeditor.ReplyEditorUiState
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -193,7 +194,6 @@ fun TopicDetailScreen(
     initialReplyFloor: Int? = null,
     replyEditorState: ReplyEditorUiState = ReplyEditorUiState(),
     onReplyEditorEvent: (ReplyEditorUiEvent) -> Unit = {},
-    onLoginClick: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val detail = state.detail
@@ -335,7 +335,6 @@ fun TopicDetailScreen(
             onPickImage = {
                 imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
-            onLoginClick = onLoginClick,
         )
     }
     selectedReply?.let { reply ->
@@ -555,7 +554,7 @@ private fun TopicDetailContent(
             val replyId = detail.replies[targetIndex].id
             listState.scrollToItem(index = replyListStartIndex + targetIndex)
             highlightedReplyId = replyId
-            delay(1400)
+            delay(1400.milliseconds)
             if (highlightedReplyId == replyId) highlightedReplyId = null
             if (replyFloorTarget != null) onReplyFloorTargetConsumed()
         } else if (replyFloorTarget != null) {
@@ -704,7 +703,7 @@ private fun TopicDetailContent(
                                 coroutineScope.launch {
                                     listState.animateScrollToItem(index = replyListStartIndex + targetIndex)
                                     highlightedReplyId = reference.replyId
-                                    delay(1400)
+                                    delay(1400.milliseconds)
                                     if (highlightedReplyId == reference.replyId) {
                                         highlightedReplyId = null
                                     }

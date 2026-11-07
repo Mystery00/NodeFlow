@@ -21,7 +21,6 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,7 +55,6 @@ import app.mystery0.nodeflow.core.ui.TopicListItem
 import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
 import coil3.compose.AsyncImage
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NodeScreen(
     state: NodeUiState,
