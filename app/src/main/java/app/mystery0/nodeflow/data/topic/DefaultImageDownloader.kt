@@ -1,8 +1,7 @@
 package app.mystery0.nodeflow.data.topic
 
 import android.content.Context
-import coil.annotation.ExperimentalCoilApi
-import coil.imageLoader
+import coil3.SingletonImageLoader
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -10,7 +9,6 @@ import okhttp3.Request
 import java.io.File
 import java.io.IOException
 
-@OptIn(ExperimentalCoilApi::class)
 class DefaultImageDownloader(
     private val context: Context,
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder().build(),
@@ -18,7 +16,7 @@ class DefaultImageDownloader(
 ) : ImageDownloader {
     override suspend fun downloadImage(imageUrl: String, targetFile: File): String? = withContext(ioDispatcher) {
         // 1. 优先尝试从 Coil 磁盘缓存中读取原始文件
-        val diskCache = context.imageLoader.diskCache
+        val diskCache = SingletonImageLoader.get(context).diskCache
         val snapshot = diskCache?.openSnapshot(imageUrl)
         if (snapshot != null) {
             snapshot.use { snap ->

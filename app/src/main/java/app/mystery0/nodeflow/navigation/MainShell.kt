@@ -46,7 +46,7 @@ import app.mystery0.nodeflow.feature.node.NodeListViewModel
 import app.mystery0.nodeflow.feature.notification.NotificationScreen
 import app.mystery0.nodeflow.feature.notification.NotificationSignedOutScreen
 import app.mystery0.nodeflow.feature.notification.NotificationViewModel
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow

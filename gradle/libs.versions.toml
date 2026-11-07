@@ -3,30 +3,30 @@ app-version = "0.1.3"
 android-compileSdk = "37"
 android-minSdk = "29"
 android-targetSdk = "37"
-agp = "9.4.1"
+agp = "9.5.1"
 coreKtx = "1.19.1"
 splashscreen = "1.2.0"
 lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.13.0"
-kotlin = "2.4.20"
+kotlin = "2.4.21"
 composeBom = "2026.09.00"
-material3 = "1.5.0-alpha29"
-coil = "2.7.0"
+material3 = "1.5.0-rc01"
+coil = "3.6.3"
 zoomimage = "1.7.0"
 coroutines = "1.11.0"
-datastore = "1.2.1"
-jsoup = "1.23.2"
+datastore = "1.3.0"
+jsoup = "1.24.1"
 media3 = "1.11.1"
 junit = "4.13.2"
 robolectric = "4.17"
 koin = "4.2.2"
-ksp = "2.3.11"
+ksp = "2.3.13"
 navigation = "2.10.2"
-okhttp = "5.5.0"
-paging = "3.5.1"
+okhttp = "5.5.1"
+paging = "3.5.3"
 retrofit = "3.0.0"
 room = "2.8.5"
-serializationJson = "1.11.0"
+serializationJson = "1.12.0"
 truth = "1.4.5"
 androidxTestExt = "1.3.0"
 androidxTestRunner = "1.7.0"
@@ -58,10 +58,11 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
-coil-gif = { group = "io.coil-kt", name = "coil-gif", version.ref = "coil" }
-coil-svg = { group = "io.coil-kt", name = "coil-svg", version.ref = "coil" }
-zoomimage-compose-coil2 = { group = "io.github.panpf.zoomimage", name = "zoomimage-compose-coil2", version.ref = "zoomimage" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-gif = { group = "io.coil-kt.coil3", name = "coil-gif", version.ref = "coil" }
+coil-svg = { group = "io.coil-kt.coil3", name = "coil-svg", version.ref = "coil" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+zoomimage-compose-coil3 = { group = "io.github.panpf.zoomimage", name = "zoomimage-compose-coil3", version.ref = "zoomimage" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-exoplayer-hls = { group = "androidx.media3", name = "media3-exoplayer-hls", version.ref = "media3" }

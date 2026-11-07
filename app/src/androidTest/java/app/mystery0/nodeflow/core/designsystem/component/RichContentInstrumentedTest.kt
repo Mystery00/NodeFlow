@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.core.designsystem.component
 
+import android.graphics.Bitmap
 import android.graphics.drawable.Animatable
 import android.util.Base64
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,9 +15,10 @@ import androidx.compose.ui.semantics.CollectionInfo
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.platform.app.InstrumentationRegistry
 import app.mystery0.nodeflow.core.parser.RichContentParser
-import coil.imageLoader
-import coil.request.ImageRequest
-import coil.request.SuccessResult
+import coil3.SingletonImageLoader
+import coil3.asDrawable
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
@@ -68,20 +70,43 @@ class RichContentInstrumentedTest {
     }
 
     @Test
+    fun imageLoader_decodesPngWithOriginalDimensions() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val pngFile = File.createTempFile("coil-image-", ".png", context.cacheDir)
+        try {
+            val bitmap = Bitmap.createBitmap(8, 6, Bitmap.Config.ARGB_8888)
+            try {
+                pngFile.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            } finally {
+                bitmap.recycle()
+            }
+            val result = SingletonImageLoader.get(context).execute(
+                ImageRequest.Builder(context).data(pngFile).build(),
+            )
+            assertThat(result).isInstanceOf(SuccessResult::class.java)
+            val image = (result as SuccessResult).image
+            assertThat(image.width).isEqualTo(8)
+            assertThat(image.height).isEqualTo(6)
+        } finally {
+            pngFile.delete()
+        }
+    }
+
+    @Test
     fun imageLoader_decodesAnimatedGifAsAnimatableDrawable() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val gifFile = File(context.cacheDir, "rich-content-animated.gif")
         gifFile.writeBytes(Base64.decode(ANIMATED_GIF_BASE64, Base64.DEFAULT))
 
         try {
-            val result = context.imageLoader.execute(
+            val result = SingletonImageLoader.get(context).execute(
                 ImageRequest.Builder(context)
                     .data(gifFile)
                     .build(),
             )
 
             assertThat(result).isInstanceOf(SuccessResult::class.java)
-            assertThat((result as SuccessResult).drawable).isInstanceOf(Animatable::class.java)
+            assertThat((result as SuccessResult).image.asDrawable(context.resources)).isInstanceOf(Animatable::class.java)
         } finally {
             gifFile.delete()
         }

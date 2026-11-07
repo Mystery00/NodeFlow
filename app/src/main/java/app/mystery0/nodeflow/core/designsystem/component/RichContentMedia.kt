@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -56,9 +57,9 @@ import app.mystery0.nodeflow.core.model.RichEmbed
 import app.mystery0.nodeflow.core.model.RichImage
 import app.mystery0.nodeflow.core.model.RichVideo
 import app.mystery0.nodeflow.core.model.RichVideoSource
-import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
+import coil3.compose.AsyncImagePainter
+import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.SubcomposeAsyncImageContent
 
 internal class RichContentImageSizeCache {
     private val ratios = mutableMapOf<String, Float>()
@@ -117,10 +118,11 @@ internal fun RichBlockImage(
                     .clip(RoundedCornerShape(8.dp))
                     .clickable { onImageClick(image.url) },
             ) {
-                when (val state = painter.state) {
+                val state by painter.state.collectAsState()
+                when (val currentState = state) {
                     is AsyncImagePainter.State.Success -> {
-                        val drawable = state.result.drawable
-                        sizeCache.put(image.url, drawable.intrinsicWidth, drawable.intrinsicHeight)
+                        val loadedImage = currentState.result.image
+                        sizeCache.put(image.url, loadedImage.width, loadedImage.height)
                         SubcomposeAsyncImageContent()
                     }
                     is AsyncImagePainter.State.Error -> ContentImageErrorPlaceholder(
@@ -211,7 +213,8 @@ private fun VideoPoster(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                when (painter.state) {
+                val state by painter.state.collectAsState()
+                when (state) {
                     is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
                     else -> Unit
                 }

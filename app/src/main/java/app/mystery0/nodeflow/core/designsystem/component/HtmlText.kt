@@ -16,7 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,10 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import app.mystery0.nodeflow.core.link.ImageHostMatcher
-import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
-import coil.request.ImageRequest
+import coil3.compose.AsyncImagePainter
+import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.SubcomposeAsyncImageContent
+import coil3.request.ImageRequest
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
@@ -109,7 +109,6 @@ private fun HtmlImage(
             },
         )
     }
-    var retryKey by remember(image.url) { mutableIntStateOf(0) }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val layoutSize = calculateHtmlImageLayoutSize(
             sourceWidthPx = sourceSize?.width,
@@ -118,10 +117,9 @@ private fun HtmlImage(
             compact = image.compact,
         )
         val zoomable = isZoomableHtmlImage(compact = image.compact)
-        val request = remember(image.url, retryKey) {
+        val request = remember(context, image.url) {
             ImageRequest.Builder(context)
                 .data(image.url)
-                .setParameter("nodeflowRetry", retryKey)
                 .build()
         }
         SubcomposeAsyncImage(
@@ -134,21 +132,22 @@ private fun HtmlImage(
             contentScale = ContentScale.Fit,
             onState = { state ->
                 if (state is AsyncImagePainter.State.Success) {
-                    val drawable = state.result.drawable
-                    val width = drawable.intrinsicWidth
-                    val height = drawable.intrinsicHeight
+                    val loadedImage = state.result.image
+                    val width = loadedImage.width
+                    val height = loadedImage.height
                     if (width > 0 && height > 0) {
                         sourceSize = IntSize(width, height)
                     }
                 }
             },
         ) {
-            when (painter.state) {
+            val state by painter.state.collectAsState()
+            when (state) {
                 is AsyncImagePainter.State.Loading ->
                     ContentImageLoadingPlaceholder(modifier = Modifier.matchParentSize())
                 is AsyncImagePainter.State.Error ->
                     ContentImageErrorPlaceholder(
-                        onRetry = { retryKey += 1 },
+                        onRetry = { painter.restart() },
                         modifier = Modifier.matchParentSize(),
                     )
                 else -> SubcomposeAsyncImageContent(

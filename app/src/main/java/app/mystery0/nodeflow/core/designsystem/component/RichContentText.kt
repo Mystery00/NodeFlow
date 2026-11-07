@@ -43,7 +43,7 @@ import app.mystery0.nodeflow.core.model.RichImage
 import app.mystery0.nodeflow.core.model.RichInline
 import app.mystery0.nodeflow.core.model.RichInlineStyle
 import app.mystery0.nodeflow.core.model.RichTextAlignment
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import kotlin.math.roundToInt
 
 internal data class RichTextPlan(

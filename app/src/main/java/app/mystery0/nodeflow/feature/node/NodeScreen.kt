@@ -54,7 +54,7 @@ import app.mystery0.nodeflow.core.ui.ListRefreshIndicator
 import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.TopicListItem
 import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -5,10 +5,11 @@ import app.mystery0.nodeflow.core.crash.NodeFlowCrashHandler
 import app.mystery0.nodeflow.core.datastore.SettingsStore
 import app.mystery0.nodeflow.core.notification.NotificationScheduler
 import app.mystery0.nodeflow.di.nodeFlowModules
-import coil.ImageLoader
-import coil.ImageLoaderFactory
-import coil.decode.ImageDecoderDecoder
-import coil.decode.SvgDecoder
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.gif.AnimatedImageDecoder
+import coil3.svg.SvgDecoder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,11 +19,11 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 
-class NodeFlowApplication : Application(), ImageLoaderFactory {
-    override fun newImageLoader(): ImageLoader =
-        ImageLoader.Builder(this)
+class NodeFlowApplication : Application(), SingletonImageLoader.Factory {
+    override fun newImageLoader(context: PlatformContext): ImageLoader =
+        ImageLoader.Builder(context)
             .components {
-                add(ImageDecoderDecoder.Factory())
+                add(AnimatedImageDecoder.Factory())
                 add(SvgDecoder.Factory())
             }
             .build()
