@@ -1,5 +1,7 @@
 # V2EX 创建回复 Implementation Plan
 
+> 历史实施计划，不作为待执行清单或当前测试清单。当前数据库为版本 1，本文 3→4 Migration 及对应测试已不适用；回复 POST 2xx 即判定成功，没有实现本文的提交后确认流程。实际成功判定、草稿按主题保存及测试入口见[网络说明](../subsystems/network-auth.md)、[存储说明](../subsystems/storage.md)和[测试说明](../development/testing.md)。
+
 > **面向 Agent 执行者：** REQUIRED SUB-SKILL：使用 `executing-plans` 逐任务实施；每个任务遵循 `test-driven-development`，按复选框跟踪进度并在批次检查点复核差异。
 
 **目标：** 在主题详情中交付支持主题回复、指定楼层引用、V2EX 图库图片直链、持久化草稿和可靠提交确认的完整创建回复能力。

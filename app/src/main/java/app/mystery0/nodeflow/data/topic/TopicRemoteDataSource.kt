@@ -1,11 +1,11 @@
 package app.mystery0.nodeflow.data.topic
 
-import app.mystery0.nodeflow.core.common.isAccessDenied
 import app.mystery0.nodeflow.core.common.NodeFlowException
-import app.mystery0.nodeflow.core.model.Topic
+import app.mystery0.nodeflow.core.common.isAccessDenied
 import app.mystery0.nodeflow.core.model.FavoriteTopicsPage
-import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.model.ThankResult
+import app.mystery0.nodeflow.core.model.Topic
+import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.network.V2exHtmlAccessTarget
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.network.V2exThankApi
@@ -13,13 +13,12 @@ import app.mystery0.nodeflow.core.network.accessibleHtmlOrThrow
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
-import app.mystery0.nodeflow.data.notification.UnreadNotificationStore
 import app.mystery0.nodeflow.data.common.V2exReplyDto
 import app.mystery0.nodeflow.data.common.V2exTopicDto
 import app.mystery0.nodeflow.data.common.toReply
 import app.mystery0.nodeflow.data.common.toTopic
+import app.mystery0.nodeflow.data.notification.UnreadNotificationStore
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 class TopicRemoteDataSource(

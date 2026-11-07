@@ -1,7 +1,7 @@
 package app.mystery0.nodeflow.domain.auth
 
-import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.model.AuthLoginResult
+import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.model.LoginChallenge
 import app.mystery0.nodeflow.core.model.TwoFactorChallenge
 import kotlinx.coroutines.flow.Flow

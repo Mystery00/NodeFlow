@@ -8,7 +8,6 @@ import app.mystery0.nodeflow.core.network.safeNetworkCall
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import app.mystery0.nodeflow.data.common.V2exMemberDto
 import app.mystery0.nodeflow.data.common.toUser
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 class UserRemoteDataSource(

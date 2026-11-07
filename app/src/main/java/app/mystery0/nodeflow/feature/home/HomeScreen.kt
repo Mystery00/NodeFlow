@@ -41,7 +41,6 @@ import app.mystery0.nodeflow.core.ui.NodeFlowHorizontalRefreshIndicator
 import app.mystery0.nodeflow.core.ui.TopicListItem
 import app.mystery0.nodeflow.core.ui.rememberRefreshErrorSnackbar
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 

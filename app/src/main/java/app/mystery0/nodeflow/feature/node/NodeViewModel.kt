@@ -4,8 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
-import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.common.toUserMessage
+import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.node.BlockNodeUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase

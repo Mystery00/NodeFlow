@@ -6,7 +6,7 @@
 - Parser 优先使用稳定的 id、class、属性和语义关系，避免绝对节点索引。
 - 页面必须先经过访问状态分类，不能把登录页、受限页或 Cloudflare 页面当作业务内容。
 - 新解析规则使用最小、脱敏 fixture 覆盖正常、缺失字段、空内容和异常页面。
-- 主题列表置顶状态优先读取显式 class、data 属性或状态标签；当前 V2EX 无显式标记时，按最近的 `.box` 列表容器分别计算最长显示时间倒序子序列，只将 60 秒误差之外的最小异常集合识别为置顶，避免侧栏污染，也不因第一条、推广节点本身或被插入主题跨过而误标普通主题。
+- 主题列表置顶由 `V2exHtmlParser.hasPinnedTopicMarker` 识别：条目的 `corner_star.png` 背景图、显式 class、data 属性或状态标签。当前没有最长倒序子序列、60 秒容差或按时间异常推断的逻辑；无标记的主题不凭列表位置推断置顶。
 
 ## 富文本与链接
 
@@ -55,8 +55,8 @@
 
 ## 图片
 
-- 普通图片加载复用 Coil 3，网络加载使用 `coil-network-okhttp`；全局 `SingletonImageLoader` 同时供界面与图片下载器读取磁盘缓存。GIF 使用 `AnimatedImageDecoder` 保留原始动画，SVG 使用 `SvgDecoder`。
-- 正文与回复大图预览复用 ZoomImage/`ZoomableImageViewer`。
+- 普通图片加载复用 Coil 3，网络加载使用 `coil-network-okhttp`；`NodeFlowApplication` 实现 `SingletonImageLoader.Factory`，全局加载器同时供界面与图片下载器读取磁盘缓存。GIF 使用 `AnimatedImageDecoder` 保留原始动画，SVG 使用 `SvgDecoder`。Compose 加载状态通过 `AsyncImagePainter.state` 的 StateFlow 收集，回复图片失败重试调用 `painter.restart()`。
+- 正文与回复大图预览复用 ZoomImage 的 `zoomimage-compose-coil3` 模块和 `ZoomableImageViewer`；不能再按历史计划引入 Coil 2 适配模块。
 - 图片分类优先使用服务端明确语义；emoji、图标和紧凑图片不能因通用规则被放大。
 - 修改图片渲染时同时检查正文、回复、点击、加载失败和大图预览。
 

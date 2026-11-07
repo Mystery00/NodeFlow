@@ -1,5 +1,7 @@
 # 主题正文原生富文本渲染实施计划
 
+> 历史实施计划。本文固定的依赖版本与 Coil 2 代码示例已过时，当前版本以 `gradle/libs.versions.toml` 为准；图片使用 Coil 3，回复命中 Base64 时也复用原生富文本。现状和验证入口见[内容渲染](../subsystems/content-rendering.md)与[测试说明](../development/testing.md)。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 将主题正文和附言迁移为无 WebView 的原生富文本，同时保留表格、图片、视频和链接交互。

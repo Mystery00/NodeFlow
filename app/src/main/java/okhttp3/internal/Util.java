@@ -3,10 +3,10 @@ package okhttp3.internal;
 import java.io.Closeable;
 
 /**
- * ZoomImage 1.6.0 与 OkHttp 5 的二进制兼容层。
+ * 为旧依赖字节码保留的 OkHttp 4 内部方法兼容入口。
  *
- * <p>ZoomImage 的 Coil 2 适配器仍调用 OkHttp 4 的内部静态方法。OkHttp 5 已移动该方法，
- * 因此在 ZoomImage 停止依赖此内部 API 前，在应用侧保留等价入口。</p>
+ * <p>最初为 ZoomImage 1.6.0 的 Coil 2 适配器引入，补齐 OkHttp 5 已移动的静态方法。
+ * 当前应用已使用 Coil 3；此处记录兼容层的历史来源，不表示当前仍使用 Coil 2。</p>
  */
 public final class Util {
     private Util() {

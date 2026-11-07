@@ -1,6 +1,6 @@
 # NodeFlow 文档索引
 
-本文档是仓库详细资料的统一索引。AI Agent 应先阅读根目录 `AGENTS.md`，再根据任务类型打开这里列出的专题文档。
+本文档是仓库详细资料的统一索引。AI Agent 应先阅读根目录 `AGENTS.md`，再根据任务类型打开这里列出的专题文档。当前行为以源码、构建配置和对应测试为依据；专题文档区分实现现状与开发约束，带日期的计划和调查不自动代表现状或验收通过。
 
 ## 架构
 
@@ -17,21 +17,30 @@
 ## 子系统
 
 - [网络、访问控制与登录](subsystems/network-auth.md)：V2EX 数据源、HTML 页面分类、Cookie、Token 和敏感信息。
-- [数据库、缓存与设置](subsystems/storage.md)：Room、Migration、schema、缓存回退和 DataStore。
+- [数据库、缓存与设置](subsystems/storage.md)：Room 版本 1、禁止破坏性迁移、草稿归属、缓存边界、DataStore 与实际备份范围。
 - [UI、导航与状态管理](subsystems/ui-navigation.md)：Compose、Material 3、UDF/MVI、导航与深链。
 - [HTML、链接、图片与内容渲染](subsystems/content-rendering.md)：解析、富文本、应用内链接和图片预览。
 
-## 待评审设计
+## 当前实现与历史方案的主要差异
 
-- [图床适配模块与 Imgur 网页上传设计](plans/2026-09-24-image-hosting-adapters-design.md)：独立模块、可扩展适配器契约、V2EX 迁移、Imgur 匿名网页上传调研、草稿兼容与验收；核心适配器、设置与回复编辑器接入已实施，Task 8 文档与回归验收按当前源码维护。
+| 主题 | 当前事实与入口 |
+| --- | --- |
+| 工程模块 | `:app` 与 `:image-hosting` 两个模块，见[总体架构](architecture/overview.md) |
+| 数据库 | 完整结构统一为版本 1，没有历史 3→4/4→5 Migration；缺失迁移时拒绝打开，见[存储说明](subsystems/storage.md) |
+| 回复提交 | POST 2xx 当前即视为成功，没有提交后按正文与作者确认；草稿按主题保存、不按账号隔离，见[网络说明](subsystems/network-auth.md) |
+| 会话 | 加密存储已实现，但登出没有跨 Cookie、Session、缓存与网络响应的原子隔离，见[存储说明](subsystems/storage.md) |
+| 图片展示 | Coil 3 与 ZoomImage Coil 3 适配模块；旧计划中的 Coil 2 版本不再适用，见[内容渲染](subsystems/content-rendering.md) |
+| 置顶识别 | 仅使用 `corner_star.png` 等显式标记，没有时间异常推断或 60 秒容差，见[内容渲染](subsystems/content-rendering.md) |
+| 图床上传 | `ImgurHttpImageHostAdapter` 已接入独立客户端；无整体 deadline，只有挑战类恢复动作提供网页入口，浏览器手动上传不自动回填，见[网络说明](subsystems/network-auth.md) |
+| 消息入口 | 已迁入主页面底栏，早期个人页铃铛方案已替代，见[UI 与导航](subsystems/ui-navigation.md) |
+| 发布流程 | 主分支预发布与 `v*` 正式发布分别实现；正式发布目前不归档 R8 mapping，见[工作流](development/workflow.md) |
 
-## 当前已实施的图床能力
-
-`:image-hosting` 提供稳定契约和 registry；V2EX 支持一次性上传，Imgur 使用独立 HTTP 会话完成匿名网页流程，遇验证码或协议变化通过手动网页回退。回复草稿兼容旧 V2EX 图片 ID，并为新上传图片保存 provider 命名空间。详细边界见[网络与认证](subsystems/network-auth.md)、[存储](subsystems/storage.md)和[UI 与导航](subsystems/ui-navigation.md)。
+当前回复图片使用 provider 命名空间 ID，并兼容旧 V2EX 图片 ID。代码已实现的协议路径、本地替身测试和真实站点验证应分别记录，不以计划中的待办勾选或浏览器观察替代当前验收。
 
 ## 历史设计与计划
 
-- [`plans/`](plans/)：已确认的设计说明和对应实施计划。设计与计划统一放在同一目录，通过文件名中的 `-design` 区分。
+- [`plans/`](plans/)：历史设计说明和实施计划，通过文件名中的 `-design` 区分；包含当时拟议、已实施及后来被替代的步骤，不能整体视为已完成或仍待执行。
+- [图床适配模块与 Imgur 网页上传设计](plans/2026-09-24-image-hosting-adapters-design.md) / [实施计划](plans/2026-09-24-image-hosting-adapters.md)
 - [可靠性、凭据加密与数据库基线重置设计](plans/2026-08-30-reliability-secure-session-database-baseline-design.md) / [实施计划](plans/2026-08-30-reliability-secure-session-database-baseline.md)
 - [首页底部导航重复点击设计](plans/2026-07-15-home-bottom-bar-reselect-design.md) / [实施计划](plans/2026-07-15-home-bottom-bar-reselect.md)
 - [首页重复点击展开 App Bar 设计](plans/2026-07-15-home-reselect-app-bar-design.md) / [实施计划](plans/2026-07-15-home-reselect-app-bar.md)

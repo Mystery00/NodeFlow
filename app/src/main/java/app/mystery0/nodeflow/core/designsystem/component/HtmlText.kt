@@ -1,7 +1,7 @@
 package app.mystery0.nodeflow.core.designsystem.component
 
-import android.text.method.LinkMovementMethod
 import android.text.SpannableStringBuilder
+import android.text.method.LinkMovementMethod
 import android.text.style.URLSpan
 import android.view.View
 import android.widget.TextView
@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,15 +25,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import app.mystery0.nodeflow.core.model.containsBase64
-import app.mystery0.nodeflow.core.parser.RichContentParser
-import app.mystery0.nodeflow.core.parser.linkifyContentHtml
-import app.mystery0.nodeflow.core.parser.safeContentUrl
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import app.mystery0.nodeflow.core.link.ImageHostMatcher
+import app.mystery0.nodeflow.core.model.containsBase64
+import app.mystery0.nodeflow.core.parser.RichContentParser
+import app.mystery0.nodeflow.core.parser.linkifyContentHtml
+import app.mystery0.nodeflow.core.parser.safeContentUrl
 import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent

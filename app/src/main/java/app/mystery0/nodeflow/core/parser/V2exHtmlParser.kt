@@ -1,9 +1,9 @@
 package app.mystery0.nodeflow.core.parser
 
 import app.mystery0.nodeflow.core.common.NodeFlowException
-import app.mystery0.nodeflow.core.model.FavoriteTopicsPage
 import app.mystery0.nodeflow.core.model.AccountWealth
 import app.mystery0.nodeflow.core.model.DailyCheckIn
+import app.mystery0.nodeflow.core.model.FavoriteTopicsPage
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.Notification
@@ -41,7 +41,7 @@ class V2exHtmlParser {
         }
         if (!hasHeader) throw favoriteTopicsParseError()
         val cells = main.select("div.cell.item, div.cell:has(.item_title), div.cell:has(a.topic-link)")
-        // 收藏顺序不保证按最后回复时间排列，不能使用首页的时间异常置顶推断。
+        // 收藏列表与普通列表共用条目解析，仅识别页面中的显式置顶标记。
         val topics = cells.map { cell ->
             parseTopicCell(cell, sourceNodeName = null) ?: throw favoriteTopicsParseError()
         }.distinctBy { it.id }

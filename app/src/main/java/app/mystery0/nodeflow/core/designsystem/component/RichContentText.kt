@@ -3,9 +3,9 @@ package app.mystery0.nodeflow.core.designsystem.component
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.MaterialTheme
@@ -23,19 +23,17 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.withLink
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnit
-import app.mystery0.nodeflow.core.parser.decodeReadableBase64
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.mystery0.nodeflow.core.model.RichBaseline
@@ -43,6 +41,7 @@ import app.mystery0.nodeflow.core.model.RichImage
 import app.mystery0.nodeflow.core.model.RichInline
 import app.mystery0.nodeflow.core.model.RichInlineStyle
 import app.mystery0.nodeflow.core.model.RichTextAlignment
+import app.mystery0.nodeflow.core.parser.decodeReadableBase64
 import coil3.compose.AsyncImage
 import kotlin.math.roundToInt
 

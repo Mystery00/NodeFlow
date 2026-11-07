@@ -1,5 +1,7 @@
 # 可靠性、凭据加密与数据库基线重置实施计划
 
+> 历史实施计划。删除旧版本迁移测试不代表当前无需数据库测试：现有 `DatabaseMigrationPolicyTest` 验证版本 1 重开和缺失降级迁移的数据保留。普通设置的实际备份范围、会话并发边界和缓存失败处理见[存储说明](../subsystems/storage.md)，不要把本文目标或待办当作全仓已经具备的保证。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 修复缓存清理和后台通知问题，使用 Android Keystore 加密所有登录凭据，并把未发布的当前 Room 结构重置为版本 1。

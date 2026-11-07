@@ -1,5 +1,7 @@
 # 图床适配模块 Implementation Plan
 
+> 历史实施计划，不是当前待办或文件清单。当前存在 `:image-hosting` 模块与 `ImgurHttpImageHostAdapter`，没有按本文拆出的 `ImgurWebSession` 等类，也没有整体 deadline/串行 Mutex。图床选择位于设置页；本文部分计划测试与协议保证尚未实现。以[架构](../architecture/overview.md)、[网络说明](../subsystems/network-auth.md)和[测试说明](../development/testing.md)描述的代码现状为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 建立独立的 Kotlin/JVM 图床适配模块，迁移 V2EX 图片上传并接入经协议验证的 Imgur 匿名网页上传，同时让回复编辑器通过注册表支持后续图床扩展。

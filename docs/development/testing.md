@@ -17,8 +17,8 @@
 | 跨层行为、共享基础设施、协程/缓存策略，或影响范围不确定 | 相关回归测试、`:app:testDebugUnitTest`、`:app:assembleDebug` |
 | 仅 Kotlin 重命名或无行为变化的重构 | 相关现有测试、`:app:assembleDebug`；跨层或共享契约变化按上一行处理 |
 | UI、资源、Manifest、导航 | 相关现有测试、`:app:assembleDebug`，检查受影响的界面或系统行为；涉及权限、API 兼容性、资源限定符或可访问性时执行 `:app:lintDebug` |
-| Gradle、依赖或构建配置 | `:app:testDebugUnitTest`、`:app:assembleDebug`；涉及 Lint 配置或 Android 兼容性时执行 `:app:lintDebug` |
-| Room Entity/DAO/schema | 数据库测试、全量 JVM 测试、Debug 构建及 schema 检查；版本升级还需 Migration 测试 |
+| Gradle、依赖或构建配置 | `:app:testDebugUnitTest`、`:app:assembleDebug`；影响图床模块或共享依赖时加 `:image-hosting:test`；涉及 Lint 配置或 Android 兼容性时执行 `:app:lintDebug` |
+| Room Entity/DAO/schema 或数据库打开/迁移策略 | 相关真实数据库测试、全量 JVM 测试、Debug 构建及 schema 检查；版本升级还需对应路径的 Migration 测试 |
 | 网络、Cookie、登录、访问控制、HTML 解析 | 相关 MockWebServer/Parser 回归测试、全量 JVM 测试、Debug 构建 |
 | Release、混淆、签名 | 相关检查及安全配置可用时的 Release 构建；运行受混淆影响的关键流程 |
 
@@ -26,7 +26,11 @@
 
 JVM 测试位于 `app/src/test/`，重点覆盖 UseCase、Repository、数据源、Parser、链接与格式化、ViewModel 状态转换、缓存策略和网络异常映射。网络测试使用 MockWebServer 或测试替身，不访问真实 V2EX；HTML fixture 最小化且脱敏。协程和 Flow 使用 `kotlinx-coroutines-test`，断言优先使用 Truth。
 
-需要真实 Room 数据库的 DAO 与 Migration 测试应放入 `app/src/androidTest/`，不能以 JVM 全量测试替代。当前仓库已有设备 UI 测试和使用 Fake DAO 的 JVM 测试，尚无真实 Room DAO/Migration 测试；数据库变更时应补齐对应覆盖。使用已连接的设备或模拟器运行 `:app:connectedDebugAndroidTest`，需要时限定到相关测试类。当前版本 1 开发基线的历史见[存储说明](../subsystems/storage.md)；版本升级应验证已有数据能够保留。
+图床模块 JVM 测试位于 `image-hosting/src/test/`，使用 `:image-hosting:test` 运行；覆盖契约、注册表及 V2EX/Imgur 协议替身，不访问真实图床。
+
+需要真实 Room 的测试放入 `app/src/androidTest/`，不能用 Fake DAO 的 JVM 测试替代。`DatabaseMigrationPolicyTest` 使用生产 Koin 数据库模块和独立临时目录，覆盖版本 1 草稿重开保留、模拟版本 2→1 缺失迁移时拒绝打开且数据保留；不接触应用的真实 `nodeflow.db`。目前没有实际版本升级路径的 Migration 测试，也没有全量 DAO 行为覆盖；新增 schema/迁移时仍需补齐对应测试。
+
+聚焦命令：`./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=app.mystery0.nodeflow.core.database.DatabaseMigrationPolicyTest`。当前版本 1 基线及迁移规则见[存储说明](../subsystems/storage.md)。
 
 ## 富文本布局的 JVM 原生渲染回归
 
@@ -38,6 +42,12 @@ JVM 测试位于 `app/src/test/`，重点覆盖 UseCase、Repository、数据源
 生成的 PNG 位于 `app/build/outputs/layout-screenshots/`，不纳入源码提交。
 几何断言验证占位与文字不重叠，截图还需实际查看，不能仅以编译或断言通过代替视觉检查。
 这些结果不等同于用户手机、OEM 字体、TalkBack 或 Release 真机验收。
+
+## 图片加载验证
+
+- `CoilImageLoaderTest` 为 Robolectric 测试，使用生产加载器配置与 MockWebServer，覆盖网络 SVG 解码、磁盘缓存以及服务关闭后的原文件保存。
+- `RichContentInstrumentedTest` 的图片用例在设备上验证本地 PNG 尺寸与 GIF 动画类型；Windows Robolectric 的原生 `ImageDecoder` 路径存在限制，不用替身成功冒充 Android 解码通过。
+- `ZoomableImageViewerTest` 使用本地生成图片，覆盖加载、分享/关闭回调和加载失败时禁用分享，不等于真实图床访问或系统分享目标验收。
 
 ## 真机或模拟器验证
 

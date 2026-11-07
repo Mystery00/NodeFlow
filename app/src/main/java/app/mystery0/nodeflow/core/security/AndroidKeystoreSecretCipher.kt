@@ -7,8 +7,8 @@ import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
-import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 class AndroidKeystoreSecretCipher(
     private val keyAlias: String = DEFAULT_KEY_ALIAS,

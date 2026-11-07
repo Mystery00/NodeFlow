@@ -14,8 +14,7 @@ val databaseModule = module {
             androidContext(),
             NodeFlowDatabase::class.java,
             "nodeflow.db",
-        ).fallbackToDestructiveMigration(false)
-            .build()
+        ).build()
     }
 
     single<TopicDao> {

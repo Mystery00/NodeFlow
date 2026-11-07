@@ -1,11 +1,11 @@
 package app.mystery0.nodeflow.core.network
 
 import app.mystery0.nodeflow.core.common.NodeFlowException
-import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import okhttp3.ResponseBody
 import retrofit2.Response
+import java.io.IOException
 
 suspend fun <T> safeNetworkCall(block: suspend () -> T): T {
     return try {

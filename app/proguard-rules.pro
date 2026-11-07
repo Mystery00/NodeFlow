@@ -38,5 +38,5 @@
 }
 
 # OkHttp、Coil、Media3、Koin 等其余规则由依赖和 Android 默认规则提供。
-# okhttp3.internal.Util.closeQuietly 是 ZoomImage 的直接字节码调用，R8 会一起改写，
-# 不是按名字反射查找，不应为了该兼容层保留整个 okhttp3 包。
+# okhttp3.internal.Util.closeQuietly 是历史 ZoomImage/Coil 2 兼容入口；当前已使用 Coil 3。
+# 该入口没有按名字反射的约定，不应为了保留它而 keep 整个 okhttp3 包。

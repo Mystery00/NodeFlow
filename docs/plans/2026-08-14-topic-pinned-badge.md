@@ -1,5 +1,7 @@
 # 帖子列表置顶标记实施计划
 
+> 历史实施记录，勾选结果仅代表当时记录。数据库后来统一为版本 1，本文 4→5 Migration、版本 5 schema 和迁移测试已不在当前仓库；不得将这里的测试通过记录作为当前版本验证。当前置顶只识别 `corner_star.png` 等显式标记，没有时间异常推断。现状见[内容渲染](../subsystems/content-rendering.md)、[存储说明](../subsystems/storage.md)和[测试说明](../development/testing.md)。
+
 > **执行要求：** 使用内联 TDD 按步骤实施；每个步骤使用复选框跟踪。
 
 **目标：** 解析、缓存并展示 V2EX 主题列表的置顶状态。

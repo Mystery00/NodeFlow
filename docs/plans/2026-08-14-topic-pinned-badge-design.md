@@ -1,5 +1,7 @@
 # 帖子列表置顶标记设计
 
+> 历史设计。置顶字段现已包含在统一的版本 1 schema 中；本文版本 5 schema、4→5 Migration 和对应迁移测试不再属于当前仓库。置顶识别现只读取 `corner_star.png` 等显式标记，没有本文的时间异常推断。现行行为见[内容渲染](../subsystems/content-rendering.md)、[存储说明](../subsystems/storage.md)和[测试说明](../development/testing.md)。
+
 ## 背景与调查
 
 NodeFlow 的主题列表只展示节点、作者、时间和回复数，`Topic` 领域模型也没有置顶状态，因此即使 V2EX 列表单元携带置顶标记，解析后也会丢失。

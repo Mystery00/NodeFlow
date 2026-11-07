@@ -27,6 +27,8 @@ PowerShell 在仓库根目录运行以下命令，按验证矩阵选用，不要
 # 局部测试：将占位符替换为实际测试类名或匹配模式
 .\gradlew.bat :app:testDebugUnitTest --tests '<测试类完整名称或匹配模式>'
 .\gradlew.bat :app:testDebugUnitTest
+# 图床模块或共享依赖变更
+.\gradlew.bat :image-hosting:test
 .\gradlew.bat :app:assembleDebug
 .\gradlew.bat :app:lintDebug
 # 需要已连接的模拟器或设备
@@ -35,17 +37,29 @@ PowerShell 在仓库根目录运行以下命令，按验证矩阵选用，不要
 
 同一工作目录的 Gradle 任务串行或在一次调用中执行，避免争用构建输出。环境缺失时先诊断并在授权范围内修复；确实无法运行则交付已完成部分和阻塞原因，不把未运行描述为通过。
 
-Release 验证使用 `.\gradlew.bat :app:assembleRelease`，需要本地签名配置。`versionCode` 来自 Git 提交数量，`versionName` 来自 `gradle/libs.versions.toml`；Debug/Release 追加构建类型、提交数和 Git SHA 后缀。
+Release 验证使用 `.\gradlew.bat :app:assembleRelease`。`signing.gradle` 按键优先读取 `local.properties`，缺失时回退同名环境变量：`SIGN_KEY_STORE_FILE`、`SIGN_KEY_STORE_PASSWORD`、`SIGN_KEY_ALIAS`、`SIGN_KEY_PASSWORD`。缺少签名配置不影响 Debug，Release 打包会失败。
 
-## 主分支 CI 与 Release 发布
+`versionCode` 来自 `git rev-list HEAD --count`，`versionName` 基值来自 `gradle/libs.versions.toml`；Debug/Release 都追加构建类型、提交数和 Git SHA 后缀。Git tag 不会自动修改 App 版本，发布标题、tag 与 APK 版本是否一致需要在发布时核对；不要假定分支切换、历史重写后的提交数始终递增。
+
+## 主分支 CI 与预发布
 
 `.github/workflows/android_master.yml` 在 main 推送、面向 main 的 PR 和手动运行时执行 Release 构建。main 推送仍支持提交消息中的 `ci skip`；只有 main 上成功的非 PR 运行才创建 `pre-*` 预发布。手动运行其他分支只构建，不发布。
 
 非 PR 构建使用现有签名 Secrets：`KEYSTORE_BASE64`（兼容 `SIGN_KEY_STORE_BASE64`）、`SIGN_KEY_STORE_PASSWORD`（兼容 `KEYSTORE_PASSWORD`）、`SIGN_KEY_ALIAS`（兼容 `KEY_ALIAS`）和 `SIGN_KEY_PASSWORD`（兼容 `KEY_PASSWORD`）。工作流只负责解码 keystore 并向 Gradle 传入签名配置，不额外预检密码、别名或证书。PR 使用一次性临时密钥，不能替代正式签名的安装包。keystore 在构建和产物收集后清理，不上传到 Artifact。
 
-CI 只执行 `:app:assembleRelease`，由 Gradle 完成正常签名，保持 R8 混淆和资源压缩开启，不额外运行单元测试、Debug 构建或模拟器测试。不维护独立 CI 脚本，也不增加 APK 证书摘要、签名数量、包名或 debuggable 标记校验。
+当前主分支 CI 只执行 `:app:assembleRelease`，由 Gradle 完成签名、R8 混淆和资源压缩，没有运行单元测试、Debug 构建或模拟器测试。CI 绿色仅证明这条构建链路成功；是否调整 CI 检查范围取决于具体维护任务，不能把当前缺少检查写成永久禁止增加检查。
 
 构建成功后，从 release 的 `output-metadata.json` 读取版本号及 APK 文件名，收集并上传 `NodeFlow-release-<versionName>.apk` 和对应 `NodeFlow-<versionName>-mapping.txt`；预发布附件保留该构建对应的 mapping，完整 R8 报告作为 Actions Artifact 保留 90 天。签名不同的旧 Debug 包不能覆盖安装，卸载前应先处理需要保留的本地数据。
+
+## 正式发布工作流
+
+`.github/workflows/release.yml` 与主分支预发布是两条独立工作流：
+
+- `v*` tag 推送或手动触发时运行，使用 JDK 21 和正式签名 Secrets，调用 `./gradlew assembleRelease`。
+- 当前脚本通过搜索构建输出找到 metadata 与 APK，上传带版本名的 APK 及固定名 `NodeFlow.apk`；发布标题和 tag 使用 `github.ref_name`，自动生成 GitHub release notes。
+- 当前没有像主分支 CI 那样归档 `mapping.txt` 或 R8 报告，也没有执行单测和设备测试。不能将预发布的产物归档能力描述为正式发布已具备的能力。
+- 手动触发没有 tag 类型限制；在分支上运行时 `github.ref_name` 是分支名，不会自动变成 `v*` 版本标签。正式发版前应确认所选引用和版本配置。
+- 工作流最后清理临时 keystore。发布、推送 tag 和执行远端工作流均需要明确授权，本地构建不等于已发布。
 
 构建成功不代表设备运行验证通过；登录、会话恢复、Room 数据访问、图片加载、后台通知和深链等受混淆影响的流程，仍需使用 Release 包按[测试与验证](testing.md)检查。
 

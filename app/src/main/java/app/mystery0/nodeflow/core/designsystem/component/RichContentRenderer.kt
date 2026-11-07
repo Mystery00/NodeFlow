@@ -1,6 +1,5 @@
 package app.mystery0.nodeflow.core.designsystem.component
 
-import app.mystery0.nodeflow.core.parser.safeContentUrl
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -21,13 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.model.RichContentBlock
 import app.mystery0.nodeflow.core.model.RichContentDocument
 import app.mystery0.nodeflow.core.model.RichEmbed
-import app.mystery0.nodeflow.R
-import androidx.compose.ui.res.stringResource
+import app.mystery0.nodeflow.core.parser.safeContentUrl
 
 /** 使用 Compose 原生组件渲染已经清洗、结构化的正文。 */
 @Composable
