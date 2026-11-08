@@ -17,8 +17,4 @@ class ReplyImageIdCodecTest {
         assertThrows(IllegalArgumentException::class.java) { ReplyImageIdCodec.parse(":x") }
         assertThrows(IllegalArgumentException::class.java) { ReplyImageIdCodec.parse("x:") }
     }
-    @Test fun deduplicatesWithinProviderButKeepsProviders() {
-        assertThat(ReplyImageIdCodec.deduplicate(listOf("old", "v2ex:old", "imgur:old")))
-            .containsExactly("v2ex:old", "imgur:old").inOrder()
-    }
 }

@@ -1,5 +1,7 @@
 # V2EX Restricted Content Access Implementation Plan
 
+> 历史方案说明（2026-11-08 核对）：整帖 topicDetail 入口已替换为主题详情分页器及访问拒绝世代防护。现行说明见[专题文档](../subsystems/network-auth.md)。历史代码块和验收记录不代表当前实现。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 修复受限归档主题的正文选择，并让主题详情和节点列表在未登录或账号无权访问时显示明确提示，不再被 JSON 回退、缓存或重定向后的无关页面掩盖。
@@ -16,7 +18,7 @@
 - 不新增数据库字段，不改变回复解析、富文本渲染、Paging/UI 组件结构，也不新增登录或账号切换流程。
 - 所有用于验证权限/最终 URL 语义，或期望 HTML 成功通过访问判定的测试 Response，都必须显式构造 raw request URL；Retrofit 的 Response.success(body) 会生成 http://localhost/，不能用它模拟主题或节点最终 URL。仅验证普通 HTTP 失败映射的 Response.error fixture 可保持现状。
 - 保留当前模拟器中的已登录账号：不得清除应用数据、退出登录或重装时使用 -d。
-- 不处理用户主动删除的 password.txt；不得修改或提交用户已有的 docs/2026-07-13-v2ex-daily-check-in-investigation.md。
+- 不处理用户主动删除的 password.txt；不得修改或提交用户已有的 docs/investigations/2026-07-13-v2ex-daily-check-in.md。
 - 每个实现任务只提交该任务列出的文件。提交前运行 git diff --check，并用 git status --short 核对范围。
 
 ---
@@ -1270,4 +1272,4 @@ URL 必须在读取 body 前判定；不要读取 Cookie、Authorization、重�
     git status --short
     git log --oneline -7
 
-预期：没有未提交的实现改动；git status 只允许保留用户已有且未纳入本任务的 docs/2026-07-13-v2ex-daily-check-in-investigation.md。截图保存在系统临时目录，不纳入 Git。Task 1 至 Task 6 各有一个范围清晰的提交。
+预期：没有未提交的实现改动；git status 只允许保留用户已有且未纳入本任务的 docs/investigations/2026-07-13-v2ex-daily-check-in.md。截图保存在系统临时目录，不纳入 Git。Task 1 至 Task 6 各有一个范围清晰的提交。

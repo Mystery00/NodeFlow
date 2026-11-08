@@ -9,9 +9,9 @@ NodeFlow 同时使用 V2EX 公开 JSON API、HTML 页面和需要登录态的网
 - Feature、ViewModel 和 Compose UI 不直接拼接或执行请求。
 - User-Agent、Referer、Origin 和 Cookie 会影响响应，不得随意修改。
 - 回复图片上传复用既有 V2EX 认证客户端，通过 `V2exImageTransport` 交给独立 `V2exImageHostAdapter`；上传页、登录页、挑战页和非预期响应先分类，发送后结果不确定时不自动重传。
-- `ImgurHttpImageHostAdapter` 已实现匿名网页 HTTP 流程：从上传页或允许主机列表内的脚本动态读取公开 client_id，依次创建 album、检查 captcha、上传 multipart 和完成 album；不硬编码 client_id，不共享 V2EX Cookie。默认独立客户端禁用重定向和连接自动重试，每个 HTTP call 超时 30 秒；没有整个上传流程的总 deadline 或串行 Mutex。
+- `ImgurHttpImageHostAdapter` 已实现匿名网页 HTTP 流程：从上传页或允许主机列表内的脚本动态读取公开 client_id，依次创建 album、检查 captcha、上传 multipart 和完成 album；不硬编码 client_id，不共享 V2EX Cookie。默认独立客户端禁用重定向和连接自动重试，每个 HTTP call 超时 30 秒；响应统一读取并关闭，Cookie 按 domain/path/expiry/secure 匹配与合并。完成 album 时发生网络错误保留 `Completion` 阶段；没有整个上传流程的总 deadline 或串行 Mutex。
 - Imgur 挑战页识别返回 `InteractionRequired` 和 `OpenHostPage("https://imgur.com/upload")`。协议变化、无安全直链和一般非 2xx 响应按具体情况分类，未必带网页恢复动作；不能笼统描述为所有失败都可打开网页。手动网页上传不会自动回填 App。
-- V2EX descriptor 上限为 6 MiB，Imgur 为 10 MiB，均声明 PNG/JPEG/GIF/WebP。app 的 `AndroidImageContentReader` 只读取至 6 MiB + 1 字节用于后续判断，没有为 Imgur 扩展到 10 MiB；因此不能只凭 descriptor 宣称 app 已完整支持 10 MiB 上传。
+- V2EX descriptor 上限为 6 MiB，Imgur 为 10 MiB，均声明 PNG/JPEG/GIF/WebP。app 的 `AndroidImageContentReader` 按所选 provider 的上限读取，额外读取 1 字节检测超限；超限映射为 `FileTooLarge`，不会把截断数据交给上传适配器。
 - 历史调查中的 `native-http-supported` 表示代码和本地替身覆盖了 HTTP 流程，不是当前真实服务可用性保证。浏览器观察、MockWebServer 测试和 Android 原生客户端真实上传应分别记录，详见[调查记录](../investigations/2026-09-24-imgur-web-upload.md)。
 
 ## 页面分类与错误处理约束
@@ -27,7 +27,7 @@ V2EX 可能返回正常内容、登录页、`/restricted`、首页重定向、Cl
 
 ## 创建回复的当前行为
 
-`ReplyRemoteDataSource` 提交前读取主题表单和末页，校验表单 action 的来源、端口与主题路径，用提交前末楼层加一推算新楼层。请求复用关闭连接重试的 `v2exWriteClient`，表单 body 标记为一次性，不自动重发。
+`ReplyRemoteDataSource` 通过 `safeNetworkCall` 分类网络异常，挑战页按 `AccessDenied` 处理。提交前读取主题表单和末页，校验表单 action 的来源、端口与主题路径，用提交前末楼层加一推算新楼层。请求复用关闭连接重试的 `v2exWriteClient`，表单 body 标记为一次性，不自动重发。
 
 当前 POST 返回非 2xx 时报告失败；返回 2xx 时关闭响应体并直接返回 `CreateReplyResult.Success`，没有解析最终响应中的错误、登录/挑战页面，也没有提交后回读确认。编辑器据此关闭、清空正文并尝试删除本地草稿。现有 `ReplyRemoteDataSourceTest` 明确覆盖“无法解析的 200 响应仍视为成功”；历史计划中的“按账号、正文、新回复 ID 确认成功”和 `SubmitUnconfirmed` 流程不是当前实现。
 

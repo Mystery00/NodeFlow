@@ -2,7 +2,7 @@ package app.mystery0.nodeflow.core.datastore
 
 import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.security.EncryptedKeyValueStore
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
@@ -15,7 +15,7 @@ class SessionStore(
 ) {
     private val _session = MutableStateFlow(readSession())
     private val mutationMutex = Mutex()
-    val session: Flow<AuthSession> = _session.asStateFlow()
+    val session: StateFlow<AuthSession> = _session.asStateFlow()
 
     suspend fun save(session: AuthSession) = mutationMutex.withLock {
         if (session == AuthSession()) {

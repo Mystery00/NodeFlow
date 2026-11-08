@@ -14,6 +14,35 @@ import kotlinx.coroutines.Dispatchers
 
 class ImageUploadRepositoryImplTest {
     @Test
+    fun providerLimitAllowsCompleteSevenMiBImage() = runTest {
+        val bytes = ByteArray(7 * 1024 * 1024) { (it % 251).toByte() }
+        val limit = 10L * 1024 * 1024
+        val adapter = object : ImageHostAdapter {
+            override val descriptor = ImageHostDescriptor(ImageHostId("imgur"), "Imgur",
+                ImageHostCapabilities(setOf("image/png"), limit))
+            override suspend fun upload(image: UploadImage): UploadResult {
+                assertThat(image.bytes).isEqualTo(bytes)
+                return UploadResult.Success(UploadedImage(descriptor.id, "image", "https://i.imgur.com/image.png", actualMimeType = "image/png"))
+            }
+        }
+        val reader = ImageContentReader { _, maxBytes ->
+            assertThat(maxBytes).isEqualTo(limit)
+            ImageContent("test.png", "image/png", bytes.inputStream().readUpTo(maxBytes.toInt()))
+        }
+        val result = ImageUploadRepositoryImpl(reader, DefaultImageHostRegistry(listOf(adapter)), Dispatchers.Unconfined)
+            .upload(ImageHostId("imgur"), "content://test/image")
+        assertThat(result).isInstanceOf(ImageUploadResult.Success::class.java)
+    }
+
+    @Test
+    fun oversizedReaderFailureIsReportedWithoutUploading() = runTest {
+        val reader = ImageContentReader { _, _ -> throw ImageReadException.TooLarge() }
+        val repository = ImageUploadRepositoryImpl(reader,
+            DefaultImageHostRegistry(listOf(v2exAdapter { error("超限图片不应上传") })), Dispatchers.Unconfined)
+        val result = repository.upload(ImageHostId("v2ex"), "content://test/image") as ImageUploadResult.Failure
+        assertThat(result.reason).isEqualTo(ImageUploadFailureReason.FileTooLarge)
+    }
+    @Test
     fun thirdProvider_isDiscoverableAndRepositoryUploadsWithoutProviderBranch() = runTest {
         val adapter = object : ImageHostAdapter {
             override val descriptor = ImageHostDescriptor(
@@ -44,14 +73,14 @@ class ImageUploadRepositoryImplTest {
         var remoteCalled = false
         val repository = ImageUploadRepositoryImpl(
             reader = reader,
-            uploadRemote = {
+            registry = DefaultImageHostRegistry(listOf(v2exAdapter {
                 remoteCalled = true
                 error("不应上传")
-            },
+            })),
             ioDispatcher = StandardTestDispatcher(testScheduler),
         )
 
-        val result = repository.upload("content://test/large")
+        val result = repository.upload(ImageHostId("v2ex"), "content://test/large")
 
         assertThat(result).isEqualTo(
             ImageUploadResult.Failure(
@@ -66,11 +95,11 @@ class ImageUploadRepositoryImplTest {
     fun upload_mapsRemoteNetworkExceptionToFailure() = runTest {
         val repository = ImageUploadRepositoryImpl(
             reader = FakeReader(ImageContent("test.png", "image/png", byteArrayOf(1))),
-            uploadRemote = { throw IOException("offline") },
+            registry = DefaultImageHostRegistry(listOf(v2exAdapter { throw IOException("offline") })),
             ioDispatcher = StandardTestDispatcher(testScheduler),
         )
 
-        val result = repository.upload("content://test/image")
+        val result = repository.upload(ImageHostId("v2ex"), "content://test/image")
 
         assertThat(result).isEqualTo(
             ImageUploadResult.Failure(
@@ -84,12 +113,12 @@ class ImageUploadRepositoryImplTest {
     fun upload_propagatesReaderCancellation() = runTest {
         val cancellation = CancellationException("cancelled")
         val repository = ImageUploadRepositoryImpl(
-            reader = object : ImageContentReader { override fun read(contentUri: String): ImageContent = throw cancellation },
-            uploadRemote = { error("不应上传") },
+            reader = object : ImageContentReader { override fun read(contentUri: String, maxBytes: Long): ImageContent = throw cancellation },
+            registry = DefaultImageHostRegistry(listOf(v2exAdapter { error("不应上传") })),
             ioDispatcher = StandardTestDispatcher(testScheduler),
         )
         val thrown = try {
-            repository.upload("content://test/image")
+            repository.upload(ImageHostId("v2ex"), "content://test/image")
             error("应传播取消")
         } catch (error: CancellationException) {
             error
@@ -167,7 +196,13 @@ class ImageUploadRepositoryImplTest {
         override suspend fun upload(image: UploadImage) = result()
     }
 
+    private fun v2exAdapter(upload: suspend (UploadImage) -> UploadResult) = object : ImageHostAdapter {
+        override val descriptor = ImageHostDescriptor(ImageHostId("v2ex"), "V2EX",
+            ImageHostCapabilities(setOf("image/png", "image/jpeg", "image/gif", "image/webp"), 6L * 1024 * 1024))
+        override suspend fun upload(image: UploadImage) = upload.invoke(image)
+    }
+
     private class FakeReader(private val content: ImageContent) : ImageContentReader {
-        override fun read(contentUri: String): ImageContent = content
+        override fun read(contentUri: String, maxBytes: Long): ImageContent = content
     }
 }

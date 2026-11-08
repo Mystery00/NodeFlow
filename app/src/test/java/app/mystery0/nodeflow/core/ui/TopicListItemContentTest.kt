@@ -52,12 +52,6 @@ class TopicListItemContentTest {
     }
 
     @Test
-    fun topicPinnedChip_returnsLabelOnlyForPinnedTopic() {
-        assertThat(topicPinnedChip(topic(isPinned = true), label = "置顶")).isEqualTo("置顶")
-        assertThat(topicPinnedChip(topic(isPinned = false), label = "置顶")).isNull()
-    }
-
-    @Test
     fun topicListMetadata_doesNotIncludeLastReplyBy() {
         val topic = topic(lastReplyBy = "bob")
         val metadata = topicListMetadata(topic)

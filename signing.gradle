@@ -1,7 +1,7 @@
 def kFile = rootProject.file('local.properties')
 def props = new Properties()
 if (kFile.canRead()) {
-    props.load(new FileInputStream(kFile))
+    kFile.withInputStream { stream -> props.load(stream) }
 }
 
 // local.properties 里没有配置签名信息时回退到环境变量；

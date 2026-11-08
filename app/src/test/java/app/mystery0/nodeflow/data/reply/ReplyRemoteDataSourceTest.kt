@@ -15,6 +15,22 @@ import org.junit.Test
 import retrofit2.Retrofit
 
 class ReplyRemoteDataSourceTest {
+    @Test
+    fun loadConstraintsClassifiesNetworkFailure() = runTest {
+        server.shutdown()
+        val error = runCatching { dataSource.loadConstraints(42) }.exceptionOrNull()
+        assertThat(error).isInstanceOf(app.mystery0.nodeflow.core.common.NodeFlowException::class.java)
+        assertThat((error as app.mystery0.nodeflow.core.common.NodeFlowException).kind)
+            .isEqualTo(app.mystery0.nodeflow.core.common.NodeFlowException.Kind.Network)
+    }
+
+    @Test
+    fun loadConstraintsClassifiesChallengeAsAccessDenied() = runTest {
+        server.enqueue(htmlResponse("<html><title>Just a moment...</title><form id='challenge-form'></form></html>"))
+        val error = runCatching { dataSource.loadConstraints(42) }.exceptionOrNull()
+        assertThat((error as app.mystery0.nodeflow.core.common.NodeFlowException).kind)
+            .isEqualTo(app.mystery0.nodeflow.core.common.NodeFlowException.Kind.AccessDenied)
+    }
     private lateinit var server: MockWebServer
     private lateinit var dataSource: ReplyRemoteDataSource
 

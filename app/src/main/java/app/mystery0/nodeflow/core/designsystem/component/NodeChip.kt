@@ -38,18 +38,6 @@ fun NodeChip(
 }
 
 @Composable
-fun StatusChip(
-    title: String,
-    modifier: Modifier = Modifier,
-) {
-    CompactLabelChip(
-        title = title,
-        onClick = null,
-        modifier = modifier,
-    )
-}
-
-@Composable
 private fun CompactLabelChip(
     title: String,
     onClick: (() -> Unit)?,

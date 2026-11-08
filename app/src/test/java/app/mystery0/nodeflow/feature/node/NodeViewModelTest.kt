@@ -161,12 +161,6 @@ class NodeViewModelTest {
         override suspend fun nodePlanes(forceRefresh: Boolean): Result<List<NodePlane>> =
             Result.success(emptyList())
 
-        override suspend fun topics(
-            name: String,
-            page: Int,
-            forceRefresh: Boolean,
-        ): Result<List<Topic>> = Result.success(emptyList())
-
         override fun topicsPaging(name: String): Flow<PagingData<Topic>> =
             flowOf(PagingData.empty())
 
@@ -202,7 +196,7 @@ class NodeViewModelTest {
             challenge: TwoFactorChallenge,
         ): Result<AuthSession> = Result.failure(AssertionError("Unexpected verification"))
 
-        override suspend fun saveSession(session: AuthSession) = Unit
+        suspend fun setSession(session: AuthSession) = Unit
         override suspend fun clearSession() = Unit
     }
 }

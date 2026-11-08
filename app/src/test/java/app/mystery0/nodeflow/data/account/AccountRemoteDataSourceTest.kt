@@ -22,6 +22,43 @@ class AccountRemoteDataSourceTest {
     private val parser = V2exHtmlParser()
 
     @Test
+    fun explicitExpiredAuthenticationTakesPriorityOverOtherPageNetworkFailure() = runTest {
+        val api = FakeV2exRawApi(homeError = java.io.IOException("offline"),
+            dailyHtml = "<form action='/signin'></form>", balanceHtml = "<form action='/signin'></form>")
+        val error = runCatching { AccountRemoteDataSource(api, parser).overview() }.exceptionOrNull()
+        assertThat((error as NodeFlowException).kind).isEqualTo(NodeFlowException.Kind.Auth)
+    }
+
+    @Test
+    fun overviewReportsPartialRequestFailureInsteadOfReturningMissingBalanceAsSuccess() = runTest {
+        val api = FakeV2exRawApi(
+            homeHtml = "<a href='/member/tester'>tester</a><a href='/signout?once=redacted'>Sign Out</a>",
+            dailyHtml = claimedDailyHtml(), balanceError = java.io.IOException("offline"),
+        )
+        val error = runCatching { AccountRemoteDataSource(api, parser).overview() }.exceptionOrNull()
+        assertThat(error).isInstanceOf(NodeFlowException::class.java)
+        assertThat((error as NodeFlowException).kind).isEqualTo(NodeFlowException.Kind.Network)
+    }
+
+    @Test
+    fun overviewPropagatesCancellationWithoutRequestingOtherPages() = runTest {
+        val cancellation = CancellationException("test cancellation")
+        val api = FakeV2exRawApi(homeError = cancellation)
+        val error = runCatching { AccountRemoteDataSource(api, parser).overview() }.exceptionOrNull()
+        assertThat(error).isSameInstanceAs(cancellation)
+        assertThat(api.dailyCalls).isEqualTo(0)
+    }
+
+    @Test
+    fun overviewReportsNetworkFailureWhenNoPageCanBeLoaded() = runTest {
+        val offline = java.io.IOException("offline")
+        val api = FakeV2exRawApi(homeError = offline, dailyError = offline, balanceError = offline)
+        val error = runCatching { AccountRemoteDataSource(api, parser).overview() }.exceptionOrNull()
+        assertThat(error).isInstanceOf(NodeFlowException::class.java)
+        assertThat((error as NodeFlowException).kind).isEqualTo(NodeFlowException.Kind.Network)
+    }
+
+    @Test
     fun overview_combinesLoginStatePages() = runTest {
         val api = FakeV2exRawApi(
             homeHtml = """
@@ -258,15 +295,16 @@ class AccountRemoteDataSourceTest {
         private val redeemHtml: String = "",
         private val redeemFinalUrl: String = "https://www.v2ex.com/mission/daily",
         private val balanceError: Throwable? = null,
+        private val homeError: Throwable? = null,
+        private val dailyError: Throwable? = null,
     ) : V2exRawApi {
+        var dailyCalls = 0
         var redeemCalls: Int = 0
             private set
         var lastRedeemOnce: String? = null
             private set
         var lastRedeemReferer: String? = null
             private set
-        override suspend fun latestTopics(): Response<ResponseBody> = htmlResponse("")
-
         override suspend fun topic(id: Long): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun replies(topicId: Long): Response<ResponseBody> = htmlResponse("")
@@ -305,9 +343,16 @@ class AccountRemoteDataSourceTest {
             referer: String,
         ): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun home(): Response<ResponseBody> = htmlResponse(homeHtml, "https://www.v2ex.com/")
+        override suspend fun home(): Response<ResponseBody> {
+            homeError?.let { throw it }
+            return htmlResponse(homeHtml, "https://www.v2ex.com/")
+        }
 
-        override suspend fun dailyMission(): Response<ResponseBody> = htmlResponse(dailyHtml, dailyFinalUrl)
+        override suspend fun dailyMission(): Response<ResponseBody> {
+            dailyCalls++
+            dailyError?.let { throw it }
+            return htmlResponse(dailyHtml, dailyFinalUrl)
+        }
 
         override suspend fun redeemDailyMission(once: String, referer: String): Response<ResponseBody> {
             redeemCalls += 1

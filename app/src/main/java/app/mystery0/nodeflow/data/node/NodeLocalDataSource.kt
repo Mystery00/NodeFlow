@@ -24,10 +24,6 @@ class NodeLocalDataSource(
         nodeDao.upsertNode(node.toEntity())
     }
 
-    suspend fun cacheNodes(nodes: List<Node>) {
-        nodeDao.upsertNodes(nodes.map { it.toEntity() })
-    }
-
     suspend fun cacheNodePlanes(planes: List<NodePlane>) {
         val cache = planes.toNodePlaneCache()
         nodeDao.replaceNodePlanes(

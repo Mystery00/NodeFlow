@@ -88,13 +88,13 @@ fun MainShell(
                     }
                 },
                 onNodeClick = {
-                    navController.navigateTopLevel(nodeBottomBarRoute())
+                    navController.navigateTopLevel(NodeFlowDestinations.NodeList)
                 },
                 onMessageClick = {
-                    navController.navigateTopLevel(messageBottomBarRoute())
+                    navController.navigateTopLevel(NodeFlowDestinations.Notification)
                 },
                 onAccountClick = {
-                    navController.navigateTopLevel(accountBottomBarRoute())
+                    navController.navigateTopLevel(NodeFlowDestinations.Account)
                 },
             )
         },
@@ -135,7 +135,7 @@ fun MainShell(
                 )
             }
             composable(NodeFlowDestinations.Notification) {
-                if (shouldLoadNotificationList(accountState)) {
+                if (accountState.isLoggedIn) {
                     val viewModel: NotificationViewModel = koinViewModel()
                     val notifications = viewModel.notifications.collectAsLazyPagingItems()
                     NotificationScreen(
@@ -190,13 +190,13 @@ private fun NodeFlowBottomBar(
             },
         )
         NavigationBarItem(
-            selected = isNodeBottomBarSelected(currentRoute),
+            selected = (currentRoute == NodeFlowDestinations.NodeList),
             onClick = onNodeClick,
             icon = { Icon(Icons.Outlined.AccountTree, contentDescription = null) },
             label = { Text("节点") },
         )
         NavigationBarItem(
-            selected = isMessageBottomBarSelected(currentRoute),
+            selected = (currentRoute == NodeFlowDestinations.Notification),
             onClick = onMessageClick,
             icon = {
                 BadgedBox(
@@ -210,7 +210,7 @@ private fun NodeFlowBottomBar(
             label = { Text("消息") },
         )
         NavigationBarItem(
-            selected = isAccountBottomBarSelected(currentRoute),
+            selected = (currentRoute == NodeFlowDestinations.Account),
             onClick = onAccountClick,
             icon = {
                 BadgedBox(
@@ -275,15 +275,6 @@ fun homeBottomBarAction(currentRoute: String?): HomeBottomBarAction =
         HomeBottomBarAction.NavigateHome
     }
 
-fun nodeBottomBarRoute(): String = NodeFlowDestinations.NodeList
-
-fun isNodeBottomBarSelected(currentRoute: String?): Boolean = currentRoute == NodeFlowDestinations.NodeList
-
-fun messageBottomBarRoute(): String = NodeFlowDestinations.Notification
-
-fun isMessageBottomBarSelected(currentRoute: String?): Boolean =
-    currentRoute == NodeFlowDestinations.Notification
-
 fun messageBottomBarBadgeText(state: AccountUiState): String? {
     if (!state.isLoggedIn) return null
     val count = state.unreadNotificationCount
@@ -295,12 +286,6 @@ fun messageBottomBarBadgeText(state: AccountUiState): String? {
         else -> count.toString()
     }
 }
-
-fun shouldLoadNotificationList(state: AccountUiState): Boolean = state.isLoggedIn
-
-fun accountBottomBarRoute(): String = NodeFlowDestinations.Account
-
-fun isAccountBottomBarSelected(currentRoute: String?): Boolean = currentRoute == NodeFlowDestinations.Account
 
 fun shouldShowAccountCheckInBadge(state: AccountUiState): Boolean =
     state.isLoggedIn && state.overview?.checkIn?.canCheckIn == true

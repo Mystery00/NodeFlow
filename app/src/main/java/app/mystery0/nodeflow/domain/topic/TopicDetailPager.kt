@@ -18,9 +18,6 @@ interface TopicDetailPager {
     /** 顺序补页直到目标楼层已加载或没有更多页；中途失败保留已加载前缀。 */
     suspend fun loadUntilFloor(floor: Int): Result<TopicDetailSnapshot>
 
-    /** 顺序补页到最后一页。 */
-    suspend fun loadUntilLastPage(): Result<TopicDetailSnapshot>
-
     /** 重拉已加载的所有页，全部成功才替换状态；失败时保留原数据。 */
     suspend fun refreshLoaded(): Result<TopicDetailSnapshot>
 }

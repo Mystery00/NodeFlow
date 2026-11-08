@@ -24,5 +24,4 @@ object ReplyImageIdCodec {
 
     fun normalize(raw: String): String = format(parse(raw).hostId, parse(raw).remoteId)
 
-    fun deduplicate(rawIds: Iterable<String>): List<String> = rawIds.map(::normalize).distinct()
 }

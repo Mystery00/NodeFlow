@@ -23,6 +23,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
@@ -50,6 +51,37 @@ import java.util.Base64
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class Base64LayoutRobolectricTest {
     @get:Rule val rule = createComposeRule()
+
+    @Test fun replyBase64KeepsUnknownInlineImageCompact() {
+        rule.setContent {
+            MaterialTheme {
+                HtmlText("${encode("可读内容")} 文字<img src='http://127.0.0.1:1/inline.png'>结束", contentKey = "unknown-inline-reply")
+            }
+        }
+        assertThat(allLayouts().sumOf { it.placeholderRects.size }).isEqualTo(2)
+    }
+
+    @Test fun replyBase64KeepsLegacyImageSuffixPreview() {
+        rule.setContent {
+            MaterialTheme {
+                HtmlText("${encode("可读测试内容")} <a href='http://127.0.0.1:1/photo.png'>图片链接</a>", contentKey = "linked-image-reply")
+            }
+        }
+        rule.waitUntil(5_000) {
+            rule.onAllNodesWithText("图片加载失败，点击重试").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithText("图片链接", substring = true).assertExists()
+    }
+
+    @Test fun replyBase64KeepsEmojiInsideTextParagraph() {
+        rule.setContent {
+            MaterialTheme {
+                HtmlText("前文 ${encode("可读的测试内容")} <img class='emoji' width='20' height='20' src='http://127.0.0.1:1/emoji.png'> 后文", contentKey = "mixed-reply")
+            }
+        }
+        // 编码卡片和表情各占一个行内位置；剥离图片会使此断言失败。
+        assertThat(allLayouts().sumOf { it.placeholderRects.size }).isEqualTo(2)
+    }
 
     @Test fun inlineCard_doesNotOverlapPreviousOrNextExplicitLine() {
         showParagraph("上方正文<br>${encode("reader@demo.test")}<br>下一行正文")

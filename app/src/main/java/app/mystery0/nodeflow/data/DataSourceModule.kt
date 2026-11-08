@@ -34,6 +34,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
+import org.koin.core.qualifier.named
+import app.mystery0.nodeflow.core.common.IO_DISPATCHER
+import okhttp3.OkHttpClient
 
 val dataSourceModule = module {
     single { UnreadNotificationStore(get<SessionStore>().session) }
@@ -109,6 +112,10 @@ val dataSourceModule = module {
     }
     single { ReplyDraftLocalDataSource(get()) }
     single<ImageContentReader> { AndroidImageContentReader(androidContext().contentResolver) }
-    single<ImageDownloader> { DefaultImageDownloader(androidContext()) }
+    // 图片下载客户端不携带 V2EX 的认证拦截器或 Cookie。
+    single(named("imageDownloadClient")) { OkHttpClient.Builder().build() }
+    single<ImageDownloader> {
+        DefaultImageDownloader(androidContext(), get(named("imageDownloadClient")), get(named(IO_DISPATCHER)))
+    }
 }
 

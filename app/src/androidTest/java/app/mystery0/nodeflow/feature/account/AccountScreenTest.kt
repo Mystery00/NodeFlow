@@ -1,11 +1,9 @@
 package app.mystery0.nodeflow.feature.account
 
-import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -13,15 +11,12 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.test.platform.app.InstrumentationRegistry
 import app.mystery0.nodeflow.core.designsystem.theme.NodeFlowTheme
 import app.mystery0.nodeflow.core.model.AccountOverview
 import app.mystery0.nodeflow.core.model.AccountWealth
@@ -31,7 +26,6 @@ import app.mystery0.nodeflow.core.model.DailyCheckIn
 import app.mystery0.nodeflow.core.model.ThemeMode
 import app.mystery0.nodeflow.core.model.User
 import com.google.common.truth.Truth.assertThat
-import java.io.File
 import java.time.Instant
 import org.junit.Rule
 import org.junit.Test
@@ -49,7 +43,7 @@ class AccountScreenTest {
                 AccountScreen(sampleState(), events::add, { settingsOpened = true }, {}, { favoritesOpened = true })
             }
         }
-        savePreview("account-light.png")
+
         composeRule.onNodeWithText("收藏主题").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("设置").assertIsDisplayed().performClick()
         composeRule.runOnIdle {
@@ -75,7 +69,7 @@ class AccountScreenTest {
         }
         composeRule.onNodeWithText("今日已签到").assertIsDisplayed()
         composeRule.onNodeWithText("签到").assertDoesNotExist()
-        savePreview("account-dark.png")
+
     }
 
     @Test
@@ -123,13 +117,6 @@ class AccountScreenTest {
         composeRule.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertDoesNotExist()
         composeRule.onNodeWithText("刷新失败，请重试").assertIsDisplayed()
         composeRule.onNodeWithText("NodeFlow").assertIsDisplayed()
-    }
-
-    private fun savePreview(name: String) {
-        // 预览只使用下方虚构数据，不访问真实账号，也不包含真实用户头像或内容。
-        val bitmap = composeRule.onRoot().captureToImage().asAndroidBitmap()
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        File(context.cacheDir, name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     private fun sampleState(checkedIn: Boolean = false) = AccountUiState(

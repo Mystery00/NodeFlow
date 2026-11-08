@@ -31,17 +31,18 @@ class DefaultImageDownloader(
             .url(imageUrl)
             .header("User-Agent", "Mozilla/5.0 (NodeFlow Image Downloader)")
             .build()
-        val response = okHttpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            throw IOException("HTTP ${response.code}: Failed to download image")
-        }
-        val body = response.body
-        val contentType = response.header("Content-Type")
-        body.byteStream().use { input ->
-            targetFile.outputStream().use { output ->
-                input.copyTo(output)
+        okHttpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("HTTP ${response.code}: Failed to download image")
             }
+            val body = response.body
+            val contentType = response.header("Content-Type")
+            body.byteStream().use { input ->
+                targetFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            contentType
         }
-        contentType
     }
 }

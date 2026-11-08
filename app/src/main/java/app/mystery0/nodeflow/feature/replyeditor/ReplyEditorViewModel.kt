@@ -18,7 +18,6 @@ import app.mystery0.nodeflow.domain.reply.ReplyDraft
 import app.mystery0.nodeflow.domain.reply.SaveReplyDraftUseCase
 import app.mystery0.nodeflow.domain.reply.UploadImageUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
-import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.imagehosting.contract.ImageHostId
 import app.mystery0.nodeflow.imagehosting.contract.RecoveryAction
 import app.mystery0.nodeflow.imagehosting.registry.ImageHostRegistry
@@ -45,13 +44,11 @@ class ReplyEditorViewModel(
     private val clearDraft: ClearReplyDraftUseCase,
     observeAuthSession: ObserveAuthSessionUseCase,
     observeSettings: ObserveSettingsUseCase,
-    private val updateSettings: UpdateSettingsUseCase,
     imageHostRegistry: ImageHostRegistry,
 ) : ViewModel() {
     private val topicId: Long = checkNotNull(savedStateHandle["topicId"])
-    private val _uiState = MutableStateFlow(
-        ReplyEditorUiState(imageHostDescriptors = imageHostRegistry.descriptors()),
-    )
+    private val imageHostDescriptors = imageHostRegistry.descriptors()
+    private val _uiState = MutableStateFlow(ReplyEditorUiState())
     val uiState: StateFlow<ReplyEditorUiState> = _uiState.asStateFlow()
     private val _effects = Channel<ReplyEditorEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
@@ -78,14 +75,19 @@ class ReplyEditorViewModel(
         viewModelScope.launch {
             observeSettings().collect { settings ->
                 if (!_uiState.value.isUploading && !_uiState.value.isSubmitting) {
-                    _uiState.update { it.copy(currentImageHostId = settings.replyImageHost) }
+                    _uiState.update { state ->
+                        if (state.currentImageHostId == settings.replyImageHost) state else state.copy(
+                            currentImageHostId = settings.replyImageHost,
+                            recoveryAction = RecoveryAction.None,
+                            showGalleryAction = false,
+                        )
+                    }
                 }
             }
         }
         viewModelScope.launch {
             observeAuthSession().collect { session ->
                 currentUsername = session.username?.takeIf(String::isNotBlank)
-                _uiState.update { it.copy(isLoggedIn = currentUsername != null) }
             }
         }
         refreshConstraints()
@@ -110,20 +112,17 @@ class ReplyEditorViewModel(
                 scheduleSave()
             }
             is ReplyEditorUiEvent.ImageSelected -> upload(event.contentUri)
-            is ReplyEditorUiEvent.ProviderSelected -> selectProvider(event.hostId)
             ReplyEditorUiEvent.Submit -> submit()
             ReplyEditorUiEvent.Close -> close()
             ReplyEditorUiEvent.FlushDraft -> viewModelScope.launch { flushDraftNow() }
             ReplyEditorUiEvent.ClearRequested -> _uiState.update { it.copy(showClearConfirmation = true) }
             ReplyEditorUiEvent.ClearConfirmed -> clear()
             ReplyEditorUiEvent.ClearCancelled -> _uiState.update { it.copy(showClearConfirmation = false) }
-            ReplyEditorUiEvent.MessageConsumed -> _uiState.update { it.copy(message = null) }
             ReplyEditorUiEvent.GalleryRequested -> viewModelScope.launch {
                 val state = _uiState.value
                 if (state.recoveryAction is RecoveryAction.OpenHostPage) {
                     _effects.send(
                         ReplyEditorEffect.OpenGallery(
-                            hostId = state.currentImageHostId,
                             recoveryAction = state.recoveryAction,
                         ),
                     )
@@ -183,25 +182,11 @@ class ReplyEditorViewModel(
         )
     }
 
-    private fun selectProvider(hostId: String) {
-        val state = _uiState.value
-        if (state.isUploading || state.isSubmitting) return
-        if (state.imageHostDescriptors.none { it.id.value == hostId }) return
-        _uiState.update {
-            it.copy(
-                currentImageHostId = hostId,
-                recoveryAction = RecoveryAction.None,
-                showGalleryAction = false,
-            )
-        }
-        viewModelScope.launch { updateSettings.setReplyImageHost(hostId) }
-    }
-
     private fun upload(contentUri: String) {
         val state = _uiState.value
         if (state.isUploading || state.isSubmitting) return
         val hostId = state.currentImageHostId
-        if (state.imageHostDescriptors.none { it.id.value == hostId }) {
+        if (imageHostDescriptors.none { it.id.value == hostId }) {
             showMessage("请重新选择图床")
             return
         }
@@ -271,7 +256,6 @@ class ReplyEditorViewModel(
 
     private suspend fun requestLogin() {
         currentUsername = null
-        _uiState.update { it.copy(isLoggedIn = false) }
         _effects.send(ReplyEditorEffect.RequestLogin)
     }
 

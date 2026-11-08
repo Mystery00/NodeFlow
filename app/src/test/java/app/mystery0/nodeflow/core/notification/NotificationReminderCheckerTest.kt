@@ -10,6 +10,15 @@ import org.junit.Test
 
 class NotificationReminderCheckerTest {
     @Test
+    fun disabledBeforeCheckDoesNotRequestUnreadCount() = runTest {
+        val checker = NotificationReminderChecker(
+            NotificationUnreadCountProvider { error("关闭提醒时不应请求网络") },
+            EncryptedKeyValueStore(MemoryStorage(), IdentityCipher),
+            MutableStateFlow(false),
+        )
+        assertThat(checker.check().shouldNotify).isFalse()
+    }
+    @Test
     fun firstPositiveCountNotifies() = runTest {
         val storage = MemoryStorage()
         val checker = NotificationReminderChecker(

@@ -89,13 +89,6 @@ class HtmlTextTest {
     }
 
     @Test
-    fun isZoomableHtmlImage_allowsAnyNonCompactImage() {
-        // 非表情/内联的普通图片一律可点击查看，不再看尺寸
-        assertThat(isZoomableHtmlImage(compact = false)).isTrue()
-        assertThat(isZoomableHtmlImage(compact = true)).isFalse()
-    }
-
-    @Test
     fun extractHtmlImageSpecs_treatsCustomHostAnchorAsImage() {
         val html = """<a href="https://img.example.com/abc">https://img.example.com/abc</a>"""
 

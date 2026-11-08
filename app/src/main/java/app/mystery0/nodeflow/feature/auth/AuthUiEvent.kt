@@ -7,6 +7,5 @@ sealed interface AuthUiEvent {
     data class TwoFactorCodeChanged(val value: String) : AuthUiEvent
     data object RefreshChallenge : AuthUiEvent
     data object Submit : AuthUiEvent
-    data object ClearSession : AuthUiEvent
     data object LoginResultConsumed : AuthUiEvent
 }

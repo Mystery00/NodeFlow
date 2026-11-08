@@ -66,11 +66,6 @@ class TopicLocalDataSourceTest {
     private class FakeTopicDao(initial: TopicEntity) : TopicDao {
         var current: TopicEntity? = initial
 
-        override suspend fun latestTopics(limit: Int): List<TopicEntity> = listOfNotNull(current)
-
-        override suspend fun topicsByNode(nodeName: String, limit: Int): List<TopicEntity> =
-            listOfNotNull(current).filter { it.nodeName == nodeName }
-
         override suspend fun topic(id: Long): TopicEntity? = current?.takeIf { it.id == id }
 
         override suspend fun upsertTopics(topics: List<TopicEntity>) {

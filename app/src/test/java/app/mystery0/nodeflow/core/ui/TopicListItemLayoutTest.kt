@@ -18,7 +18,6 @@ class TopicListItemLayoutTest {
         assertThat(layout.replyBadgeSpacing.value).isEqualTo(12f)
         assertThat(layout.dividerStartPadding.value).isEqualTo(68f)
         assertThat(layout.dividerEndPadding.value).isEqualTo(16f)
-        assertThat(layout.dividerHorizontalPadding.value).isEqualTo(16f)
         assertThat(layout.dividerThickness.value).isEqualTo(0.5f)
     }
 }

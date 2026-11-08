@@ -65,8 +65,6 @@ class UserRemoteDataSourceTest {
     ) : V2exRawApi {
         var memberHtmlRequestCount: Int = 0
 
-        override suspend fun latestTopics(): Response<ResponseBody> = htmlResponse("")
-
         override suspend fun topic(id: Long): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun replies(topicId: Long): Response<ResponseBody> = htmlResponse("")

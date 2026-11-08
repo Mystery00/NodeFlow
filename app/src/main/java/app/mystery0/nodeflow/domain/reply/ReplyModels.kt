@@ -31,7 +31,6 @@ sealed interface CreateReplyResult {
 enum class ReplyFailureReason {
     AuthenticationRequired,
     TopicUnavailable,
-    AntiFlood,
     Network,
     Server,
     Parse,

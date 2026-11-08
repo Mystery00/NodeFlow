@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.data.user
 
+import app.mystery0.nodeflow.core.common.runSuspendCatching
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.model.UserRecentActivity
 import app.mystery0.nodeflow.domain.user.UserRepository
@@ -13,10 +14,10 @@ class UserRepositoryImpl(
 ) : UserRepository {
     override suspend fun user(username: String, forceRefresh: Boolean): Result<User> =
         withContext(ioDispatcher) {
-            runCatching {
+            runSuspendCatching {
                 val cached = localDataSource.user(username)
-                if (!forceRefresh && cached != null && cached.hasProfileMetadata()) return@runCatching cached
-                runCatching { remoteDataSource.user(username) }
+                if (!forceRefresh && cached != null && cached.hasProfileMetadata()) return@runSuspendCatching cached
+                runSuspendCatching { remoteDataSource.user(username) }
                     .onSuccess { localDataSource.cacheUser(it) }
                     .getOrElse { error -> cached ?: throw error }
             }
@@ -24,7 +25,7 @@ class UserRepositoryImpl(
 
     override suspend fun recentActivity(username: String): Result<UserRecentActivity> =
         withContext(ioDispatcher) {
-            runCatching { remoteDataSource.recentActivity(username) }
+            runSuspendCatching { remoteDataSource.recentActivity(username) }
         }
 
     override suspend fun clearCache() {

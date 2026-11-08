@@ -157,7 +157,6 @@ class MemberTagRemoteDataSourceTest {
             return htmlResponse("<html><body></body></html>", "https://www.v2ex.com/notes/$noteId")
         }
 
-        override suspend fun latestTopics() = emptyResponse()
         override suspend fun topic(id: Long) = emptyResponse()
         override suspend fun replies(topicId: Long) = emptyResponse()
         override suspend fun node(name: String) = emptyResponse()

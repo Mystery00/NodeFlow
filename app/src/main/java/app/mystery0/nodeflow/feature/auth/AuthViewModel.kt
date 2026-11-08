@@ -18,11 +18,6 @@ class AuthViewModel(
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            authRepository.session.collectLatest { session ->
-                _uiState.update { it.copy(session = session) }
-            }
-        }
         loadChallenge()
     }
 
@@ -42,9 +37,6 @@ class AuthViewModel(
             }
             AuthUiEvent.RefreshChallenge -> loadChallenge()
             AuthUiEvent.Submit -> submit()
-            AuthUiEvent.ClearSession -> viewModelScope.launch {
-                authRepository.clearSession()
-            }
             AuthUiEvent.LoginResultConsumed -> _uiState.update {
                 it.copy(loginCompleted = false)
             }

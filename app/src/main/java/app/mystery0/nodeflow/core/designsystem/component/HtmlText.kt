@@ -32,8 +32,11 @@ import androidx.core.text.HtmlCompat
 import app.mystery0.nodeflow.core.link.ImageHostMatcher
 import app.mystery0.nodeflow.core.model.containsBase64
 import app.mystery0.nodeflow.core.parser.RichContentParser
-import app.mystery0.nodeflow.core.parser.linkifyContentHtml
+import app.mystery0.nodeflow.core.parser.linkifyContentLinks
+import app.mystery0.nodeflow.core.parser.recognizeContentText
+import app.mystery0.nodeflow.core.parser.ContentTextKind
 import app.mystery0.nodeflow.core.parser.safeContentUrl
+import app.mystery0.nodeflow.core.parser.imageDimension
 import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
@@ -57,14 +60,23 @@ fun HtmlText(
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val linkColor = MaterialTheme.colorScheme.primary.toArgb()
     val customImageHosts = LocalCustomImageHosts.current
-    val contentHtml = remember(html) { htmlWithoutImages(linkifyContentHtml(html)) }
-    val images = remember(html, customImageHosts) { extractHtmlImageSpecs(html, customImageHosts) }
-    val richDocument = remember(contentHtml, contentKey) {
-        contentKey?.let {
-            RichContentParser.parse(contentHtml, contentKey = it, renderLinkedImages = false)
-                .takeIf { document -> document.containsBase64() }
+    val presentation = remember(html, customImageHosts, contentKey) {
+        val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
+        val hasCandidate = contentKey != null && document.body().getAllElements().any { element ->
+            element.textNodes().any { node -> recognizeContentText(node.wholeText).any { it.kind == ContentTextKind.Base64 } }
+        }
+        val imageSpecs = extractHtmlImageSpecs(document, customImageHosts)
+        val rich = if (hasCandidate) RichContentParser.parseDocument(document, html, customImageHosts, contentKey.orEmpty(),
+            imageOverrides = imageSpecs.associate { it.url to it.compact })
+            .takeIf { it.containsBase64() } else null
+        if (rich != null) ReplyHtmlPresentation("", emptyList(), rich) else {
+            document.linkifyContentLinks()
+            ReplyHtmlPresentation(htmlWithoutImages(document), imageSpecs, null)
         }
     }
+    val contentHtml = presentation.html
+    val images = presentation.images
+    val richDocument = presentation.richDocument
     Column(modifier = modifier) {
         if (richDocument != null) {
             RichContent(richDocument, onUrlClick = onUrlClick, onImageClick = onImageClick)
@@ -116,7 +128,7 @@ private fun HtmlImage(
             maxWidthDp = maxWidth.value,
             compact = image.compact,
         )
-        val zoomable = isZoomableHtmlImage(compact = image.compact)
+        val zoomable = !image.compact
         val request = remember(context, image.url) {
             ImageRequest.Builder(context)
                 .data(image.url)
@@ -186,6 +198,12 @@ private fun CharSequence.withUrlClickHandler(onUrlClick: (String) -> Boolean): C
     return spannable
 }
 
+private data class ReplyHtmlPresentation(
+    val html: String,
+    val images: List<HtmlImageSpec>,
+    val richDocument: app.mystery0.nodeflow.core.model.RichContentDocument?,
+)
+
 internal data class HtmlImageSpec(
     val url: String,
     val alt: String?,
@@ -200,7 +218,10 @@ internal data class HtmlImageLayoutSize(
 )
 
 internal fun htmlWithoutImages(html: String): String {
-    val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
+    return htmlWithoutImages(Jsoup.parseBodyFragment(html, V2EX_BASE_URL))
+}
+
+private fun htmlWithoutImages(document: org.jsoup.nodes.Document): String {
     document.select("img").forEach { image ->
         val parent = image.parent()
         if (parent != null && parent.tagName().equals("a", ignoreCase = true) && parent.text().isBlank()) {
@@ -221,7 +242,10 @@ internal fun extractHtmlImageSpecs(
     html: String,
     customImageHosts: Collection<String> = emptySet(),
 ): List<HtmlImageSpec> {
-    val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
+    return extractHtmlImageSpecs(Jsoup.parseBodyFragment(html, V2EX_BASE_URL), customImageHosts)
+}
+
+private fun extractHtmlImageSpecs(document: org.jsoup.nodes.Document, customImageHosts: Collection<String>): List<HtmlImageSpec> {
     val imageSpecs = document.select("img[src]").mapNotNull { image ->
         val url = image.absUrl("src").takeIf { it.isNotBlank() } ?: return@mapNotNull null
         val width = image.imageDimension("width")
@@ -284,16 +308,6 @@ internal fun calculateHtmlImageLayoutSize(
     )
 }
 
-// 只要不是表情/内联小图这类装饰性图片，加载成功后都可以点击查看大图
-internal fun isZoomableHtmlImage(compact: Boolean): Boolean = !compact
-
-private fun Element.imageDimension(attributeName: String): Int? =
-    attr(attributeName).toCssPixels()
-        ?: CSS_DIMENSION_REGEX.findAll(attr("style"))
-            .firstOrNull { it.groupValues.getOrNull(1)?.equals(attributeName, ignoreCase = true) == true }
-            ?.groupValues
-            ?.getOrNull(2)
-            ?.toCssPixels()
 
 private fun Element.isInlineImage(): Boolean {
     val root = imageInlineRoot()
@@ -313,13 +327,6 @@ private fun Element.isCompactImage(width: Int?, height: Int?): Boolean {
     val compactByAlt = alt.codePointCount(0, alt.length) in 1..2 && alt.any { !it.isLetterOrDigit() }
     return compactByClass || compactBySize || compactByAlt
 }
-
-private fun String.toCssPixels(): Int? =
-    trim()
-        .removeSuffix("px")
-        .toFloatOrNull()
-        ?.takeIf { it > 0f }
-        ?.let { ceil(it).toInt() }
 
 private fun String.isImageUrl(): Boolean =
     IMAGE_URL_SUFFIXES.any { suffix -> substringBefore('?').lowercase().endsWith(suffix) }
@@ -361,4 +368,3 @@ private const val V2EX_EMBEDDED_IMAGE_CLASS = "embedded_image"
 private val BLOCK_TAGS = setOf("p", "div", "li", "td", "blockquote")
 private val COMPACT_IMAGE_CLASS_HINTS = listOf("emoji", "emoticon", "smilie", "smiley")
 private val IMAGE_URL_SUFFIXES = listOf(".jpg", ".jpeg", ".png", ".webp", ".gif")
-private val CSS_DIMENSION_REGEX = Regex("""(?i)(width|height)\s*:\s*([0-9.]+)px""")

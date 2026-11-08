@@ -1,5 +1,7 @@
 # V2EX_Polish 用户标签兼容实施计划
 
+> 历史方案说明（2026-11-08 核对）：标签已支持编辑，旧只读边界不再适用。现行说明见[专题文档](../subsystems/storage.md)。历史代码块和验收记录不代表当前实现。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 启动时后台拉取 V2EX_Polish 插件存于记事本的用户标签数据并缓存到 DataStore，浏览内容时纯本地匹配，在回复行、帖子作者行、用户主页展示标签。

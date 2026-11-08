@@ -23,9 +23,6 @@ import androidx.compose.ui.test.onRoot
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import app.mystery0.nodeflow.imagehosting.contract.ImageHostCapabilities
-import app.mystery0.nodeflow.imagehosting.contract.ImageHostDescriptor
-import app.mystery0.nodeflow.imagehosting.contract.ImageHostId
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
 import org.junit.Rule
@@ -59,16 +56,7 @@ class ReplyEditorBottomSheetTest {
                     state = ReplyEditorUiState(
                         isOpen = true,
                         currentImageHostId = "imgur",
-                        imageHostDescriptors = listOf(
-                            ImageHostDescriptor(
-                                ImageHostId("v2ex"), "V2EX",
-                                ImageHostCapabilities(emptySet(), 0), true,
-                            ),
-                            ImageHostDescriptor(
-                                ImageHostId("imgur"), "Imgur",
-                                ImageHostCapabilities(emptySet(), 0), true,
-                            ),
-                        ),
+
                     ),
                     onEvent = {},
                     onPickImage = { pickCount++ },

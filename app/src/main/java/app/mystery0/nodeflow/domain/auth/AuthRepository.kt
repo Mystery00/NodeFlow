@@ -19,6 +19,5 @@ interface AuthRepository {
         code: String,
         challenge: TwoFactorChallenge,
     ): Result<AuthSession>
-    suspend fun saveSession(session: AuthSession)
     suspend fun clearSession()
 }

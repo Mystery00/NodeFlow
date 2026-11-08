@@ -19,6 +19,7 @@ class NotificationReminderChecker(
     private val reminderEnabled: Flow<Boolean> = flowOf(true),
 ) {
     suspend fun check(): NotificationReminderDecision {
+        if (!reminderEnabled.first()) return NotificationReminderDecision(0, shouldNotify = false)
         val unreadCount = unreadCountProvider.unreadCount().coerceAtLeast(0)
         val previous = store.read(LAST_UNREAD_COUNT_KEY)?.toIntOrNull()
         val shouldNotify = unreadCount > 0 && (previous == null || previous == 0 || unreadCount > previous)

@@ -1,5 +1,7 @@
 # 导航转场体验调整 Implementation Plan
 
+> 历史方案说明（2026-11-08 核对）：底栏与导航层级已调整为四栏及双层 NavHost，旧三栏路由不再代表现状。现行说明见[专题文档](../subsystems/ui-navigation.md)。历史代码块和验收记录不代表当前实现。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 将底部导航栏移入主页面 Shell，让帖子详情和节点详情作为根级全屏页面覆盖进入，避免底栏在数据加载前后突然消失或出现。

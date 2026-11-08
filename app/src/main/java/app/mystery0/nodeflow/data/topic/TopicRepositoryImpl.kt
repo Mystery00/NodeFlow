@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.data.topic
 
+import app.mystery0.nodeflow.core.common.runSuspendCatching
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
@@ -12,26 +13,25 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
+import java.lang.ref.WeakReference
 
 class TopicRepositoryImpl(
     private val remoteDataSource: TopicRemoteDataSource,
     private val localDataSource: TopicLocalDataSource,
     private val ioDispatcher: CoroutineDispatcher,
 ) : TopicRepository {
-    private val topicAccessStates = ConcurrentHashMap<Long, TopicAccessState>()
+    private val topicAccessStates = ConcurrentHashMap<Long, WeakReference<TopicAccessState>>()
+    // 拒绝状态不能随内存回收而消失，否则缓存删除失败后可能重新暴露旧正文。
+    private val deniedAccessStates = ConcurrentHashMap<Long, TopicAccessState>()
 
-    override suspend fun latestTopics(forceRefresh: Boolean): Result<List<Topic>> =
-        withContext(ioDispatcher) {
-            runCatching {
-                val cached = localDataSource.latestTopics()
-                if (!forceRefresh && cached.isNotEmpty()) return@runCatching cached
-                runCatching { remoteDataSource.latestTopics() }
-                    .onSuccess { localDataSource.cacheTopics(it) }
-                    .getOrElse { error ->
-                        if (cached.isNotEmpty()) cached else throw error
-                }
-            }
-        }
+    private fun accessState(topicId: Long): TopicAccessState = synchronized(topicAccessStates) {
+        topicAccessStates.entries.removeAll { it.value.get() == null }
+        deniedAccessStates[topicId] ?: topicAccessStates[topicId]?.get()
+            ?: TopicAccessState { state, denied ->
+                if (denied) deniedAccessStates[topicId] = state
+                else deniedAccessStates.remove(topicId, state)
+            }.also { topicAccessStates[topicId] = WeakReference(it) }
+    }
 
     override fun latestTopicsPaging(): Flow<PagingData<Topic>> =
         Pager(
@@ -65,7 +65,7 @@ class TopicRepositoryImpl(
         fetchJsonFallback = { remoteDataSource.jsonTopicDetailFallback(topicId) },
         localDataSource = localDataSource,
         ioDispatcher = ioDispatcher,
-        accessState = topicAccessStates.computeIfAbsent(topicId) { TopicAccessState() },
+        accessState = accessState(topicId),
     )
 
     override suspend fun setFavorite(
@@ -73,7 +73,7 @@ class TopicRepositoryImpl(
         favorite: Boolean,
         once: String,
     ): Result<TopicDetail?> = withContext(ioDispatcher) {
-        runCatching {
+        runSuspendCatching {
             val parsed = remoteDataSource.setFavorite(topicId, favorite, once)
             parsed?.let { p ->
                 TopicDetail(
@@ -95,16 +95,32 @@ class TopicRepositoryImpl(
     }
 
     override suspend fun thankTopic(topicId: Long, once: String) = withContext(ioDispatcher) {
-        runCatching { remoteDataSource.thankTopic(topicId, once) }
+        runSuspendCatching { remoteDataSource.thankTopic(topicId, once) }
     }
 
     override suspend fun thankReply(topicId: Long, replyId: Long, once: String) = withContext(ioDispatcher) {
-        runCatching { remoteDataSource.thankReply(topicId, replyId, once) }
+        runSuspendCatching { remoteDataSource.thankReply(topicId, replyId, once) }
     }
 
     override suspend fun clearCache() {
         withContext(ioDispatcher) {
-            localDataSource.clear()
+            val states = synchronized(topicAccessStates) {
+                (topicAccessStates.mapNotNull { (id, reference) -> reference.get()?.let { id to it } } +
+                    deniedAccessStates.map { it.key to it.value })
+                    .distinctBy { it.first }.sortedBy { it.first }.map { it.second }
+            }
+            val locked = mutableListOf<TopicAccessState>()
+            try {
+                // 多次清理按同一主题顺序取锁，避免交叉等待。
+                states.forEach { state -> state.mutex.lock(); locked += state }
+                localDataSource.clear()
+                states.forEach { state ->
+                    state.generation += 1
+                    state.accessDeniedError = null
+                }
+            } finally {
+                locked.asReversed().forEach { it.mutex.unlock() }
+            }
         }
     }
 
@@ -115,8 +131,14 @@ class TopicRepositoryImpl(
 }
 
 /** 同一主题的所有请求方共享的 access-denied 世代状态。 */
-internal class TopicAccessState {
+internal class TopicAccessState(
+    private val onDenialChanged: (TopicAccessState, Boolean) -> Unit = { _, _ -> },
+) {
     val mutex = Mutex()
     var generation: Long = 0
     var accessDeniedError: Throwable? = null
+        set(value) {
+            field = value
+            onDenialChanged(this, value != null)
+        }
 }

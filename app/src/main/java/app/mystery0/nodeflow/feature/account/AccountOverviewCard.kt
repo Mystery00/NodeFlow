@@ -60,7 +60,7 @@ internal fun AccountOverviewCard(overview: AccountOverview, isCheckingIn: Boolea
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    if (usesCheckInActionLine(checkIn)) {
+                    if (checkIn.canCheckIn) {
                         Button(onClick = onCheckInClick, enabled = !isCheckingIn) {
                             Text(stringResource(if (isCheckingIn) R.string.account_checking_in else R.string.account_check_in_action))
                         }
@@ -70,5 +70,3 @@ internal fun AccountOverviewCard(overview: AccountOverview, isCheckingIn: Boolea
         }
     }
 }
-
-internal fun usesCheckInActionLine(checkIn: DailyCheckIn): Boolean = checkIn.canCheckIn

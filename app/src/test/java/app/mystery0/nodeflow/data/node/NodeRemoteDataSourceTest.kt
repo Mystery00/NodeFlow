@@ -354,8 +354,6 @@ class NodeRemoteDataSourceTest {
     ) : V2exRawApi {
         val nodeTopicsHtmlRequests = mutableListOf<NodeTopicsHtmlRequest>()
 
-        override suspend fun latestTopics(): Response<ResponseBody> = htmlResponse("")
-
         override suspend fun topic(id: Long): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun replies(topicId: Long): Response<ResponseBody> = htmlResponse("")

@@ -4,6 +4,7 @@ import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.network.V2exWriteApi
 import app.mystery0.nodeflow.core.network.asOneShot
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
+import app.mystery0.nodeflow.core.network.safeNetworkCall
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import app.mystery0.nodeflow.domain.reply.CreateReplyResult
 import app.mystery0.nodeflow.domain.reply.ReplyConstraints
@@ -17,29 +18,29 @@ class ReplyRemoteDataSource(
     private val parser: V2exHtmlParser,
     private val baseUrl: HttpUrl = "https://www.v2ex.com/".toHttpUrl(),
 ) {
-    suspend fun loadConstraints(topicId: Long): ReplyConstraints {
+    suspend fun loadConstraints(topicId: Long): ReplyConstraints = safeNetworkCall {
         val html = getTopicPage(topicId)
         val form = parser.parseReplyForm(topicId, html, baseUrl.toString())
             ?: throw parseError("当前主题无法回复")
-        return ReplyConstraints(form.maxLength)
+        ReplyConstraints(form.maxLength)
     }
 
     suspend fun createReply(
         topicId: Long,
         content: String,
-    ): CreateReplyResult {
-        val topicUrl = baseUrl.resolve("t/$topicId") ?: return parseFailure()
+    ): CreateReplyResult = safeNetworkCall {
+        val topicUrl = baseUrl.resolve("t/$topicId") ?: return@safeNetworkCall parseFailure()
         val beforeHtml = getTopicPage(topicId)
         val form = parser.parseReplyForm(topicId, beforeHtml, baseUrl.toString())
-            ?: return failure(ReplyFailureReason.TopicUnavailable, "当前主题无法回复")
+            ?: return@safeNetworkCall failure(ReplyFailureReason.TopicUnavailable, "当前主题无法回复")
         val action = runCatching { form.actionUrl.toHttpUrl() }.getOrNull()
-            ?: return parseFailure()
+            ?: return@safeNetworkCall parseFailure()
         if (action.scheme != baseUrl.scheme || action.host != baseUrl.host ||
             action.port != baseUrl.port || action.encodedPath != "/t/$topicId"
-        ) return parseFailure()
+        ) return@safeNetworkCall parseFailure()
 
         val beforeReplies = loadLastReplies(topicId, beforeHtml)
-            ?: return failure(ReplyFailureReason.Parse, "无法确认回复列表，已取消提交")
+            ?: return@safeNetworkCall failure(ReplyFailureReason.Parse, "无法确认回复列表，已取消提交")
         val nextFloor = (beforeReplies.maxOfOrNull { it.floor } ?: 0) + 1
         val requestBody = FormBody.Builder().apply {
             (form.hiddenFields + (form.contentField to content)).forEach { (name, value) ->
@@ -54,10 +55,10 @@ class ReplyRemoteDataSource(
         )
         if (!response.isSuccessful) {
             response.errorBody()?.close()
-            return failure(ReplyFailureReason.Server, "回复失败：HTTP ${response.code()}")
+            return@safeNetworkCall failure(ReplyFailureReason.Server, "回复失败：HTTP ${response.code()}")
         }
         response.body()?.close()
-        return CreateReplyResult.Success(nextFloor)
+        return@safeNetworkCall CreateReplyResult.Success(nextFloor)
     }
 
     private suspend fun getTopicPage(topicId: Long): String {
@@ -66,7 +67,7 @@ class ReplyRemoteDataSource(
         if (finalUrl.encodedPath == "/signin") throw authError()
         val html = response.bodyStringOrThrow()
         if (parser.hasSignInEntry(html)) throw authError()
-        if (parser.hasAccessChallenge(html)) throw parseError("V2EX 暂时拒绝访问主题")
+        if (parser.hasAccessChallenge(html)) throw NodeFlowException(NodeFlowException.Kind.AccessDenied, "V2EX 暂时拒绝访问主题")
         return html
     }
 
@@ -78,15 +79,17 @@ class ReplyRemoteDataSource(
                 val pageUrl = baseUrl.resolve("t/$topicId?p=${parsed.pageCount}").toString()
                 val response = api.getHtml(pageUrl)
                 val finalUrl = response.raw().request.url
+                if (finalUrl.scheme == baseUrl.scheme && finalUrl.host == baseUrl.host &&
+                    finalUrl.port == baseUrl.port && finalUrl.encodedPath == "/signin") throw authError()
                 if (finalUrl.scheme != baseUrl.scheme || finalUrl.host != baseUrl.host ||
                     finalUrl.port != baseUrl.port || finalUrl.encodedPath != "/t/$topicId"
                 ) return@let null
                 val html = response.bodyStringOrThrow()
-                if (finalUrl.encodedPath == "/signin" || parser.hasSignInEntry(html)) {
+                if (parser.hasSignInEntry(html)) {
                     throw authError()
                 }
                 if (parser.hasAccessChallenge(html)) {
-                    throw parseError("V2EX 暂时拒绝访问主题")
+                    throw NodeFlowException(NodeFlowException.Kind.AccessDenied, "V2EX 暂时拒绝访问主题")
                 }
                 parser.parseTopicHtml(topicId, html)?.replies
             }

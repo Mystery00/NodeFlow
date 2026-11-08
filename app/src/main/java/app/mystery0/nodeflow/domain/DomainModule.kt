@@ -3,7 +3,6 @@ package app.mystery0.nodeflow.domain
 import app.mystery0.nodeflow.domain.account.CheckInUseCase
 import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
-import app.mystery0.nodeflow.domain.auth.SaveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagSyncedAtUseCase
 import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagsUseCase
 import app.mystery0.nodeflow.domain.membertag.RefreshMemberTagsUseCase
@@ -11,7 +10,6 @@ import app.mystery0.nodeflow.domain.membertag.UpdateMemberTagsForUserUseCase
 import app.mystery0.nodeflow.domain.node.BlockNodeUseCase
 import app.mystery0.nodeflow.domain.node.GetNodePlanesUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
-import app.mystery0.nodeflow.domain.node.GetNodeTopicsUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeUseCase
 import app.mystery0.nodeflow.domain.notification.ObserveUnreadNotificationCountUseCase
 import app.mystery0.nodeflow.domain.reply.AddReplyDraftImageUseCase
@@ -26,7 +24,6 @@ import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.domain.topic.GetFavoriteTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.topic.GetLatestTopicsPagingUseCase
-import app.mystery0.nodeflow.domain.topic.GetLatestTopicsUseCase
 import app.mystery0.nodeflow.domain.topic.GetTopicDetailUseCase
 import app.mystery0.nodeflow.domain.topic.PrepareImageShareUseCase
 import app.mystery0.nodeflow.domain.topic.SetFavoriteUseCase
@@ -39,10 +36,6 @@ import org.koin.dsl.module
 val domainModule = module {
     factory { ObserveUnreadNotificationCountUseCase(get()) }
     factory { GetFavoriteTopicsPagingUseCase(get()) }
-
-    factory {
-        GetLatestTopicsUseCase(get())
-    }
 
     factory {
         GetLatestTopicsPagingUseCase(get())
@@ -67,10 +60,6 @@ val domainModule = module {
 
     factory {
         GetNodePlanesUseCase(get())
-    }
-
-    factory {
-        GetNodeTopicsUseCase(get())
     }
 
     factory {
@@ -111,10 +100,6 @@ val domainModule = module {
 
     factory {
         ObserveAuthSessionUseCase(get())
-    }
-
-    factory {
-        SaveAuthSessionUseCase(get())
     }
 
     factory {

@@ -8,6 +8,7 @@ on:
 
 jobs:
   build:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -34,34 +35,37 @@ jobs:
         run: |
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/key.jks"
 
-      - name: Build Release APK
+      - name: Verify and build Release APK
         env:
           SIGN_KEY_STORE_FILE: ${{ runner.temp }}/key.jks
           SIGN_KEY_STORE_PASSWORD: ${{ secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
           SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
           SIGN_KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD || secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew assembleRelease
+          ./gradlew --no-daemon :app:testDebugUnitTest :image-hosting:test
+          ./gradlew --no-daemon :app:assembleRelease
 
       - name: Parse build files
-        id: apk
         run: |
-          METADATA_FILE=$(find app/build -name "output-metadata.json" | grep "release" | head -n 1)
-          APK_FILE=$(find app/build -name "*release*.apk" | head -n 1)
-          if [ -z "$METADATA_FILE" ] || [ -z "$APK_FILE" ]; then
-            echo "Failed to locate release APK or output-metadata.json" >&2
-            exit 1
-          fi
-
-          versionName=$(jq -r '.elements[0].versionName' "$METADATA_FILE")
-          versionCode=$(jq -r '.elements[0].versionCode' "$METADATA_FILE")
+          set -euo pipefail
+          METADATA_FILE=app/build/outputs/apk/release/output-metadata.json
+          versionName=$(jq -er '.elements[0].versionName' "$METADATA_FILE")
+          APK_NAME=$(jq -er '.elements[0].outputFile' "$METADATA_FILE")
+          APK_FILE="$(dirname "$METADATA_FILE")/$APK_NAME"
 
           mkdir -p outputs
           cp "$APK_FILE" "outputs/NodeFlow-${versionName}.apk"
           cp "$APK_FILE" "outputs/NodeFlow.apk"
+          cp app/build/outputs/mapping/release/mapping.txt "outputs/NodeFlow-${versionName}-mapping.txt"
 
-          echo "versionName=$versionName" >> $GITHUB_OUTPUT
-          echo "versionCode=$versionCode" >> $GITHUB_OUTPUT
+      - name: Upload R8 reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NodeFlow-r8-${{ github.sha }}
+          path: app/build/outputs/mapping/release/
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -69,9 +73,11 @@ jobs:
           name: NodeFlow ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             outputs/NodeFlow-*.apk
             outputs/NodeFlow.apk
+            outputs/NodeFlow-*-mapping.txt
 
       - name: Cleanup Keystore
         if: always()

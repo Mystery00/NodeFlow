@@ -26,7 +26,6 @@ import app.mystery0.nodeflow.domain.reply.UploadImageUseCase
 import app.mystery0.nodeflow.domain.reply.UploadedReplyImage
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.SettingsRepository
-import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.ThemeMode
@@ -154,7 +153,6 @@ class ReplyEditorViewModelTest {
 
         assertThat(effect.await()).isEqualTo(ReplyEditorEffect.RequestLogin)
         assertThat(viewModel.uiState.value.value.text).isEqualTo("reply")
-        assertThat(viewModel.uiState.value.isLoggedIn).isFalse()
     }
 
     @Test
@@ -165,7 +163,7 @@ class ReplyEditorViewModelTest {
             settings = AppSettings(replyImageHost = "imgur"),
             imageRegistry = registry("imgur", enabled = false),
             imageRepository = object : ImageUploadRepository {
-                override suspend fun upload(contentUri: String) = error("legacy path used")
+
                 override suspend fun upload(hostId: ImageHostId, contentUri: String): ImageUploadResult {
                     uploads += hostId
                     return ImageUploadResult.Failure(
@@ -182,7 +180,6 @@ class ReplyEditorViewModelTest {
         advanceUntilIdle()
 
         assertThat(uploads).containsExactly(ImageHostId("imgur"))
-        assertThat(viewModel.uiState.value.isLoggedIn).isFalse()
         assertThat(viewModel.uiState.value.showGalleryAction).isTrue()
     }
 
@@ -190,7 +187,7 @@ class ReplyEditorViewModelTest {
     fun imageSelected_authenticationFailure_requestsLogin() = runTest(dispatcher) {
         val viewModel = viewModel(
             imageRepository = object : ImageUploadRepository {
-                override suspend fun upload(contentUri: String) = error("legacy path used")
+
                 override suspend fun upload(hostId: ImageHostId, contentUri: String) =
                     ImageUploadResult.Failure(ImageUploadFailureReason.AuthenticationRequired, "登录已失效")
             },
@@ -209,7 +206,7 @@ class ReplyEditorViewModelTest {
             settings = AppSettings(replyImageHost = "imgur"),
             imageRegistry = registry("imgur", enabled = false),
             imageRepository = object : ImageUploadRepository {
-                override suspend fun upload(contentUri: String) = error("legacy path used")
+
                 override suspend fun upload(hostId: ImageHostId, contentUri: String) =
                     ImageUploadResult.Failure(
                         ImageUploadFailureReason.UploadUnconfirmed,
@@ -226,7 +223,6 @@ class ReplyEditorViewModelTest {
 
         assertThat(effect.await()).isEqualTo(
             ReplyEditorEffect.OpenGallery(
-                "imgur",
                 RecoveryAction.OpenHostPage("https://imgur.com/upload"),
             ),
         )
@@ -234,11 +230,12 @@ class ReplyEditorViewModelTest {
 
     @Test
     fun providerSwitch_clearsPreviousRecoveryAction() = runTest(dispatcher) {
+        val settingsRepository = FakeSettingsRepository(AppSettings(replyImageHost = "imgur"))
         val viewModel = viewModel(
-            settings = AppSettings(replyImageHost = "imgur"),
+            settingsRepository = settingsRepository,
             imageRegistry = registry("imgur", "v2ex", enabled = false),
             imageRepository = object : ImageUploadRepository {
-                override suspend fun upload(contentUri: String) = error("legacy path used")
+
                 override suspend fun upload(hostId: ImageHostId, contentUri: String) =
                     ImageUploadResult.Failure(
                         ImageUploadFailureReason.UploadUnconfirmed,
@@ -250,7 +247,7 @@ class ReplyEditorViewModelTest {
         advanceUntilIdle()
         viewModel.onEvent(ReplyEditorUiEvent.ImageSelected("content://image"))
         advanceUntilIdle()
-        viewModel.onEvent(ReplyEditorUiEvent.ProviderSelected("v2ex"))
+        settingsRepository.settings.value = AppSettings(replyImageHost = "v2ex")
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.recoveryAction).isEqualTo(RecoveryAction.None)
@@ -263,7 +260,7 @@ class ReplyEditorViewModelTest {
         val image = UploadedReplyImage("imgur:id", "https://i.imgur.com/a.png", "https://imgur.com/a", "a.png", 1)
         val viewModel = viewModel(
             imageRepository = object : ImageUploadRepository {
-                override suspend fun upload(contentUri: String) = error("legacy path used")
+
                 override suspend fun upload(hostId: ImageHostId, contentUri: String) = gate.await()
             },
         )
@@ -283,7 +280,7 @@ class ReplyEditorViewModelTest {
         val gate = CompletableDeferred<ImageUploadResult>()
         val viewModel = viewModel(
             imageRepository = object : ImageUploadRepository {
-                override suspend fun upload(contentUri: String) = error("legacy path used")
+
                 override suspend fun upload(hostId: ImageHostId, contentUri: String) = gate.await()
             },
         )
@@ -302,16 +299,18 @@ class ReplyEditorViewModelTest {
     @Test
     fun providerSwitch_duringUpload_isIgnored() = runTest(dispatcher) {
         val gate = CompletableDeferred<ImageUploadResult>()
+        val settingsRepository = FakeSettingsRepository(AppSettings())
         val viewModel = viewModel(
+            settingsRepository = settingsRepository,
             imageRepository = object : ImageUploadRepository {
-                override suspend fun upload(contentUri: String) = error("legacy path used")
+
                 override suspend fun upload(hostId: ImageHostId, contentUri: String) = gate.await()
             },
         )
         advanceUntilIdle()
         viewModel.onEvent(ReplyEditorUiEvent.ImageSelected("content://image"))
         runCurrent()
-        viewModel.onEvent(ReplyEditorUiEvent.ProviderSelected("imgur"))
+        settingsRepository.settings.value = AppSettings(replyImageHost = "imgur")
 
         assertThat(viewModel.uiState.value.currentImageHostId).isEqualTo("v2ex")
         gate.complete(ImageUploadResult.Failure(ImageUploadFailureReason.Network, "网络错误"))
@@ -321,7 +320,7 @@ class ReplyEditorViewModelTest {
     @Test
     fun uploadException_releasesEditorLock() = runTest(dispatcher) {
         val imageRepository = object : ImageUploadRepository {
-            override suspend fun upload(contentUri: String): ImageUploadResult = error("network")
+            override suspend fun upload(hostId: ImageHostId, contentUri: String): ImageUploadResult = error("network")
         }
         val viewModel = viewModel(FakeDraftRepository(), imageRepository = imageRepository)
         advanceUntilIdle()
@@ -343,7 +342,7 @@ class ReplyEditorViewModelTest {
             1,
         )
         val imageRepository = object : ImageUploadRepository {
-            override suspend fun upload(contentUri: String) = ImageUploadResult.Success(image)
+            override suspend fun upload(hostId: ImageHostId, contentUri: String) = ImageUploadResult.Success(image)
         }
         val viewModel = viewModel(
             FakeDraftRepository(throwOnAddImage = true),
@@ -365,10 +364,11 @@ class ReplyEditorViewModelTest {
         imageRepository: ImageUploadRepository? = null,
         authRepository: AuthRepository = FakeAuthRepository(),
         settings: AppSettings = AppSettings(),
+        settingsRepository: SettingsRepository = FakeSettingsRepository(settings),
         imageRegistry: DefaultImageHostRegistry = registry("v2ex"),
     ): ReplyEditorViewModel {
         val defaultImageRepository = object : ImageUploadRepository {
-            override suspend fun upload(contentUri: String) = ImageUploadResult.Failure(
+            override suspend fun upload(hostId: ImageHostId, contentUri: String) = ImageUploadResult.Failure(
                 app.mystery0.nodeflow.domain.reply.ImageUploadFailureReason.Server,
                 "unused",
             )
@@ -383,8 +383,7 @@ class ReplyEditorViewModelTest {
             AddReplyDraftImageUseCase(drafts),
             ClearReplyDraftUseCase(drafts),
             ObserveAuthSessionUseCase(authRepository),
-            ObserveSettingsUseCase(FakeSettingsRepository(settings)),
-            UpdateSettingsUseCase(FakeSettingsRepository(settings)),
+            ObserveSettingsUseCase(settingsRepository),
             imageRegistry,
         )
     }
@@ -442,7 +441,7 @@ class ReplyEditorViewModelTest {
     private class FakeSettingsRepository(
         settings: AppSettings,
     ) : SettingsRepository {
-        override val settings: Flow<AppSettings> = flowOf(settings)
+        override val settings = kotlinx.coroutines.flow.MutableStateFlow(settings)
         override suspend fun setThemeMode(themeMode: ThemeMode) = Unit
         override suspend fun setDynamicColor(enabled: Boolean) = Unit
         override suspend fun setPinnedHomeNode(node: PinnedHomeNode?) = Unit
@@ -460,7 +459,7 @@ class ReplyEditorViewModelTest {
         override suspend fun loginChallenge(): Result<LoginChallenge> = error("unused")
         override suspend fun login(username: String, password: String, captcha: String, challenge: LoginChallenge): Result<AuthLoginResult> = error("unused")
         override suspend fun verifyTwoFactor(code: String, challenge: TwoFactorChallenge): Result<AuthSession> = error("unused")
-        override suspend fun saveSession(session: AuthSession) = Unit
+        suspend fun setSession(session: AuthSession) = Unit
         override suspend fun clearSession() = Unit
     }
 }

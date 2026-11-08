@@ -36,12 +36,6 @@ class BlockNodeUseCaseTest {
         override suspend fun node(name: String, forceRefresh: Boolean): Result<Node> =
             Result.failure(AssertionError("Unexpected node request"))
 
-        override suspend fun topics(
-            name: String,
-            page: Int,
-            forceRefresh: Boolean,
-        ): Result<List<Topic>> = Result.success(emptyList())
-
         override fun topicsPaging(name: String): Flow<PagingData<Topic>> =
             flowOf(PagingData.empty())
 

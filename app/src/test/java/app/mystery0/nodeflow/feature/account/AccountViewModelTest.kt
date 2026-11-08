@@ -38,6 +38,24 @@ import org.junit.Test
 class AccountViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
+    @Test
+    fun partialOverviewDoesNotErasePreviouslyLoadedCheckIn() = runTest(testDispatcher) {
+        var requests = 0
+        val repository = object : AccountOverviewRepository {
+            override suspend fun overview() = Result.success(
+                if (++requests == 1) AccountOverview(checkIn = DailyCheckIn(checkedIn = true))
+                else AccountOverview(unreadNotificationCount = 2),
+            )
+            override suspend fun checkIn(): Result<DailyCheckInResult> = error("不应签到")
+        }
+        val auth = FakeAuthRepository(AuthSession(username = "tester", cookieHeader = "test-cookie"))
+        val vm = createViewModel(auth, repository)
+        advanceUntilIdle()
+        vm.onEvent(AccountUiEvent.Refresh)
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.overview?.checkIn?.checkedIn).isTrue()
+    }
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -71,6 +89,33 @@ class AccountViewModelTest {
         assertThat(viewModel.uiState.value.isLoggedIn).isFalse()
         assertThat(viewModel.uiState.value.user).isNull()
         assertThat(viewModel.uiState.value.overview).isNull()
+        assertThat(viewModel.uiState.value.errorMessage).isEqualTo("登录状态已失效，请重新登录")
+    }
+
+    @Test
+    fun switchingAccountClearsPreviousOverviewBeforeNewRequestCompletes() = runTest(testDispatcher) {
+        var requests = 0
+        val release = CompletableDeferred<Unit>()
+        val repository = object : AccountOverviewRepository {
+            override suspend fun overview(): Result<AccountOverview> {
+                if (++requests > 1) release.await()
+                return Result.success(AccountOverview(checkIn = DailyCheckIn(checkedIn = true)))
+            }
+            override suspend fun checkIn(): Result<DailyCheckInResult> = error("不应签到")
+        }
+        val auth = FakeAuthRepository(AuthSession(username = "first", cookieHeader = "test-first"))
+        val vm = createViewModel(auth, repository)
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.overview).isNotNull()
+
+        auth.setSession(AuthSession(username = "second", cookieHeader = "test-second"))
+        testDispatcher.scheduler.runCurrent()
+
+        assertThat(vm.uiState.value.user).isNull()
+        assertThat(vm.uiState.value.overview).isNull()
+        release.complete(Unit)
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.user?.username).isEqualTo("second")
     }
 
     @Test
@@ -282,7 +327,7 @@ class AccountViewModelTest {
             challenge: TwoFactorChallenge,
         ): Result<AuthSession> = error("不应在个人页加载测试中校验两步验证码")
 
-        override suspend fun saveSession(session: AuthSession) {
+        suspend fun setSession(session: AuthSession) {
             sessionFlow.value = session
         }
 

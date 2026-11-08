@@ -147,7 +147,7 @@ class TopicDetailPagerImplTest {
     }
 
     @Test
-    fun loadUntilLastPage_loadsAllPages() = runTest {
+    fun loadAllPages_loadsAllPages() = runTest {
         val remote = FakeRemote(
             pages = mutableMapOf(
                 1 to parsedPage(pageCount = 3, replyCount = 250, replies = replies(1..100)),
@@ -157,7 +157,7 @@ class TopicDetailPagerImplTest {
         )
         val pager = pager(remote)
 
-        val snapshot = pager.loadUntilLastPage().getOrThrow()
+        val snapshot = pager.loadAllPages().getOrThrow()
 
         assertThat(snapshot.hasMore).isFalse()
         assertThat(snapshot.detail.replies).hasSize(250)
@@ -172,7 +172,7 @@ class TopicDetailPagerImplTest {
             ),
         )
         val pager = pager(remote)
-        pager.loadUntilLastPage().getOrThrow()
+        pager.loadAllPages().getOrThrow()
         remote.pages[2] = parsedPage(
             pageCount = 2,
             replyCount = 160,
@@ -197,7 +197,7 @@ class TopicDetailPagerImplTest {
             ),
         )
         val pager = pager(remote)
-        pager.loadUntilLastPage().getOrThrow()
+        pager.loadAllPages().getOrThrow()
         remote.failures[2] = IOException("refresh page 2 failed")
 
         val result = pager.refreshLoaded()
@@ -303,7 +303,7 @@ class TopicDetailPagerImplTest {
         )
         val pager = pager(remote)
 
-        val snapshot = pager.loadUntilLastPage().getOrThrow()
+        val snapshot = pager.loadAllPages().getOrThrow()
 
         val reference = snapshot.detail.replies.last().reference
         assertThat(reference).isNotNull()
@@ -346,13 +346,15 @@ class TopicDetailPagerImplTest {
         }
     }
 
+    /** 测试通过实际分页入口加载完整样例，无需生产代码保留专用全量加载方法。 */
+    private suspend fun app.mystery0.nodeflow.domain.topic.TopicDetailPager.loadAllPages(): Result<app.mystery0.nodeflow.domain.topic.TopicDetailSnapshot> {
+        var result = loadFirst()
+        while (result.getOrNull()?.hasMore == true) result = loadNext()
+        return result
+    }
+
     private class FakeTopicDao : TopicDao {
         private val topics = mutableMapOf<Long, TopicEntity>()
-
-        override suspend fun latestTopics(limit: Int): List<TopicEntity> = topics.values.toList()
-
-        override suspend fun topicsByNode(nodeName: String, limit: Int): List<TopicEntity> =
-            topics.values.filter { it.nodeName == nodeName }
 
         override suspend fun topic(id: Long): TopicEntity? = topics[id]
 

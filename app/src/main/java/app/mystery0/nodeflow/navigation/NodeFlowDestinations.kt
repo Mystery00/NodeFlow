@@ -16,14 +16,12 @@ object NodeFlowDestinations {
     const val Auth = "auth"
     const val Notification = "notification"
 
-    fun node(nodeName: String = "python"): String = "node/${Uri.encode(nodeName)}"
+    fun node(nodeName: String): String = "node/${Uri.encode(nodeName)}"
     fun topic(topicId: Long, replyFloor: Int? = null): String = buildString {
         append("topic/$topicId")
         replyFloor?.let { append("?replyFloor=$it") }
     }
     fun profile(username: String): String = "profile/${Uri.encode(username)}"
-
-    fun isTopLevelRoute(route: String?): Boolean = route in setOf(Home, NodeList, Notification, Account)
 
     fun routeFor(link: V2exLink): String = when (link) {
         is V2exLink.Topic -> topic(link.id)
@@ -31,5 +29,3 @@ object NodeFlowDestinations {
         is V2exLink.Member -> profile(link.username)
     }
 }
-
-fun rootStartDestination(): String = NodeFlowDestinations.Main

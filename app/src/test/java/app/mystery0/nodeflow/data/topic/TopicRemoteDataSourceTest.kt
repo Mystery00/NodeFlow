@@ -74,7 +74,7 @@ class TopicRemoteDataSourceTest {
     }
 
     @Test
-    fun latestTopics_readsHomeTopicsFromAllTabHtml() = runTest {
+    fun homeTopics_readsHomeTopicsFromAllTabHtml() = runTest {
         val api = FakeV2exRawApi(
             allHtml = """
                 <html>
@@ -109,9 +109,8 @@ class TopicRemoteDataSourceTest {
         )
         val dataSource = TopicRemoteDataSource(api, json, parser)
 
-        val topics = dataSource.latestTopics()
+        val topics = dataSource.homeTopics(1)
 
-        assertThat(api.latestTopicsRequestCount).isEqualTo(0)
         assertThat(api.nodeTopicsHtmlRequests).isEmpty()
         assertThat(api.allTopicsHtmlRequestCount).isEqualTo(1)
         assertThat(api.recentTopicsHtmlRequests).isEmpty()
@@ -467,18 +466,12 @@ class TopicRemoteDataSourceTest {
         private val repliesJson: String = "[]",
         private val cachedTopic: Boolean = false,
     ) : V2exRawApi {
-        var latestTopicsRequestCount: Int = 0
         var topicJsonCalls: Int = 0
         var repliesJsonCalls: Int = 0
         var allTopicsHtmlRequestCount: Int = 0
         val nodeTopicsHtmlRequests = mutableListOf<NodeTopicsHtmlRequest>()
         val recentTopicsHtmlRequests = mutableListOf<RecentTopicsHtmlRequest>()
         val topicHtmlRequests = mutableListOf<Int?>()
-
-        override suspend fun latestTopics(): Response<ResponseBody> {
-            latestTopicsRequestCount += 1
-            return htmlResponse("[]")
-        }
 
         override suspend fun topic(id: Long): Response<ResponseBody> {
             topicJsonCalls += 1

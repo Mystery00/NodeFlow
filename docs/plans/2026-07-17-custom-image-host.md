@@ -1,5 +1,7 @@
 # 自定义图床域名实施计划
 
+> 历史方案说明（2026-11-08 核对）：正文渲染与图片识别已重构；上传 provider 与内容图片域名是不同设置。现行说明见[专题文档](../subsystems/network-auth.md)。历史代码块和验收记录不代表当前实现。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 设置界面可配置图床域名，内容中命中域名的链接按图片渲染（两条渲染管线），失败回退现有占位。

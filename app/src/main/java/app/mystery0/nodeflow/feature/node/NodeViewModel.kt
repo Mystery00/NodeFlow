@@ -33,7 +33,7 @@ class NodeViewModel(
     private val blockNodeUseCase: BlockNodeUseCase,
     observeAuthSession: ObserveAuthSessionUseCase,
 ) : ViewModel() {
-    private val nodeName: String = savedStateHandle["nodeName"] ?: "python"
+    private val nodeName: String = checkNotNull(savedStateHandle["nodeName"])
     private val _uiState = MutableStateFlow(NodeUiState(nodeName = nodeName))
     val uiState: StateFlow<NodeUiState> = _uiState.asStateFlow()
 

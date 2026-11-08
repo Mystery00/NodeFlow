@@ -126,15 +126,55 @@ class ImgurHttpImageHostAdapterTest {
         assertThat(result.error.certainty).isEqualTo(ResultCertainty.NotSubmitted)
     }
 
-    @Test(expected = CancellationException::class)
-    fun cancellationPropagates() {
-        runBlocking { throw CancellationException("cancelled") }
+    @Test fun cancellationPropagates() = runBlocking {
+        val cancellation = CancellationException("cancelled")
+        val cancelling = ImgurHttpImageHostAdapter(
+            client = OkHttpClient.Builder().addInterceptor { throw cancellation }.build(),
+            pageBaseUrl = server.url("/"), allowedHosts = setOf(server.hostName),
+        )
+        assertThat(runCatching { cancelling.upload(sample()) }.exceptionOrNull()).isSameInstanceAs(cancellation)
     }
 
-    @Test fun cookieJarIsNotSharedByDefault() {
-        val first = ImgurHttpImageHostAdapter()
-        val second = ImgurHttpImageHostAdapter()
-        assertThat(first).isNotSameInstanceAs(second)
+    @Test fun defaultCookiesAreMergedScopedAndIsolatedBetweenClients() = runBlocking {
+        fun defaultAdapter() = ImgurHttpImageHostAdapter(pageBaseUrl = server.url("/"),
+            apiBaseUrl = server.url("/"), allowedHosts = setOf(server.hostName))
+        val first = defaultAdapter()
+        server.enqueue(MockResponse().setHeader("Set-Cookie", "page=one; Path=/upload").setBody("client_id=test"))
+        server.enqueue(MockResponse().setResponseCode(500).setHeader("Set-Cookie", "api=two; Path=/"))
+        server.enqueue(MockResponse().setBody("client_id=test"))
+        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(MockResponse().setResponseCode(500))
+        first.upload(sample())
+        first.upload(sample())
+        defaultAdapter().upload(sample())
+        assertThat(server.takeRequest().getHeader("Cookie")).isNull()
+        assertThat(server.takeRequest().getHeader("Cookie")).isNull()
+        assertThat(server.takeRequest().getHeader("Cookie")).contains("page=one")
+        assertThat(server.takeRequest().getHeader("Cookie")).isEqualTo("api=two")
+        assertThat(server.takeRequest().getHeader("Cookie")).isNull()
+    }
+
+    @Test fun normalScriptNamesDoNotTriggerChallengeDetection() = runBlocking {
+        server.enqueue(MockResponse().setBody("<script src='/challenge.js'></script><script>client_id='test'</script>"))
+        server.enqueue(MockResponse().setResponseCode(500))
+        val result = adapter.upload(sample()) as UploadResult.Failure
+        assertThat(result.error.category).isEqualTo(FailureCategory.Server)
+        assertThat(server.requestCount).isEqualTo(2)
+    }
+
+    @Test fun completionIOExceptionKeepsCompletionStage() = runBlocking {
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            if (chain.request().method == "PUT") throw java.io.IOException("offline")
+            chain.proceed(chain.request())
+        }.build()
+        val completing = ImgurHttpImageHostAdapter(client, server.url("/"), server.url("/"), setOf(server.hostName))
+        server.enqueue(MockResponse().setBody("client_id=test"))
+        server.enqueue(MockResponse().setBody("""{"data":{"id":"album","deletehash":"secret"}}"""))
+        server.enqueue(MockResponse().setBody("{}"))
+        server.enqueue(MockResponse().setBody("""{"data":{"id":"image","link":"https://i.imgur.com/image.png"}}"""))
+        val result = completing.upload(sample()) as UploadResult.Failure
+        assertThat(result.error.stage).isEqualTo(RequestStage.Completion)
+        assertThat(result.error.certainty).isEqualTo(ResultCertainty.Unknown)
     }
 
     private fun sample() = UploadImage("x.png", "image/png", byteArrayOf(1, 2, 3))

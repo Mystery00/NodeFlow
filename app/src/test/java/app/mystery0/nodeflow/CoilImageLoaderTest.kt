@@ -29,6 +29,26 @@ import org.robolectric.annotation.GraphicsMode
 class CoilImageLoaderTest {
     @get:Rule val temporaryFolder = TemporaryFolder()
 
+    @Test fun failedDownloadClosesResponseBody() = runBlocking {
+        var closed = false
+        val body = object : okhttp3.ResponseBody() {
+            override fun contentType(): okhttp3.MediaType? = null
+            override fun contentLength() = 5L
+            override fun source() = okio.Buffer().writeUtf8("error")
+            override fun close() { closed = true }
+        }
+        val client = okhttp3.OkHttpClient.Builder().addInterceptor { chain ->
+            okhttp3.Response.Builder().request(chain.request()).protocol(okhttp3.Protocol.HTTP_1_1)
+                .code(500).message("Server error").body(body).build()
+        }.build()
+        val result = runCatching {
+            DefaultImageDownloader(RuntimeEnvironment.getApplication(), client)
+                .downloadImage("https://example.test/failed.png", temporaryFolder.newFile())
+        }
+        assertThat(result.exceptionOrNull()).isInstanceOf(java.io.IOException::class.java)
+        assertThat(closed).isTrue()
+    }
+
     @OptIn(DelicateCoilApi::class)
     @Test fun networkSvgCanBeDecodedAndSavedFromDiskCache() = runBlocking {
         val context = RuntimeEnvironment.getApplication()

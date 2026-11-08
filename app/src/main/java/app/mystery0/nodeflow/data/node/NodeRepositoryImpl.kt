@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.data.node
 
+import app.mystery0.nodeflow.core.common.runSuspendCatching
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
@@ -22,10 +23,10 @@ class NodeRepositoryImpl(
 ) : NodeRepository {
     override suspend fun nodePlanes(forceRefresh: Boolean): Result<List<NodePlane>> =
         withContext(ioDispatcher) {
-            runCatching {
+            runSuspendCatching {
                 val cached = localDataSource.nodePlanes()
-                if (!forceRefresh && cached.isNotEmpty()) return@runCatching cached
-                runCatching { remoteDataSource.planes() }
+                if (!forceRefresh && cached.isNotEmpty()) return@runSuspendCatching cached
+                runSuspendCatching { remoteDataSource.planes() }
                     .onSuccess { planes -> localDataSource.cacheNodePlanes(planes) }
                     .getOrElse { error ->
                         if (cached.isNotEmpty()) cached else throw error
@@ -35,31 +36,14 @@ class NodeRepositoryImpl(
 
     override suspend fun node(name: String, forceRefresh: Boolean): Result<Node> =
         withContext(ioDispatcher) {
-            runCatching {
+            runSuspendCatching {
                 val cached = localDataSource.node(name)
-                if (!forceRefresh && cached != null) return@runCatching cached
-                runCatching { remoteDataSource.node(name) }
+                if (!forceRefresh && cached != null) return@runSuspendCatching cached
+                runSuspendCatching { remoteDataSource.node(name) }
                     .onSuccess { localDataSource.cacheNode(it) }
                     .getOrElse { error -> cached ?: throw error }
             }
         }
-
-    override suspend fun topics(
-        name: String,
-        page: Int,
-        forceRefresh: Boolean,
-    ): Result<List<Topic>> = withContext(ioDispatcher) {
-        runCatching {
-            val cached = topicLocalDataSource.nodeTopics(name)
-            if (!forceRefresh && page == 1 && cached.isNotEmpty()) return@runCatching cached
-            runCatching { remoteDataSource.topics(name, page) }
-                .onSuccess { topicLocalDataSource.cacheTopics(it) }
-                .getOrElse { error ->
-                    if (error.isAccessDenied()) throw error
-                    if (cached.isNotEmpty()) cached else throw error
-                }
-        }
-    }
 
     override fun topicsPaging(name: String): Flow<PagingData<Topic>> =
         Pager(
@@ -86,7 +70,7 @@ class NodeRepositoryImpl(
         ).flow
 
     override suspend fun blockNode(name: String): Result<Unit> = withContext(ioDispatcher) {
-        runCatching { remoteDataSource.blockNode(name) }
+        runSuspendCatching { remoteDataSource.blockNode(name) }
     }
 
     override suspend fun clearCache() {

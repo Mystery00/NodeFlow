@@ -1,8 +1,6 @@
 package app.mystery0.nodeflow.core.network
 
 import app.mystery0.nodeflow.core.datastore.SessionStore
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 
@@ -11,7 +9,7 @@ class AuthInterceptor(
     private val cookieJar: V2exCookieJar,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        val session = runBlocking { sessionStore.session.first() }
+        val session = sessionStore.session.value
         val request = chain.request()
         session.cookieHeader
             ?.takeIf { it.isNotBlank() && cookieJar.cookieHeader(request.url).isBlank() }

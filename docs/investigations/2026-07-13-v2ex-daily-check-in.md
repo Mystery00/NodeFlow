@@ -193,7 +193,9 @@ GET /mission/daily
 - [要求正向成功文案，避免风控页被误判为成功](https://github.com/honjow/Next2V/commit/c806e6cfdfb5f5341cd7c1cb4b015323011264ce)
 - [普通 HTTP 请求补齐 User-Agent 与 Referer 的尝试](https://github.com/honjow/Next2V/commit/abe470d453bf7407bd4b31cc111a57d682916338)
 
-## NodeFlow 现有能力
+## 调查时的 NodeFlow 能力基线
+
+> 本节描述 2026-07-13 的实现。当前已实现签到领取，旧 `RichHtmlText` 路径也已被替代；现状见[网络与认证](../subsystems/network-auth.md)。
 
 仓库已经完成读取和展示签到状态的半条链路。
 

@@ -13,9 +13,6 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface V2exRawApi {
-    @GET("api/topics/latest.json")
-    suspend fun latestTopics(): Response<ResponseBody>
-
     @GET("api/topics/show.json")
     suspend fun topic(@Query("id") id: Long): Response<ResponseBody>
 

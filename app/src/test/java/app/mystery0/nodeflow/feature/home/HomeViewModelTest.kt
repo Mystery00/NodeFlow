@@ -109,9 +109,6 @@ class HomeViewModelTest {
     private class FakeTopicRepository : TopicRepository {
         var latestPagingCalls = 0
 
-        override suspend fun latestTopics(forceRefresh: Boolean): Result<List<Topic>> =
-            Result.success(emptyList())
-
         override fun latestTopicsPaging(): Flow<PagingData<Topic>> {
             latestPagingCalls += 1
             return flowOf(PagingData.empty())
@@ -131,12 +128,6 @@ class HomeViewModelTest {
 
         override suspend fun node(name: String, forceRefresh: Boolean): Result<Node> =
             Result.success(Node(name = name, title = name))
-
-        override suspend fun topics(
-            name: String,
-            page: Int,
-            forceRefresh: Boolean,
-        ): Result<List<Topic>> = Result.success(emptyList())
 
         override fun topicsPaging(name: String): Flow<PagingData<Topic>> {
             pagingNodeNames += name

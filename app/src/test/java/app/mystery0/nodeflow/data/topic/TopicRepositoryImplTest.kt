@@ -29,6 +29,19 @@ import okhttp3.Response as OkHttpResponse
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TopicRepositoryImplTest {
+    @Test
+    fun clearCacheResetsOldDenialAfterCacheWasSuccessfullyRemoved() = runTest {
+        val dao = FakeTopicDao()
+        val repo = repository(AccessDeniedThenFailingV2exRawApi(), dao, StandardTestDispatcher(testScheduler))
+        val pager = repo.topicDetailPager(1221181)
+        assertThat(pager.loadFirst().isFailure).isTrue()
+        repo.clearCache()
+        TopicLocalDataSource(dao).cacheTopicDetail(TopicDetail(
+            topic = topic(1221181, replyCount = 0), content = "新缓存正文",
+            contentRendered = "<p>新缓存正文</p>", replies = emptyList(),
+        ))
+        assertThat(pager.loadFirst().getOrThrow().detail.content).isEqualTo("新缓存正文")
+    }
     private val json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false
@@ -435,11 +448,6 @@ class TopicRepositoryImplTest {
     ) : TopicDao {
         private val topics = mutableMapOf<Long, TopicEntity>()
 
-        override suspend fun latestTopics(limit: Int): List<TopicEntity> = topics.values.toList()
-
-        override suspend fun topicsByNode(nodeName: String, limit: Int): List<TopicEntity> =
-            topics.values.filter { it.nodeName == nodeName }
-
         override suspend fun topic(id: Long): TopicEntity? = topics[id]
 
         override suspend fun upsertTopics(topics: List<TopicEntity>) {
@@ -468,8 +476,6 @@ class TopicRepositoryImplTest {
     private open class FailingV2exRawApi : V2exRawApi {
         private fun failure(): Response<ResponseBody> =
             Response.error(500, "".toResponseBody("text/plain".toMediaType()))
-
-        override suspend fun latestTopics(): Response<ResponseBody> = failure()
 
         override suspend fun topic(id: Long): Response<ResponseBody> = failure()
 

@@ -1,5 +1,7 @@
 # 导航层级调整 Implementation Plan
 
+> 历史方案说明（2026-11-08 核对）：导航已采用根 NavHost 与 MainShell 内部 NavHost，底栏为首页、节点、消息、我的。现行说明见[专题文档](../subsystems/ui-navigation.md)。历史代码块和验收记录不代表当前实现。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 让首页、节点列表、设置作为一级底部导航页面，帖子详情和节点详情作为无底栏的二级页面。

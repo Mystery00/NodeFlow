@@ -61,7 +61,7 @@ fun NodeFlowNavHost(
     }
     NavHost(
         navController = navController,
-        startDestination = rootStartDestination(),
+        startDestination = NodeFlowDestinations.Main,
         modifier = modifier,
         enterTransition = { activityLikeEnterTransition() },
         exitTransition = { activityLikeExitTransition() },

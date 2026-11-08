@@ -11,8 +11,6 @@
 - [开发工作流](development/workflow.md)：编码、日志、隐私、Git、构建与交付要求。
 - [测试与验证](development/testing.md)：单元测试范围、命令和真机验证要求。
 - [文档规范](development/documentation.md)：目录分类、命名、维护和新文档落位规则。
-- [GPT-6 Astra 指令与工作流审计](investigations/2026-09-12-agent-instructions-audit.md)：官方依据、问题清单、修改范围及验证限制。
-- [Imgur 匿名网页上传协议调查](investigations/2026-09-24-imgur-web-upload.md)：脱敏网页流程证据、原生 HTTP 实现边界和交互回退结论。
 
 ## 子系统
 
@@ -61,8 +59,25 @@
 - [帖子列表置顶标记设计](plans/2026-08-14-topic-pinned-badge-design.md) / [实施计划](plans/2026-08-14-topic-pinned-badge.md)
 - [V2EX 主题与回复感谢支持实施计划](plans/2026-08-30-v2ex-thank-topic-reply.md)
 - [主题正文原生富文本渲染设计](plans/2026-09-05-native-topic-rich-content-design.md) / [实施计划](plans/2026-09-05-native-topic-rich-content.md)
-- [`investigations/`](investigations/)：问题调查、外部行为验证和技术研究记录。
-- [V2EX_Polish 用户标签数据格式调查](investigations/2026-07-17-v2ex-polish-member-tag-format.md)
-- [V2EX 主题与回复感谢接口调查](investigations/2026-08-30-v2ex-thank-topic-reply.md)
 
 历史文档描述的是特定时间点的设计与实施背景。若其内容与当前源码、`AGENTS.md` 或专题文档冲突，以当前源码和现行规范为准。
+
+## 补充历史方案索引
+
+- [导航层级调整设计](plans/2026-06-29-navigation-layering-design.md)
+- [导航层级调整 Implementation Plan](plans/2026-06-29-navigation-layering.md)
+- [导航转场体验调整设计](plans/2026-06-29-navigation-transition-design.md)
+- [导航转场体验调整 Implementation Plan](plans/2026-06-29-navigation-transition.md)
+- [V2EX 链接应用内路由设计](plans/2026-07-12-v2ex-link-routing-design.md)
+- [V2EX 受限内容访问与正文解析修复设计](plans/2026-07-13-v2ex-restricted-content-access-design.md)
+- [V2EX Restricted Content Access Implementation Plan](plans/2026-07-13-v2ex-restricted-content-access.md)
+- [V2EX 回复大图分类修复设计](plans/2026-07-14-v2ex-reply-embedded-image-design.md)
+- [V2EX 回复大图分类修复实施计划](plans/2026-07-14-v2ex-reply-embedded-image.md)
+
+## 调查记录
+
+- [V2EX 每日签到调查记录（2026-07-13）](investigations/2026-07-13-v2ex-daily-check-in.md)
+- [V2EX_Polish 用户标签数据格式调查](investigations/2026-07-17-v2ex-polish-member-tag-format.md)
+- [V2EX 主题与回复感谢接口调查](investigations/2026-08-30-v2ex-thank-topic-reply.md)
+- [GPT-6 Astra 指令与工作流审计](investigations/2026-09-12-agent-instructions-audit.md)
+- [Imgur 匿名网页上传协议调查](investigations/2026-09-24-imgur-web-upload.md)

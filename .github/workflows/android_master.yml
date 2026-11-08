@@ -50,7 +50,7 @@ jobs:
           umask 077
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$SIGN_KEY_STORE_FILE"
 
-      # PR 只构建 release 变体，不读取正式签名，也不创建预发布。
+      # PR 执行测试并使用临时密钥构建，不读取正式签名，也不创建预发布。
       - name: Generate temporary PR keystore
         if: github.event_name == 'pull_request'
         run: |
@@ -60,13 +60,14 @@ jobs:
             -alias nodeflow-ci -keyalg RSA -keysize 2048 -validity 2 \
             -dname 'CN=NodeFlow CI Test Only'
 
-      - name: Build release APK
+      - name: Verify and build release APK
         env:
           SIGN_KEY_STORE_PASSWORD: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
           SIGN_KEY_ALIAS: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
           SIGN_KEY_PASSWORD: ${{ github.event_name == 'pull_request' && 'nodeflow-ci' || secrets.SIGN_KEY_PASSWORD || secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
+          ./gradlew --no-daemon :app:testDebugUnitTest :image-hosting:test
           ./gradlew --no-daemon :app:assembleRelease
 
       - name: Collect release outputs

@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import app.mystery0.nodeflow.R
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -66,6 +67,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -139,16 +141,6 @@ internal fun topicReplyListIndex(
     hasAppends: Boolean,
     replyIndex: Int,
 ): Int = 1 + bodyBlockCount + (if (hasAppends) 1 else 0) + 1 + replyIndex
-
-internal fun topicMetadataText(
-    username: String,
-    time: String,
-    viewCount: Int?,
-): String = buildList {
-    username.takeIf { it.isNotBlank() }?.let(::add)
-    time.takeIf { it.isNotBlank() }?.let(::add)
-    viewCount?.let { add("${it} 次点击") }
-}.joinToString(" · ")
 
 internal fun topicDetailNodeChip(detail: TopicDetail): TopicNodeChip? =
     topicNodeChip(detail.topic)
@@ -397,6 +389,16 @@ fun TopicDetailScreen(
         LaunchedEffect(detail?.replies?.firstOrNull { it.id == reply.id }?.isThanked) {
             if (detail?.replies?.firstOrNull { it.id == reply.id }?.isThanked == true) pendingThankReply = null
         }
+    }
+    state.favoriteError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { onEvent(TopicDetailUiEvent.FavoriteErrorConsumed) },
+            title = { Text(stringResource(R.string.favorite_operation_failed)) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { onEvent(TopicDetailUiEvent.FavoriteErrorConsumed) }) { Text("知道了") }
+            },
+        )
     }
     state.thankError?.let { message ->
         AlertDialog(

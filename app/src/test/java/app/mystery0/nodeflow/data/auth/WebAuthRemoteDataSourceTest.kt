@@ -229,8 +229,6 @@ class WebAuthRemoteDataSourceTest {
         var lastTwoFactorFields: Map<String, String> = emptyMap()
         var homeRequestCount: Int = 0
 
-        override suspend fun latestTopics(): Response<ResponseBody> = htmlResponse("")
-
         override suspend fun topic(id: Long): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun replies(topicId: Long): Response<ResponseBody> = htmlResponse("")

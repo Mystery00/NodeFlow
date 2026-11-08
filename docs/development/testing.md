@@ -28,7 +28,8 @@ JVM 测试位于 `app/src/test/`，重点覆盖 UseCase、Repository、数据源
 
 图床模块 JVM 测试位于 `image-hosting/src/test/`，使用 `:image-hosting:test` 运行；覆盖契约、注册表及 V2EX/Imgur 协议替身，不访问真实图床。
 
-需要真实 Room 的测试放入 `app/src/androidTest/`，不能用 Fake DAO 的 JVM 测试替代。`DatabaseMigrationPolicyTest` 使用生产 Koin 数据库模块和独立临时目录，覆盖版本 1 草稿重开保留、模拟版本 2→1 缺失迁移时拒绝打开且数据保留；不接触应用的真实 `nodeflow.db`。目前没有实际版本升级路径的 Migration 测试，也没有全量 DAO 行为覆盖；新增 schema/迁移时仍需补齐对应测试。
+需要真实 Room 的测试放入 `app/src/androidTest/`，不能用 Fake DAO 的 JVM 测试替代。`DatabaseMigrationPolicyTest` 使用生产 Koin 数据库模块和独立临时目录，覆盖版本 1 草稿重开保留、模拟版本 2→1 缺失迁移时拒绝打开且数据保留；不接触应用的真实 `nodeflow.db`。`ListCacheMergeTest` 额外覆盖列表刷新保留主题/节点详情及显式清除正文。
+目前没有实际版本升级路径的 Migration 测试，也没有全量 DAO 行为覆盖；新增 schema/迁移时仍需补齐对应测试。
 
 聚焦命令：`./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=app.mystery0.nodeflow.core.database.DatabaseMigrationPolicyTest`。当前版本 1 基线及迁移规则见[存储说明](../subsystems/storage.md)。
 
@@ -47,6 +48,7 @@ JVM 测试位于 `app/src/test/`，重点覆盖 UseCase、Repository、数据源
 
 - `CoilImageLoaderTest` 为 Robolectric 测试，使用生产加载器配置与 MockWebServer，覆盖网络 SVG 解码、磁盘缓存以及服务关闭后的原文件保存。
 - `RichContentInstrumentedTest` 的图片用例在设备上验证本地 PNG 尺寸与 GIF 动画类型；Windows Robolectric 的原生 `ImageDecoder` 路径存在限制，不用替身成功冒充 Android 解码通过。
+- `RichImageRequestTest` 以拦截替身验证正文图片首次加载与失败重试保持原 URL，不访问真实图床。
 - `ZoomableImageViewerTest` 使用本地生成图片，覆盖加载、分享/关闭回调和加载失败时禁用分享，不等于真实图床访问或系统分享目标验收。
 
 ## 真机或模拟器验证

@@ -8,7 +8,7 @@ class V2exImageHostAdapter(
     private val responseParser: V2exImageResponseParser = V2exImageParser(),
 ) : ImageHostAdapter {
     override val descriptor = ImageHostDescriptor(
-        ImageHostId("v2ex"), "V2EX", ImageHostCapabilities(setOf("image/png", "image/jpeg", "image/gif", "image/webp"), 6L * 1024 * 1024),
+        ImageHostId("v2ex"), "V2EX", ImageHostCapabilities(setOf("image/png", "image/jpeg", "image/gif", "image/webp"), 6L * 1024 * 1024, Authentication.HostSession),
     )
 
     override suspend fun upload(image: UploadImage): UploadResult {

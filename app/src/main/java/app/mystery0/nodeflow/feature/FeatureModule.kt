@@ -2,7 +2,6 @@ package app.mystery0.nodeflow.feature
 
 import app.mystery0.nodeflow.AppViewModel
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
-import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.feature.account.AccountViewModel
 import app.mystery0.nodeflow.feature.auth.AuthViewModel
 import app.mystery0.nodeflow.feature.favorites.FavoriteTopicsViewModel
@@ -66,7 +65,7 @@ val featureModule = module {
     viewModel {
         ReplyEditorViewModel(
             get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            get<ObserveSettingsUseCase>(), get<UpdateSettingsUseCase>(), get<ImageHostRegistry>(),
+            get<ObserveSettingsUseCase>(), get<ImageHostRegistry>(),
         )
     }
 }

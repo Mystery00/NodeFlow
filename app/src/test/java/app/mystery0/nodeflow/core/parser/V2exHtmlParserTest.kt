@@ -528,41 +528,6 @@ class V2exHtmlParserTest {
     }
 
     @Test
-    fun parseCurrentUsername_readsLoggedInMemberLinkWhenSignOutExists() {
-        val html = """
-            <html>
-              <body>
-                <div id="Main">
-                  <a href="/member/topic-author">topic-author</a>
-                </div>
-                <div id="Rightbar">
-                  <a href="/member/currentUser">currentUser</a>
-                  <a href="/signout?once=12345">Sign Out</a>
-                </div>
-              </body>
-            </html>
-        """.trimIndent()
-
-        assertThat(parser.parseCurrentUsername(html)).isEqualTo("currentUser")
-        assertThat(parser.isLoggedInAs(html, "currentUser")).isTrue()
-    }
-
-    @Test
-    fun parseCurrentUsername_returnsNullWhenHomePageIsAnonymous() {
-        val html = """
-            <html>
-              <body>
-                <a href="/signin">Sign In</a>
-                <a href="/member/other">other</a>
-              </body>
-            </html>
-        """.trimIndent()
-
-        assertThat(parser.parseCurrentUsername(html)).isNull()
-        assertThat(parser.isLoggedInAs(html, "currentUser")).isFalse()
-    }
-
-    @Test
     fun parseNodePlanes_readsGroupedNodesFromPlanesPage() {
         val html = """
             <html>
@@ -884,23 +849,6 @@ class V2exHtmlParserTest {
         val topics = parser.parseTopicList(html)
 
         assertThat(topics.map { it.isPinned }).containsExactly(false, false).inOrder()
-    }
-
-    @Test
-    fun extractImageUrls_readsImagesAndLinkedImageUrls() {
-        val html = """
-            <p>正文</p>
-            <p><img src="//cdn.v2ex.com/image/a.png" /></p>
-            <p><a href="https://example.com/photo.jpg">https://example.com/photo.jpg</a></p>
-            <p><a href="https://example.com/page">普通链接</a></p>
-        """.trimIndent()
-
-        val urls = parser.extractImageUrls(html)
-
-        assertThat(urls).containsExactly(
-            "https://cdn.v2ex.com/image/a.png",
-            "https://example.com/photo.jpg",
-        ).inOrder()
     }
 
     @Test
@@ -1394,85 +1342,15 @@ class V2exHtmlParserTest {
         assertThat(parser.parseReplyForm(42, signIn)).isNull()
     }
 
-    @Test
-    fun parseImageUploadResponse_acceptsStringSuccessAndNormalizesUrl() {
-        val parsed = parser.parseImageUploadResponse(
-            """{"success":"true","name":"sample","uri":"sample.png","url_o":"//i.v2ex.co/sample.png","url_b":"//i.v2ex.co/sampleb.png"}""",
-        )
 
-        assertThat(parsed?.imageId).isEqualTo("sample")
-        assertThat(parsed?.originalUrl).isEqualTo("https://i.v2ex.co/sample.png")
-        assertThat(parsed?.detailUrl).isEqualTo("https://www.v2ex.com/i/sample.png")
-    }
 
-    @Test
-    fun parseImageUploadResponse_rejectsFailureAndUnexpectedHost() {
-        assertThat(parser.parseImageUploadResponse("""{"success":"false","message":"quota"}"""))
-            .isNull()
-        assertThat(
-            parser.parseImageUploadResponse(
-                """{"success":true,"name":"sample","uri":"sample.png","url_o":"//example.com/sample.png"}""",
-            ),
-        ).isNull()
-    }
 
-    @Test
-    fun parseImageUploadPage_acceptsFineUploaderBeforeJavaScriptRuns() {
-        val html = """
-            <div id="uploader"></div>
-            <script>
-                var uploader = new qq.FineUploader({
-                    element: document.getElementById("uploader"),
-                    request: { endpoint: '/i/upload' }
-                });
-            </script>
-        """.trimIndent()
 
-        assertThat(parser.parseImageUploadPage(html))
-            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.Available)
-    }
 
-    @Test
-    fun parseImageUploadPage_rejectsIncompleteOrUntrustedUploader() {
-        val initializer = """
-            <script>new qq.FineUploader({
-                element: document.getElementById('uploader'),
-                request: { endpoint: '/i/upload' }
-            });</script>
-        """.trimIndent()
-        val available = "<div id='uploader'></div>$initializer"
-        listOf(
-            initializer,
-            "<div id='uploader'></div>",
-            available.replace("'/i/upload'", "'https://example.com/i/upload'"),
-            available.replace("getElementById('uploader')", "getElementById('other')"),
-            "<title>Just a moment...</title>$available",
-        ).forEach { html ->
-            assertThat(parser.parseImageUploadPage(html))
-                .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.Unrecognized)
-        }
-        assertThat(parser.parseImageUploadPage("<form action='/signin'><input type='password'></form>$available"))
-            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.AuthenticationRequired)
-    }
 
-    @Test
-    fun parseImageUploadPage_classifiesAvailableLoginAndUnknownPages() {
-        assertThat(
-            parser.parseImageUploadPage(
-                """<form action="/i/upload" method="post"><input type="file" name="qqfile" /></form>""",
-            ),
-        ).isEqualTo(V2exHtmlParser.ParsedImageUploadPage.Available)
-        assertThat(parser.parseImageUploadPage("""<a href="/signin">登录</a>"""))
-            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.AuthenticationRequired)
-        assertThat(parser.parseImageUploadPage("""<a href="/i/about">图库介绍</a>"""))
-            .isEqualTo(V2exHtmlParser.ParsedImageUploadPage.Unrecognized)
-    }
 
-    @Test
-    fun parseV2exProblem_readsStructuredMessage() {
-        assertThat(parser.parseV2exProblem("""<div class="problem">请不要频繁回复</div>"""))
-            .isEqualTo("请不要频繁回复")
-    }
+
+
 
     @Test
     fun parseTopicHtml_readsTotalReplyCountFromHeader() {

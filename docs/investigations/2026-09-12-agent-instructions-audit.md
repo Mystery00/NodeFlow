@@ -24,7 +24,7 @@
 | `docs/development/documentation.md` | 缺少技能触发、历史指令和新建文档条件 | 增加专项技能规范、按需文档和历史计划的使用边界 |
 | `docs/plans/` | 多份旧计划包含 `REQUIRED SUB-SKILL`、强制 TDD 或提交步骤 | 保留历史原文，在现行入口明确这些不是当前任务指令 |
 | 仓库技能文件 | 未发现 `SKILL.md`、`skill.md` 或仓库技能目录 | 不新增重复开发流程技能；为将来的专项技能明确维护方式 |
-| CI/自动化配置 | 未发现 `.github/workflows/` 或其他 YAML workflow | 本次 workflow 指开发工作流，不新增 CI 或改变发布方式 |
+| CI/自动化配置 | 原审查漏检 `.github/workflows/android_master.yml` 与 `release.yml`（2026-11-08 核对更正） | 本次 workflow 指开发工作流，不新增 CI 或改变发布方式 |
 
 ## 仓库外技能的影响
 

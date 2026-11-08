@@ -50,12 +50,12 @@
   块级降级按原始换行分段，不重复渲染边界空行，并保留作者明确的连续换行。
 - `TopicDetailContent` 持有页面级临时展开状态；键包含主题/回复/附言身份、内容指纹及出现顺序。
   列表回收、分页和重组不串状态；页面销毁后清除，明文不进入数据库、保存状态或日志。
-- 回复无 Base64 时保留 TextView；命中时仅文本部分使用共享富文本组件，图片仍由原路径渲染一次。
+- 回复共用一次 DOM 解析；无 Base64 时保留 TextView 与既有图片列表，命中时整段使用共享富文本组件，保留行内表情和图片位置，不再剥离后追加。
   自动识别的新 URL 不触发图床预取；已有图片和原有图床链接保持原逻辑。
 
 ## 图片
 
-- 普通图片加载复用 Coil 3，网络加载使用 `coil-network-okhttp`；`NodeFlowApplication` 实现 `SingletonImageLoader.Factory`，全局加载器同时供界面与图片下载器读取磁盘缓存。GIF 使用 `AnimatedImageDecoder` 保留原始动画，SVG 使用 `SvgDecoder`。Compose 加载状态通过 `AsyncImagePainter.state` 的 StateFlow 收集，回复图片失败重试调用 `painter.restart()`。
+- 普通图片加载复用 Coil 3，网络加载使用 `coil-network-okhttp`；`NodeFlowApplication` 实现 `SingletonImageLoader.Factory`，全局加载器同时供界面与图片下载器读取磁盘缓存。GIF 使用 `AnimatedImageDecoder` 保留原始动画，SVG 使用 `SvgDecoder`。Compose 加载状态通过 `AsyncImagePainter.state` 的 StateFlow 收集，正文与回复图片失败重试调用 `painter.restart()`，保持原 URL 与缓存键；图片尺寸缓存通过 Compose effect 更新。
 - 正文与回复大图预览复用 ZoomImage 的 `zoomimage-compose-coil3` 模块和 `ZoomableImageViewer`；不能再按历史计划引入 Coil 2 适配模块。
 - 图片分类优先使用服务端明确语义；emoji、图标和紧凑图片不能因通用规则被放大。
 - 修改图片渲染时同时检查正文、回复、点击、加载失败和大图预览。

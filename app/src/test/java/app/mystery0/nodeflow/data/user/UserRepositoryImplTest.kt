@@ -19,6 +19,22 @@ class UserRepositoryImplTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
+    fun userPropagatesCancellationInsteadOfReturningCachedProfile() = runTest {
+        val cancellation = kotlinx.coroutines.CancellationException("test cancellation")
+        val dao = FakeUserDao()
+        dao.cachedUser = app.mystery0.nodeflow.core.database.entity.UserEntity(
+            username = "tester", id = 1, memberNumber = 1, dailyActivityRank = 2,
+            avatarUrl = null, bio = null, tagline = null, website = null, github = null,
+            location = null, createdAtEpochSeconds = null, cachedAtEpochMillis = 1,
+        )
+        val api = FakeV2exRawApi("""{"id":1,"username":"tester"}""", "", memberHtmlError = cancellation)
+        val repository = UserRepositoryImpl(UserRemoteDataSource(api, json, parser),
+            UserLocalDataSource(dao), StandardTestDispatcher(testScheduler))
+        val error = runCatching { repository.user("tester", forceRefresh = true) }.exceptionOrNull()
+        assertThat(error).isInstanceOf(kotlinx.coroutines.CancellationException::class.java)
+    }
+
+    @Test
     fun user_refreshesCachedProfileWhenHtmlMetadataIsMissing() = runTest {
         val userDao = FakeUserDao().apply {
             upsertUser(
@@ -88,10 +104,9 @@ class UserRepositoryImplTest {
     private class FakeV2exRawApi(
         private val memberJson: String,
         private val memberHtml: String,
+        private val memberHtmlError: Throwable? = null,
     ) : V2exRawApi {
         var memberHtmlRequestCount: Int = 0
-
-        override suspend fun latestTopics(): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun topic(id: Long): Response<ResponseBody> = htmlResponse("")
 
@@ -115,6 +130,7 @@ class UserRepositoryImplTest {
         override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun memberHtml(username: String): Response<ResponseBody> {
+            memberHtmlError?.let { throw it }
             memberHtmlRequestCount += 1
             return htmlResponse(memberHtml)
         }

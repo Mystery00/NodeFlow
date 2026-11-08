@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.data.node
 
+import app.mystery0.nodeflow.core.common.runSuspendCatching
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.NodePlane
@@ -23,14 +24,14 @@ class NodeRemoteDataSource(
     private val parser: V2exHtmlParser,
 ) {
     suspend fun node(name: String): Node = safeNetworkCall {
-        val apiResult = runCatching {
+        val apiResult = runSuspendCatching {
             json.decodeFromString<V2exNodeDto>(api.node(name).bodyStringOrThrow()).toNode()
         }
         val apiNode = apiResult.getOrNull()
         if (apiNode != null && !apiNode.avatarUrl.isNullOrBlank()) {
             apiNode
         } else {
-            val htmlNode = runCatching {
+            val htmlNode = runSuspendCatching {
                 parser.parseNodeDetail(
                     name = name,
                     html = api.nodeTopicsHtml(name, page = null).bodyStringOrThrow(),

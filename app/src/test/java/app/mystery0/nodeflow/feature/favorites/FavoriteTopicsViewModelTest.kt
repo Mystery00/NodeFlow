@@ -126,7 +126,7 @@ class FavoriteTopicsViewModelTest {
     }
 
     @Test
-    fun refreshesAfterReturningFromDetailsButNotOnFirstResume() = runTest(dispatcher) {
+    fun returningFromDetailsPreservesPagerGeneration() = runTest(dispatcher) {
         val auth = FakeAuthRepository().apply { session.value = AuthSession(username = "tester", cookieHeader = "test-session") }
         val favorites = FakeFavoritesRepository()
         val vm = create(auth, favorites)
@@ -136,10 +136,11 @@ class FavoriteTopicsViewModelTest {
         assertThat(favorites.requests).isEqualTo(1)
         vm.onEvent(FavoriteTopicsUiEvent.Resume)
         advanceUntilIdle()
-        assertThat(favorites.requests).isEqualTo(2)
+        assertThat(favorites.requests).isEqualTo(1)
         vm.onEvent(FavoriteTopicsUiEvent.Refresh)
         advanceUntilIdle()
-        assertThat(favorites.requests).isEqualTo(3)
+        assertThat(favorites.requests).isEqualTo(1)
+        assertThat(vm.uiState.value.refreshGeneration).isEqualTo(2)
         job.cancel()
     }
 
@@ -159,7 +160,7 @@ class FavoriteTopicsViewModelTest {
         override suspend fun loginChallenge(): Result<LoginChallenge> = error("Unused")
         override suspend fun login(username: String, password: String, captcha: String, challenge: LoginChallenge): Result<AuthLoginResult> = error("Unused")
         override suspend fun verifyTwoFactor(code: String, challenge: TwoFactorChallenge): Result<AuthSession> = error("Unused")
-        override suspend fun saveSession(session: AuthSession) { this.session.value = session }
+        suspend fun setSession(session: AuthSession) { this.session.value = session }
         override suspend fun clearSession() { session.value = AuthSession() }
     }
 }

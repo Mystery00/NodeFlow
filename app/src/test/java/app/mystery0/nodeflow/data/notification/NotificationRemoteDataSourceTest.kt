@@ -133,7 +133,6 @@ class NotificationRemoteDataSourceTest {
             return htmlResponse(html, finalUrl)
         }
 
-        override suspend fun latestTopics() = emptyResponse()
         override suspend fun topic(id: Long) = emptyResponse()
         override suspend fun replies(topicId: Long) = emptyResponse()
         override suspend fun node(name: String) = emptyResponse()

@@ -1,6 +1,7 @@
 package app.mystery0.nodeflow.data.account
 
 import app.mystery0.nodeflow.core.common.NodeFlowException
+import app.mystery0.nodeflow.core.common.runSuspendCatching
 import app.mystery0.nodeflow.core.model.AccountOverview
 import app.mystery0.nodeflow.core.model.DailyCheckInResult
 import app.mystery0.nodeflow.core.network.V2exRawApi
@@ -17,11 +18,12 @@ class AccountRemoteDataSource(
 ) {
     suspend fun overview(): AccountOverview = safeNetworkCall {
         val unreadRequest = unreadStore?.beginRequest()
-        val homeResponse = runCatching { api.home() }.getOrNull()
-        val homeHtml = runCatching { homeResponse?.bodyStringOrThrow() }.getOrNull()
+        val homeResponse = runSuspendCatching { api.home() }
+        val homeResult = runSuspendCatching { homeResponse.getOrThrow().bodyStringOrThrow() }
+        val homeHtml = homeResult.getOrNull()
         val unreadNotificationCount = homeHtml?.let { parser.parseUnreadNotificationCount(it) }
-        if (homeResponse != null && homeHtml != null) {
-            val raw = homeResponse.raw()
+        if (homeResponse.isSuccess && homeHtml != null) {
+            val raw = homeResponse.getOrThrow().raw()
             val url = raw.request.url
             if (url.scheme == "https" && url.host == "www.v2ex.com" && url.port == 443 &&
                 url.encodedPath == "/" && (raw.cacheResponse == null || raw.networkResponse != null) &&
@@ -30,8 +32,10 @@ class AccountRemoteDataSource(
                 unreadStore?.update(unreadRequest, unreadNotificationCount)
             }
         }
-        val dailyHtml = runCatching { api.dailyMission().bodyStringOrThrow() }.getOrNull()
-        val balanceHtml = runCatching { api.balance().bodyStringOrThrow() }.getOrNull()
+        val dailyResult = runSuspendCatching { api.dailyMission().bodyStringOrThrow() }
+        val balanceResult = runSuspendCatching { api.balance().bodyStringOrThrow() }
+        val dailyHtml = dailyResult.getOrNull()
+        val balanceHtml = balanceResult.getOrNull()
         val homeIsAnonymous = homeHtml != null &&
             unreadNotificationCount == null &&
             parser.parseLoginAccount(homeHtml) == null
@@ -42,6 +46,8 @@ class AccountRemoteDataSource(
                 message = "登录状态已失效，请重新登录",
             )
         }
+        listOf(homeResult, dailyResult, balanceResult).firstNotNullOfOrNull { it.exceptionOrNull() }
+            ?.let { throw it }
         AccountOverview(
             unreadNotificationCount = unreadNotificationCount,
             checkIn = dailyHtml?.let(parser::parseDailyCheckIn),

@@ -504,36 +504,6 @@ class V2exHtmlParser {
     private fun String.parseFlexibleLong(): Long? =
         replace(",", "").toLongOrNull()
 
-    fun parseCurrentUsername(html: String): String? {
-        val document = Jsoup.parse(html, V2EX_BASE_URL)
-        val hasSignOut = document.select("a[href^=/signout]").isNotEmpty()
-        if (!hasSignOut) return null
-        val accountLinks = document.select("#Rightbar a[href^=/member/], #Top a[href^=/member/], #Header a[href^=/member/]")
-            .takeIf { it.isNotEmpty() }
-            ?: document.select("a[href^=/member/]")
-        return accountLinks
-            .mapNotNull { link ->
-                link.attr("href")
-                    .substringAfter("/member/", missingDelimiterValue = "")
-                    .substringBefore("?")
-                    .takeIf { it.isNotBlank() }
-            }
-            .firstOrNull()
-    }
-
-    fun isLoggedInAs(html: String, username: String): Boolean =
-        parseCurrentUsername(html)?.equals(username, ignoreCase = true) == true
-
-    fun extractImageUrls(html: String): List<String> {
-        val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
-        val imageSources = document.select("img[src]")
-            .mapNotNull { it.attr("src").normalizeV2exUrl() }
-        val linkedImages = document.select("a[href]")
-            .mapNotNull { it.attr("href").normalizeV2exUrl() }
-            .filter { it.isImageUrl() }
-        return (imageSources + linkedImages).distinct()
-    }
-
     fun parseReplyForm(
         topicId: Long,
         html: String,
@@ -559,57 +529,6 @@ class V2exHtmlParser {
                 .associate { input -> input.attr("name") to input.attr("value") },
         )
     }
-
-    fun parseImageUploadPage(html: String): ParsedImageUploadPage {
-        val document = Jsoup.parse(html, V2EX_BASE_URL)
-        return when {
-            hasAccessChallenge(html) ->
-                ParsedImageUploadPage.Unrecognized
-            hasSignInEntry(html) || document.selectFirst("form[action=/signin]") != null ->
-                ParsedImageUploadPage.AuthenticationRequired
-            document.selectFirst("form[action=/i/upload] input[type=file][name=qqfile]") != null ->
-                ParsedImageUploadPage.Available
-            // 当前上传页由 FineUploader 动态生成文件输入框，原始 HTML 中只有容器和初始化脚本。
-            document.selectFirst("div#uploader") != null && document.select("script:not([src])").any {
-                val script = it.data()
-                FINE_UPLOADER_CONSTRUCTOR.containsMatchIn(script) &&
-                    FINE_UPLOADER_ELEMENT.containsMatchIn(script) &&
-                    FINE_UPLOADER_ENDPOINT.containsMatchIn(script)
-            } -> ParsedImageUploadPage.Available
-            else -> ParsedImageUploadPage.Unrecognized
-        }
-    }
-
-    fun parseImageUploadResponse(body: String): ParsedImageUploadResponse? {
-        val root = runCatching {
-            JsonLdParser.parseToJsonElement(body) as? JsonObject
-        }.getOrNull() ?: return null
-        val successValue = root["success"] as? JsonPrimitive ?: return null
-        val succeeded = successValue.booleanOrNull == true ||
-            successValue.contentOrNull.equals("true", ignoreCase = true)
-        if (!succeeded) return null
-        val imageId = root.stringValue("name") ?: return null
-        val uri = root.stringValue("uri") ?: return null
-        val originalUrl = root.stringValue("url_o")
-            ?.normalizeV2exUrl()
-            ?.takeIf { url ->
-                runCatching {
-                    val parsed = java.net.URI(url)
-                    parsed.scheme == "https" && parsed.host == "i.v2ex.co"
-                }.getOrDefault(false)
-            }
-            ?: return null
-        return ParsedImageUploadResponse(
-            imageId = imageId,
-            originalUrl = originalUrl,
-            detailUrl = "$V2EX_BASE_URL/i/$uri",
-        )
-    }
-
-    fun parseV2exProblem(html: String): String? = Jsoup.parse(html, V2EX_BASE_URL)
-        .select(".problem, #problem")
-        .mapNotNull { it.text().trim().takeIf(String::isNotBlank) }
-        .firstOrNull()
 
     fun parseTopicHtml(topicId: Long, html: String, floorOffset: Int = 0): ParsedTopicHtml? {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
@@ -1024,7 +943,7 @@ class V2exHtmlParser {
             .firstNotNullOfOrNull { statistic ->
                 val statisticObject = statistic as? JsonObject ?: return@firstNotNullOfOrNull null
                 val type = statisticObject.stringValue("interactionType")
-                statisticObject.intValue("userInteractionCount").takeIf { type == interactionType }
+                statisticObject.flexibleIntValue("userInteractionCount").takeIf { type == interactionType }
             }
         else -> null
     }
@@ -1041,7 +960,7 @@ class V2exHtmlParser {
                     commentObject.get("interactionStatistic").asElementList().any { statistic ->
                         val statisticObject = statistic as? JsonObject ?: return@any false
                         statisticObject.stringValue("interactionType") == LIKE_ACTION &&
-                            (statisticObject.intValue("userInteractionCount") ?: 0) > 0
+                            (statisticObject.flexibleIntValue("userInteractionCount") ?: 0) > 0
                     }
                 }.takeIf { it > 0 }
             }
@@ -1106,9 +1025,6 @@ class V2exHtmlParser {
     private fun JsonObject.stringValue(key: String): String? =
         (get(key) as? JsonPrimitive)?.contentOrNull
 
-    private fun JsonObject.intValue(key: String): Int? =
-        flexibleIntValue(key)
-
     private fun JsonObject.flexibleIntValue(key: String): Int? {
         val value = get(key) as? JsonPrimitive ?: return null
         return value.intOrNull ?: value.contentOrNull?.parseFlexibleInt()
@@ -1165,22 +1081,7 @@ class V2exHtmlParser {
         val hiddenFields: Map<String, String>,
     )
 
-    enum class ParsedImageUploadPage {
-        Available,
-        AuthenticationRequired,
-        Unrecognized,
-    }
-
-    data class ParsedImageUploadResponse(
-        val imageId: String,
-        val originalUrl: String,
-        val detailUrl: String,
-    )
-
     private companion object {
-        val FINE_UPLOADER_CONSTRUCTOR = Regex("""\bnew\s+qq\.FineUploader\s*\(""")
-        val FINE_UPLOADER_ELEMENT = Regex("""\belement\s*:\s*document\.getElementById\s*\(\s*["']uploader["']\s*\)""")
-        val FINE_UPLOADER_ENDPOINT = Regex("""\brequest\s*:\s*\{\s*endpoint\s*:\s*["']/i/upload["']""")
         const val V2EX_BASE_URL = "https://www.v2ex.com"
         const val V2EX_HOST = "www.v2ex.com"
         const val DEFAULT_REPLY_MAX_LENGTH = 10_000

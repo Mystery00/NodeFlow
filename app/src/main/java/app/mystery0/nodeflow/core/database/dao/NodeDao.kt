@@ -31,8 +31,19 @@ interface NodeDao {
     @Upsert
     suspend fun upsertNode(node: NodeEntity)
 
-    @Upsert
-    suspend fun upsertNodes(nodes: List<NodeEntity>)
+    @Transaction
+    suspend fun upsertNodes(nodes: List<NodeEntity>) {
+        nodes.forEach { summary ->
+            val cached = node(summary.name)
+            upsertNode(summary.copy(
+                id = summary.id ?: cached?.id,
+                header = summary.header ?: cached?.header,
+                avatarUrl = summary.avatarUrl ?: cached?.avatarUrl,
+                topics = summary.topics ?: cached?.topics,
+                stars = summary.stars ?: cached?.stars,
+            ))
+        }
+    }
 
     @Upsert
     suspend fun upsertNodePlanes(planes: List<NodePlaneEntity>)

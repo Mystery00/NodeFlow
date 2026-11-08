@@ -13,13 +13,13 @@ data class ImageContent(
 )
 
 fun interface ImageContentReader {
-    fun read(contentUri: String): ImageContent
+    fun read(contentUri: String, maxBytes: Long): ImageContent
 }
 
 class AndroidImageContentReader(
     private val resolver: ContentResolver,
 ) : ImageContentReader {
-    override fun read(contentUri: String): ImageContent {
+    override fun read(contentUri: String, maxBytes: Long): ImageContent {
         val uri = contentUri.toUri()
         require(uri.scheme == ContentResolver.SCHEME_CONTENT)
         val mimeType = resolver.getType(uri)?.lowercase()
@@ -36,7 +36,7 @@ class AndroidImageContentReader(
             if (!cursor.moveToFirst()) null else cursor.getString(0)
         }
         val fileName = normalizeImageFileName(queriedName, extension)
-        val bytes = resolver.openInputStream(uri)?.use { it.readUpTo(MAX_IMAGE_BYTES + 1) }
+        val bytes = resolver.openInputStream(uri)?.use { it.readUpTo(maxBytes.coerceAtMost(Int.MAX_VALUE.toLong() - 1).toInt()) }
             ?: throw ImageReadException.Unreadable()
         return ImageContent(fileName, mimeType, bytes)
     }
@@ -61,20 +61,20 @@ internal fun normalizeImageFileName(queriedName: String?, expectedExtension: Str
 sealed class ImageReadException : RuntimeException() {
     class UnsupportedType : ImageReadException()
     class Unreadable : ImageReadException()
+    class TooLarge : ImageReadException()
 }
 
-internal const val MAX_IMAGE_BYTES = 6 * 1024 * 1024
-
 internal fun InputStream.readUpTo(limit: Int): ByteArray {
-    require(limit >= 0)
+    require(limit in 0 until Int.MAX_VALUE)
     val output = ByteArrayOutputStream(minOf(limit, DEFAULT_BUFFER_SIZE))
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    var remaining = limit
+    var remaining = limit + 1
     while (remaining > 0) {
         val count = read(buffer, 0, minOf(buffer.size, remaining))
         if (count < 0) break
         output.write(buffer, 0, count)
         remaining -= count
     }
+    if (output.size() > limit) throw ImageReadException.TooLarge()
     return output.toByteArray()
 }

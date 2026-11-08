@@ -39,7 +39,6 @@ class NodeListViewModelTest {
                 return Result.failure(IllegalStateException("offline"))
             }
             override suspend fun node(name: String, forceRefresh: Boolean): Result<Node> = error("不应调用")
-            override suspend fun topics(name: String, page: Int, forceRefresh: Boolean): Result<List<Topic>> = error("不应调用")
             override fun topicsPaging(name: String): Flow<PagingData<Topic>> = error("不应调用")
             override suspend fun blockNode(name: String): Result<Unit> = error("不应调用")
             override suspend fun clearCache() = Unit

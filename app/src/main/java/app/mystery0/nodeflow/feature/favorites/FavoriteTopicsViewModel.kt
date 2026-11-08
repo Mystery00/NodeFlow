@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
@@ -28,7 +29,9 @@ class FavoriteTopicsViewModel(
     private val refreshRequests = MutableStateFlow(0)
     private var hasResumed = false
 
-    val uiState = session.map { FavoriteTopicsUiState(it.canLoadFavorites()) }
+    val uiState = combine(session, refreshRequests) { account, refresh ->
+        FavoriteTopicsUiState(account.canLoadFavorites(), refresh)
+    }
         .stateIn(viewModelScope, SharingStarted.Eagerly, FavoriteTopicsUiState())
 
     val topics = session.flatMapLatest { account ->
@@ -36,7 +39,7 @@ class FavoriteTopicsViewModel(
             // 换号或退出登录时立即丢弃上一账号的页面内存，不写入公共主题缓存。
             emit(PagingData.empty<Topic>())
             if (account.canLoadFavorites()) {
-                emitAll(refreshRequests.flatMapLatest { getFavoriteTopics() })
+                emitAll(getFavoriteTopics())
             }
         }
     }.cachedIn(viewModelScope)

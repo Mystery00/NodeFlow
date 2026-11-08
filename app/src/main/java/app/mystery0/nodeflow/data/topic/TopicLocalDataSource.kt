@@ -9,12 +9,6 @@ import app.mystery0.nodeflow.core.model.TopicDetail
 class TopicLocalDataSource(
     private val topicDao: TopicDao,
 ) {
-    suspend fun latestTopics(): List<Topic> =
-        topicDao.latestTopics().map { it.toTopic() }
-
-    suspend fun nodeTopics(nodeName: String): List<Topic> =
-        topicDao.topicsByNode(nodeName).map { it.toTopic() }
-
     suspend fun topic(topicId: Long): Topic? =
         topicDao.topic(topicId)?.toTopic()
 

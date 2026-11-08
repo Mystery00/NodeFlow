@@ -10,7 +10,4 @@ val dispatcherModule = module {
         Dispatchers.IO
     }
 
-    single<CoroutineDispatcher>(named(DEFAULT_DISPATCHER)) {
-        Dispatchers.Default
-    }
 }

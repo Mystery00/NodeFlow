@@ -16,25 +16,6 @@ import org.junit.Test
 
 class NavigationRouteTest {
     @Test
-    fun isTopLevelRoute_returnsTrueForBottomNavigationRoutes() {
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Home)).isTrue()
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.NodeList)).isTrue()
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Notification)).isTrue()
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Account)).isTrue()
-    }
-
-    @Test
-    fun isTopLevelRoute_returnsFalseForDetailRoutes() {
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.NodeRoute)).isFalse()
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.TopicRoute)).isFalse()
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.ProfileRoute)).isFalse()
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Settings)).isFalse()
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.FavoriteTopics)).isFalse()
-        assertThat(NodeFlowDestinations.isTopLevelRoute(NodeFlowDestinations.Auth)).isFalse()
-        assertThat(NodeFlowDestinations.isTopLevelRoute(null)).isFalse()
-    }
-
-    @Test
     fun nodeList_usesStableRouteName() {
         assertThat(NodeFlowDestinations.NodeList).isEqualTo("nodes")
     }
@@ -42,11 +23,6 @@ class NavigationRouteTest {
     @Test
     fun account_usesStableRouteName() {
         assertThat(NodeFlowDestinations.Account).isEqualTo("account")
-    }
-
-    @Test
-    fun rootStartDestination_usesMainShellRoute() {
-        assertThat(rootStartDestination()).isEqualTo(NodeFlowDestinations.Main)
     }
 
     @Test
@@ -60,42 +36,6 @@ class NavigationRouteTest {
     fun topic_includesReplyFloorWhenProvided() {
         assertThat(NodeFlowDestinations.topic(topicId = 1226527, replyFloor = 18))
             .isEqualTo("topic/1226527?replyFloor=18")
-    }
-
-    @Test
-    fun nodeBottomBarRoute_targetsNodeListInsteadOfDefaultNodeDetail() {
-        assertThat(nodeBottomBarRoute()).isEqualTo(NodeFlowDestinations.NodeList)
-    }
-
-    @Test
-    fun isNodeBottomBarSelected_matchesOnlyNodeListRoute() {
-        assertThat(isNodeBottomBarSelected(NodeFlowDestinations.NodeList)).isTrue()
-        assertThat(isNodeBottomBarSelected(NodeFlowDestinations.NodeRoute)).isFalse()
-        assertThat(isNodeBottomBarSelected("node/python")).isFalse()
-    }
-
-    @Test
-    fun accountBottomBarRoute_targetsCurrentAccountPage() {
-        assertThat(accountBottomBarRoute()).isEqualTo(NodeFlowDestinations.Account)
-    }
-
-    @Test
-    fun isAccountBottomBarSelected_matchesOnlyAccountRoute() {
-        assertThat(isAccountBottomBarSelected(NodeFlowDestinations.Account)).isTrue()
-        assertThat(isAccountBottomBarSelected(NodeFlowDestinations.Settings)).isFalse()
-        assertThat(isAccountBottomBarSelected(NodeFlowDestinations.Auth)).isFalse()
-    }
-
-    @Test
-    fun messageBottomBarRoute_targetsNotificationPage() {
-        assertThat(messageBottomBarRoute()).isEqualTo(NodeFlowDestinations.Notification)
-    }
-
-    @Test
-    fun isMessageBottomBarSelected_matchesOnlyNotificationRoute() {
-        assertThat(isMessageBottomBarSelected(NodeFlowDestinations.Notification)).isTrue()
-        assertThat(isMessageBottomBarSelected(NodeFlowDestinations.Account)).isFalse()
-        assertThat(isMessageBottomBarSelected(NodeFlowDestinations.TopicRoute)).isFalse()
     }
 
     @Test
@@ -152,12 +92,6 @@ class NavigationRouteTest {
         )
 
         assertThat(messageBottomBarBadgeText(state)).isEqualTo("99+")
-    }
-
-    @Test
-    fun shouldLoadNotificationList_matchesLoginState() {
-        assertThat(shouldLoadNotificationList(AccountUiState())).isFalse()
-        assertThat(shouldLoadNotificationList(AccountUiState(session = loggedInSession()))).isTrue()
     }
 
     @Test

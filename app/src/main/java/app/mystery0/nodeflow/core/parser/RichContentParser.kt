@@ -32,9 +32,7 @@ object RichContentParser {
         if (html.isBlank()) return RichContentDocument(emptyList())
         return runCatching {
             val document = Jsoup.parseBodyFragment(html, V2EX_BASE_URL)
-            document.select(DROPPED_TAGS.joinToString(",")).remove()
-            document.body().linkifyPlainContentLinks()
-            BlockCollector(customImageHosts, Base64Keys(contentKey, html), renderLinkedImages).parse(document.body().childNodes())
+            parseDocument(document, html, customImageHosts, contentKey, renderLinkedImages)
         }.getOrElse {
             val plainText = Jsoup.parseBodyFragment(html).text().trim()
             RichContentDocument(
@@ -44,12 +42,29 @@ object RichContentParser {
             )
         }
     }
+
+    /** 消费当前文档；回复渲染可与图片提取共用一次 DOM 解析。 */
+    internal fun parseDocument(
+        document: org.jsoup.nodes.Document,
+        sourceHtml: String,
+        customImageHosts: Collection<String>,
+        contentKey: String,
+        renderLinkedImages: Boolean = true,
+        imageOverrides: Map<String, Boolean>? = null,
+    ): RichContentDocument {
+        document.select(DROPPED_TAGS.joinToString(",")).remove()
+        document.body().linkifyPlainContentLinks()
+        return BlockCollector(customImageHosts, Base64Keys(contentKey, sourceHtml), renderLinkedImages, imageOverrides)
+            .parse(document.body().childNodes())
+    }
+
 }
 
 private class BlockCollector(
     private val customImageHosts: Collection<String>,
     private val base64Keys: Base64Keys,
     private val renderLinkedImages: Boolean,
+    private val imageOverrides: Map<String, Boolean>? = null,
 ) {
     private val blocks = mutableListOf<RichContentBlock>()
     private val inline = mutableListOf<RichInline>()
@@ -112,7 +127,8 @@ private class BlockCollector(
             renderLinkedImages && tag == "a" && !element.hasAttr("data-nodeflow-text-link") &&
             element.selectFirst("img") == null &&
             nextContext.linkUrl != null &&
-            ImageHostMatcher.shouldLoadAsImage(nextContext.linkUrl, customImageHosts)
+            (imageOverrides?.containsKey(nextContext.linkUrl)
+                ?: ImageHostMatcher.shouldLoadAsImage(nextContext.linkUrl, customImageHosts))
         ) {
             flushParagraph()
             blocks += RichContentBlock.Image(
@@ -133,7 +149,7 @@ private class BlockCollector(
 
     private fun emitQuote(element: Element) {
         flushParagraph()
-        val content = BlockCollector(customImageHosts, base64Keys, renderLinkedImages).parse(element.childNodes()).blocks
+        val content = BlockCollector(customImageHosts, base64Keys, renderLinkedImages, imageOverrides).parse(element.childNodes()).blocks
         if (content.isNotEmpty()) blocks += RichContentBlock.Quote(content)
     }
 
@@ -142,7 +158,7 @@ private class BlockCollector(
         val items = element.children()
             .filter { it.normalName() == "li" }
             .mapNotNull { item ->
-                BlockCollector(customImageHosts, base64Keys, renderLinkedImages)
+                BlockCollector(customImageHosts, base64Keys, renderLinkedImages, imageOverrides)
                     .parse(item.childNodes())
                     .blocks
                     .takeIf(List<RichContentBlock>::isNotEmpty)
@@ -176,7 +192,7 @@ private class BlockCollector(
                     .filter { it.normalName() == "th" || it.normalName() == "td" }
                     .map { cell ->
                         RichTableCell(
-                            blocks = BlockCollector(customImageHosts, base64Keys, renderLinkedImages).parse(cell.childNodes()).blocks,
+                            blocks = BlockCollector(customImageHosts, base64Keys, renderLinkedImages, imageOverrides).parse(cell.childNodes()).blocks,
                             isHeader = cell.normalName() == "th",
                             colSpan = cell.attr("colspan").toIntOrNull()?.coerceIn(1, MAX_TABLE_SPAN) ?: 1,
                             rowSpan = cell.attr("rowspan").toIntOrNull()?.coerceIn(1, MAX_TABLE_SPAN) ?: 1,
@@ -222,7 +238,7 @@ private class BlockCollector(
         val url = element.safeUrl("src") ?: return
         val width = element.imageDimension("width")
         val height = element.imageDimension("height")
-        val compact = element.isCompactImage(width, height)
+        val compact = imageOverrides?.get(url) ?: element.isCompactImage(width, height)
         val image = RichImage(
             url = url,
             alt = element.attr("alt").trim().takeIf(String::isNotEmpty),
@@ -240,7 +256,7 @@ private class BlockCollector(
     }
 
     private fun parseInlineContent(nodes: List<Node>, context: InlineContext): List<RichInline> {
-        val collector = BlockCollector(customImageHosts, base64Keys, renderLinkedImages)
+        val collector = BlockCollector(customImageHosts, base64Keys, renderLinkedImages, imageOverrides)
         collector.parseNodes(nodes, context)
         collector.flushParagraph()
         return collector.blocks
@@ -343,12 +359,6 @@ private fun Element.safeUrl(attributeName: String, allowMailTo: Boolean = false)
     return safe.takeIf { allowMailTo || !it.startsWith("mailto:", ignoreCase = true) }
 }
 
-private fun Element.imageDimension(attributeName: String): Int? =
-    attr(attributeName).toCssPixels()
-        ?: CSS_DIMENSION_REGEX.findAll(attr("style"))
-            .firstOrNull { it.groupValues.getOrNull(1)?.equals(attributeName, ignoreCase = true) == true }
-            ?.groupValues?.getOrNull(2)?.toCssPixels()
-
 private fun Element.isCompactImage(width: Int?, height: Int?): Boolean {
     val className = className().lowercase()
     val alt = attr("alt")
@@ -357,11 +367,6 @@ private fun Element.isCompactImage(width: Int?, height: Int?): Boolean {
     val compactByAlt = alt.codePointCount(0, alt.length) in 1..2 && alt.any { !it.isLetterOrDigit() }
     return compactByClass || compactBySize || compactByAlt
 }
-
-private fun String.toCssPixels(): Int? =
-    trim().lowercase().removeSuffix("px").toFloatOrNull()
-        ?.takeIf { it > 0f }
-        ?.let { ceil(it).toInt() }
 
 private fun List<RichInline>.trimBoundaries(): List<RichInline> {
     if (isEmpty()) return this
@@ -395,7 +400,6 @@ private const val DEFAULT_FONT_PX = 16f
 private const val MIN_FONT_SCALE = 0.7f
 private const val MAX_FONT_SCALE = 1.8f
 private val WHITESPACE_REGEX = Regex("""[\t\n\r\f ]+""")
-private val CSS_DIMENSION_REGEX = Regex("""(?i)(width|height)\s*:\s*([0-9.]+)px""")
 private val HEADING_TAGS = setOf("h1", "h2", "h3", "h4", "h5", "h6")
 private val INLINE_TAGS = setOf(
     "a", "abbr", "b", "big", "cite", "code", "del", "em", "font", "i", "mark", "s", "small",

@@ -74,14 +74,6 @@ internal class TopicDetailPagerImpl(
         snapshotLocked()
     }
 
-    override suspend fun loadUntilLastPage(): Result<TopicDetailSnapshot> = runOp {
-        if (!loadedLocked()) fetchFirstPageLocked()
-        while (hasMoreLocked()) {
-            loadNextPageLocked()
-        }
-        snapshotLocked()
-    }
-
     override suspend fun refreshLoaded(): Result<TopicDetailSnapshot> = runOp {
         if (header == null || jsonDetail != null) {
             // 未加载过或处于 JSON 兜底态：等价于强制重抓第一步

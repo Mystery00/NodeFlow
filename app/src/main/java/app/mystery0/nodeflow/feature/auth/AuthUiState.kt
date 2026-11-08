@@ -1,11 +1,9 @@
 package app.mystery0.nodeflow.feature.auth
 
-import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.model.LoginChallenge
 import app.mystery0.nodeflow.core.model.TwoFactorChallenge
 
 data class AuthUiState(
-    val session: AuthSession = AuthSession(),
     val challenge: LoginChallenge? = null,
     val username: String = "",
     val password: String = "",

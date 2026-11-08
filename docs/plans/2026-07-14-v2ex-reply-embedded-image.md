@@ -1,5 +1,7 @@
 # V2EX 回复大图分类修复实施计划
 
+> 历史方案说明（2026-11-08 核对）：旧 WebView 与固定双域名方案已替换为原生渲染及可配置图片域名。现行说明见[专题文档](../subsystems/content-rendering.md)。历史代码块和验收记录不代表当前实现。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 让紧邻回复文字的 V2EX `embedded_image` 按正文大图显示并支持点击预览，同时保留普通内联小图行为。
@@ -14,7 +16,7 @@
 - 不修改图片网络请求、缓存、重试或预览器实现。
 - 不改变主题正文 WebView 的图片逻辑。
 - 不扩大支持新的图片 URL 后缀或第三方图床。
-- 不修改或提交用户文件 `docs/2026-07-13-v2ex-daily-check-in-investigation.md`。
+- 不修改或提交用户文件 `docs/investigations/2026-07-13-v2ex-daily-check-in.md`。
 
 ---
 

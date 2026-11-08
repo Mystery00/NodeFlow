@@ -46,10 +46,7 @@ data class TopicListItemLayout(
     val dividerStartPadding: Dp,
     val dividerEndPadding: Dp,
     val dividerThickness: Dp,
-) {
-    val dividerHorizontalPadding: Dp
-        get() = dividerEndPadding
-}
+)
 
 fun compactTopicListItemLayout(): TopicListItemLayout = TopicListItemLayout(
     horizontalPadding = 16.dp,

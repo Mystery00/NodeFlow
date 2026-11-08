@@ -6,16 +6,12 @@ import app.mystery0.nodeflow.domain.reply.ImageUploadRepository
 import app.mystery0.nodeflow.domain.reply.ImageUploadResult
 import app.mystery0.nodeflow.domain.reply.UploadedReplyImage
 import app.mystery0.nodeflow.imagehosting.contract.FailureCategory
-import app.mystery0.nodeflow.imagehosting.contract.ImageHostAdapter
-import app.mystery0.nodeflow.imagehosting.contract.ImageHostCapabilities
-import app.mystery0.nodeflow.imagehosting.contract.ImageHostDescriptor
 import app.mystery0.nodeflow.imagehosting.contract.ImageHostId
 import app.mystery0.nodeflow.imagehosting.contract.RequestStage
 import app.mystery0.nodeflow.imagehosting.contract.ResultCertainty
 import app.mystery0.nodeflow.imagehosting.contract.UploadFailure
 import app.mystery0.nodeflow.imagehosting.contract.UploadImage
 import app.mystery0.nodeflow.imagehosting.contract.UploadResult
-import app.mystery0.nodeflow.imagehosting.contract.UploadedImage
 import app.mystery0.nodeflow.imagehosting.registry.ImageHostRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -28,28 +24,14 @@ class ImageUploadRepositoryImpl(
     private val ioDispatcher: CoroutineDispatcher,
     private val currentTimeMillis: () -> Long = System::currentTimeMillis,
 ) : ImageUploadRepository {
-    constructor(
-        reader: ImageContentReader,
-        uploadRemote: suspend (ImageUploadPayload) -> ImageUploadResult,
-        ioDispatcher: CoroutineDispatcher,
-    ) : this(reader, app.mystery0.nodeflow.imagehosting.registry.DefaultImageHostRegistry(listOf(
-        object : ImageHostAdapter {
-            override val descriptor = ImageHostDescriptor(ImageHostId("v2ex"), "V2EX", ImageHostCapabilities(setOf("image/png", "image/jpeg", "image/gif", "image/webp"), 6L * 1024 * 1024))
-            override suspend fun upload(image: UploadImage) = when (val result = uploadRemote(ImageUploadPayload(image.fileName, image.mimeType, image.bytes))) {
-                is ImageUploadResult.Success -> UploadResult.Success(UploadedImage(descriptor.id, result.image.imageId, result.image.originalUrl, result.image.detailUrl, image.mimeType))
-                is ImageUploadResult.Failure -> UploadResult.Failure(UploadFailure(descriptor.id, FailureCategory.Server, RequestStage.Upload, ResultCertainty.Unknown))
-            }
-        },
-    )), ioDispatcher)
-
-    override suspend fun upload(contentUri: String): ImageUploadResult = upload(ImageHostId("v2ex"), contentUri)
-
     override suspend fun upload(hostId: ImageHostId, contentUri: String): ImageUploadResult = withContext(ioDispatcher) {
         val adapter = registry.find(hostId) ?: return@withContext failure(ImageUploadFailureReason.HostUnavailable, "所选图床不可用，请重新选择")
         val content = try {
-            reader.read(contentUri)
+            reader.read(contentUri, adapter.descriptor.capabilities.maxBytes)
         } catch (error: CancellationException) {
             throw error
+        } catch (_: ImageReadException.TooLarge) {
+            return@withContext failure(ImageUploadFailureReason.FileTooLarge, "图片超过图床限制")
         } catch (_: ImageReadException.UnsupportedType) {
             return@withContext failure(ImageUploadFailureReason.UnsupportedType, "仅支持 PNG、JPG、GIF 或 WebP 图片")
         } catch (_: Exception) {

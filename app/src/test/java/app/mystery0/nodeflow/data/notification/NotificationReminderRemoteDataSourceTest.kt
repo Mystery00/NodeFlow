@@ -184,7 +184,6 @@ class NotificationReminderRemoteDataSourceTest {
         }
 
         private fun empty() = Response.success("".toResponseBody())
-        override suspend fun latestTopics() = empty()
         override suspend fun topic(id: Long) = empty()
         override suspend fun replies(topicId: Long) = empty()
         override suspend fun node(name: String) = empty()

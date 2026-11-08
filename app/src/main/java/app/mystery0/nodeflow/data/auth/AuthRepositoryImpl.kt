@@ -53,19 +53,10 @@ class AuthRepositoryImpl(
         }
     }
 
-    override suspend fun saveSession(session: AuthSession) = runAuthStorageMutation(ioDispatcher) {
-        sessionStore.save(session)
-    }
-
-    override suspend fun clearSession() = runAuthStorageMutation(ioDispatcher) {
+    override suspend fun clearSession() = withContext(ioDispatcher) {
         cookieJar.clear()
         sessionStore.clear()
         // 标签数据属于账号私有内容，登出时一并清空
         memberTagStore.clear()
     }
 }
-
-internal suspend fun <T> runAuthStorageMutation(
-    dispatcher: CoroutineDispatcher,
-    block: suspend () -> T,
-): T = withContext(dispatcher) { block() }

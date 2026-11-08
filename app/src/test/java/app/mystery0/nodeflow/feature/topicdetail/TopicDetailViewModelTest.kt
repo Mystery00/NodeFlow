@@ -629,11 +629,6 @@ class TopicDetailViewModelTest {
             return loadUntilFloorResults.removeFirst()
         }
 
-        override suspend fun loadUntilLastPage(): Result<TopicDetailSnapshot> {
-            calls += "loadUntilLastPage()"
-            error("loadUntilLastPage not expected in these tests")
-        }
-
         override suspend fun refreshLoaded(): Result<TopicDetailSnapshot> {
             calls += "refreshLoaded()"
             deferredRefresh.pollFirst()?.let { return it.await() }
@@ -649,9 +644,6 @@ class TopicDetailViewModelTest {
         private val thankReplyResult: Result<ThankResult> = Result.failure(UnsupportedOperationException()),
         private val deferredThankTopic: CompletableDeferred<Result<ThankResult>>? = null,
     ) : TopicRepository {
-        override suspend fun latestTopics(forceRefresh: Boolean): Result<List<Topic>> =
-            Result.success(emptyList())
-
         override fun latestTopicsPaging(): Flow<PagingData<Topic>> = flowOf(PagingData.empty())
 
         override fun topicDetailPager(topicId: Long): TopicDetailPager = pager

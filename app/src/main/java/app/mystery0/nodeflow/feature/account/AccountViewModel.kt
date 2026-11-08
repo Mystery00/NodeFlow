@@ -32,6 +32,7 @@ class AccountViewModel(
 
     private var loadJob: Job? = null
     private var checkInJob: Job? = null
+    private var authenticationError: String? = null
 
     init {
         viewModelScope.launch {
@@ -41,12 +42,18 @@ class AccountViewModel(
         }
         viewModelScope.launch {
             observeAuthSession().collectLatest { session ->
+                val accountChanged = session.username != _uiState.value.session.username
+                if (accountChanged) {
+                    loadJob?.cancel()
+                    checkInJob?.cancel()
+                }
                 _uiState.update {
                     it.copy(
                         session = session,
-                        user = if (session.username.isNullOrBlank()) null else it.user,
-                        overview = if (session.username.isNullOrBlank()) null else it.overview,
-                        errorMessage = null,
+                        user = if (accountChanged || session.username.isNullOrBlank()) null else it.user,
+                        overview = if (accountChanged || session.username.isNullOrBlank()) null else it.overview,
+                        isCheckingIn = if (accountChanged) false else it.isCheckingIn,
+                        errorMessage = if (session.username.isNullOrBlank()) authenticationError else null,
                         toastMessage = null,
                     )
                 }
@@ -73,6 +80,7 @@ class AccountViewModel(
                 loadAccount(username = username, forceRefresh = true)
             }
             AccountUiEvent.Logout -> viewModelScope.launch {
+                authenticationError = null
                 authRepository.clearSession()
             }
             AccountUiEvent.CheckIn -> startCheckIn()
@@ -89,7 +97,9 @@ class AccountViewModel(
                     val refreshedOverview = getAccountOverview().getOrNull()
                     _uiState.update { current ->
                         current.copy(
-                            overview = refreshedOverview
+                            overview = refreshedOverview?.withPrevious(current.overview)?.copy(
+                                checkIn = refreshedOverview.checkIn ?: result.checkIn,
+                            )
                                 ?: current.overview?.copy(checkIn = result.checkIn)
                                 ?: AccountOverview(checkIn = result.checkIn),
                             isCheckingIn = false,
@@ -100,7 +110,10 @@ class AccountViewModel(
                     }
                 },
                 onFailure = { error ->
-                    if (error.isAuthError()) authRepository.clearSession()
+                    if (error.isAuthError()) {
+                        authenticationError = error.toUserMessage()
+                        authRepository.clearSession()
+                    }
                     _uiState.update {
                         it.copy(
                             isCheckingIn = false,
@@ -120,6 +133,7 @@ class AccountViewModel(
             val overviewResult = getAccountOverview()
             val overviewError = overviewResult.exceptionOrNull()
             if (overviewError.isAuthError()) {
+                authenticationError = overviewError?.toUserMessage()
                 authRepository.clearSession()
                 _uiState.update {
                     it.copy(
@@ -136,7 +150,7 @@ class AccountViewModel(
                     onSuccess = { user ->
                         current.copy(
                             user = user,
-                            overview = overviewResult.getOrNull() ?: current.overview,
+                            overview = overviewResult.getOrNull()?.withPrevious(current.overview) ?: current.overview,
                             isLoading = false,
                             errorMessage = overviewError?.toUserMessage(),
                         )
@@ -144,7 +158,7 @@ class AccountViewModel(
                     onFailure = { error ->
                         current.copy(
                             isLoading = false,
-                            overview = overviewResult.getOrNull() ?: current.overview,
+                            overview = overviewResult.getOrNull()?.withPrevious(current.overview) ?: current.overview,
                             errorMessage = error.toUserMessage(),
                         )
                     },
@@ -152,6 +166,11 @@ class AccountViewModel(
             }
         }
     }
+
+    private fun AccountOverview.withPrevious(previous: AccountOverview?): AccountOverview = copy(
+        checkIn = checkIn ?: previous?.checkIn,
+        wealth = wealth ?: previous?.wealth,
+    )
 
     private fun Throwable?.isAuthError(): Boolean =
         this is NodeFlowException && kind == NodeFlowException.Kind.Auth

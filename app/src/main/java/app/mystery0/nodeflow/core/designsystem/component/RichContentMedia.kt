@@ -28,10 +28,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -105,12 +106,11 @@ internal fun RichBlockImage(
     onOpenUrl: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var retryKey by remember(image.url) { mutableIntStateOf(0) }
     val aspectRatio = sizeCache.aspectRatio(image.url, image.widthPx, image.heightPx)
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         Box(modifier = Modifier.widthIn(max = maxWidth)) {
             SubcomposeAsyncImage(
-                model = "${image.url}#retry=$retryKey",
+                model = image.url,
                 contentDescription = image.alt,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
@@ -122,11 +122,13 @@ internal fun RichBlockImage(
                 when (val currentState = state) {
                     is AsyncImagePainter.State.Success -> {
                         val loadedImage = currentState.result.image
-                        sizeCache.put(image.url, loadedImage.width, loadedImage.height)
+                        LaunchedEffect(image.url, loadedImage) {
+                            sizeCache.put(image.url, loadedImage.width, loadedImage.height)
+                        }
                         SubcomposeAsyncImageContent()
                     }
                     is AsyncImagePainter.State.Error -> ContentImageErrorPlaceholder(
-                        onRetry = { retryKey += 1 },
+                        onRetry = { painter.restart() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(aspectRatio),

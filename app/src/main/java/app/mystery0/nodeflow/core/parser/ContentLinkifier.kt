@@ -8,6 +8,12 @@ import org.jsoup.nodes.TextNode
 /** 只替换 DOM 文本节点；不对 HTML、属性或既有链接进行字符串替换。 */
 internal fun linkifyContentHtml(html: String): String {
     val document = Jsoup.parseBodyFragment(html, "https://www.v2ex.com")
+    return document.linkifyContentLinks()
+}
+
+/** 复用已解析的 DOM，避免回复渲染重复创建文档。 */
+internal fun org.jsoup.nodes.Document.linkifyContentLinks(): String {
+    val document = this
     document.select("a[href]").forEach { anchor ->
         val safe = safeContentUrl(anchor.absUrl("href"))
         if (safe == null) anchor.removeAttr("href") else anchor.attr("href", safe)

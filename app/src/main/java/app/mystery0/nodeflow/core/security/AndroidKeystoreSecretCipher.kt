@@ -13,6 +13,10 @@ import javax.crypto.spec.GCMParameterSpec
 class AndroidKeystoreSecretCipher(
     private val keyAlias: String = DEFAULT_KEY_ALIAS,
 ) : SecretCipher {
+    private val keyStore by lazy {
+        KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+    }
+
     override fun encrypt(plainText: String): String {
         val cipher = Cipher.getInstance(TRANSFORMATION).apply {
             init(Cipher.ENCRYPT_MODE, key())
@@ -38,7 +42,6 @@ class AndroidKeystoreSecretCipher(
     private fun key(): SecretKey = SynchronizedSecretKeyResolver(
         lock = KEY_LOCK,
         lookup = {
-            val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
             keyStore.getKey(keyAlias, null) as? SecretKey
         },
         create = {

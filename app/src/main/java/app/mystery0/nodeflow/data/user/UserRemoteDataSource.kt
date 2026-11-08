@@ -1,5 +1,6 @@
 package app.mystery0.nodeflow.data.user
 
+import app.mystery0.nodeflow.core.common.runSuspendCatching
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.model.UserRecentActivity
 import app.mystery0.nodeflow.core.network.V2exRawApi
@@ -17,7 +18,7 @@ class UserRemoteDataSource(
 ) {
     suspend fun user(username: String): User = safeNetworkCall {
         val apiUser = json.decodeFromString<V2exMemberDto>(api.member(username).bodyStringOrThrow()).toUser()
-        val htmlUser = runCatching {
+        val htmlUser = runSuspendCatching {
             parser.parseUserProfile(username, api.memberHtml(username).bodyStringOrThrow())
         }.getOrNull()
         apiUser.copy(
