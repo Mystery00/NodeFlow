@@ -151,7 +151,7 @@ class UserRepositoryImplTest {
             referer: String,
         ): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun home(): Response<ResponseBody> = htmlResponse("")
+        override suspend fun home(userAgent: String): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun dailyMission(): Response<ResponseBody> = htmlResponse("")
 

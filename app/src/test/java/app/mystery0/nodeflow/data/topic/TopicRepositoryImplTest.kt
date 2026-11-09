@@ -515,7 +515,7 @@ class TopicRepositoryImplTest {
             referer: String,
         ): Response<ResponseBody> = failure()
 
-        override suspend fun home(): Response<ResponseBody> = failure()
+        override suspend fun home(userAgent: String): Response<ResponseBody> = failure()
 
         override suspend fun dailyMission(): Response<ResponseBody> = failure()
 

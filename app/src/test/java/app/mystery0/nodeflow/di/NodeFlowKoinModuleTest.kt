@@ -22,6 +22,7 @@ class NodeFlowKoinModuleTest {
             // 工厂从 SessionStore 提供会话流，store 自己拥有应用级协程作用域。
             injections = injectedParameters(
                 definition<UnreadNotificationStore>(Flow::class, CoroutineScope::class),
+                definition<app.mystery0.nodeflow.data.account.AccountActivityStore>(Flow::class, CoroutineScope::class),
             ),
             extraTypes = listOf(
                 Context::class,

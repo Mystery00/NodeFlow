@@ -58,6 +58,10 @@ class WebAuthRemoteDataSource(
             referer = SIGN_IN_REFERER,
         ).bodyStringOrThrow()
         parseLoginResult(responseHtml)
+            ?: throw NodeFlowException(
+                kind = NodeFlowException.Kind.Auth,
+                message = parser.parseLoginProblem(responseHtml) ?: "登录失败，请检查用户名、密码和验证码",
+            )
     }
 
     suspend fun verifyTwoFactor(
@@ -70,17 +74,15 @@ class WebAuthRemoteDataSource(
                 "code" to code,
             ),
         ).bodyStringOrThrow()
-        parseCompletedSession(responseHtml)
+        (parseLoginResult(responseHtml) as? AuthLoginResult.Completed)?.session
             ?: throw NodeFlowException(
                 kind = NodeFlowException.Kind.Auth,
                 message = parser.parseLoginProblem(responseHtml) ?: "两步验证码错误，请重试",
             )
     }
 
-    private fun parseLoginResult(html: String): AuthLoginResult {
-        parseCompletedSession(html)?.let { session ->
-            return AuthLoginResult.Completed(session)
-        }
+    private fun parseLoginResult(html: String): AuthLoginResult? {
+        // 待验证页面可能同时包含账号标记，先识别两步验证再确认会话。
         parser.parseTwoFactorChallenge(html)?.let { challenge ->
             return AuthLoginResult.TwoFactorRequired(
                 TwoFactorChallenge(
@@ -89,10 +91,7 @@ class WebAuthRemoteDataSource(
                 ),
             )
         }
-        throw NodeFlowException(
-            kind = NodeFlowException.Kind.Auth,
-            message = parser.parseLoginProblem(html) ?: "登录失败，请检查用户名、密码和验证码",
-        )
+        return parseCompletedSession(html)?.let { AuthLoginResult.Completed(it) }
     }
 
     private fun parseCompletedSession(html: String): AuthSession? {

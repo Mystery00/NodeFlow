@@ -31,6 +31,28 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
 class V2exHtmlParser {
+    /** 只读取登录侧栏的活跃度条，避免将主题正文中的同名元素作为账号数据。 */
+    fun parseAccountActivityPercent(html: String): Float? {
+        if (hasSignInEntry(html) || hasAccessChallenge(html)) return null
+        val document = Jsoup.parse(html, V2EX_BASE_URL)
+        if (document.select("form[action=/signin]").isNotEmpty()) return null
+        document.select(".topic_content, .reply_content, .payload").remove()
+        val sidebar = document.selectFirst("#Rightbar") ?: return null
+        val account = sidebar.select(".box").firstOrNull { box ->
+            box.select("a[href^=/member/]").isNotEmpty() &&
+                listOf("/my/nodes", "/my/topics", "/my/following").all { path ->
+                    box.select("a[href]").any { it.attr("href") == path }
+                }
+        } ?: return null
+        // V2EX 会随活跃阶段改变子节点 class（例如 start、fourth），百分比仍来自 width。
+        val bar = account.select(".member-activity-bar > [style]").firstOrNull { element ->
+            element.classNames().any { it.startsWith("member-activity-") }
+        } ?: return null
+        val width = Regex("""(?:^|;)\s*width\s*:\s*(\d+(?:\.\d+)?)\s*%\s*(?:;|$)""", RegexOption.IGNORE_CASE)
+            .find(bar.attr("style"))?.groupValues?.get(1)?.toFloatOrNull() ?: return null
+        return width.takeIf { it.isFinite() && it in 0f..100f }
+    }
+
     fun parseFavoriteTopicsPage(html: String, page: Int): FavoriteTopicsPage {
         val document = Jsoup.parse(html, "$V2EX_BASE_URL/my/topics")
         val main = document.selectFirst("#Main") ?: throw favoriteTopicsParseError()

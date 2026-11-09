@@ -56,6 +56,40 @@ class AccountViewModelTest {
         assertThat(vm.uiState.value.overview?.checkIn?.checkedIn).isTrue()
     }
 
+    @Test
+    fun sharedActivityUpdatesWithoutReloadingOverviewAndRefreshStillLoads() = runTest(testDispatcher) {
+        val activity = MutableStateFlow<Float?>(59f)
+        var loads = 0
+        val overview = object : AccountOverviewRepository {
+            override suspend fun overview(): Result<AccountOverview> {
+                loads++
+                return Result.success(AccountOverview())
+            }
+            override suspend fun checkIn(): Result<DailyCheckInResult> = error("不应签到")
+        }
+        val auth = FakeAuthRepository(AuthSession(username = "reader", cookieHeader = "test-cookie"))
+        val vm = AccountViewModel(
+            ObserveAuthSessionUseCase(auth), GetUserProfileUseCase(FakeUserRepository()),
+            GetAccountOverviewUseCase(overview), CheckInUseCase(overview), auth, unreadUseCase(),
+            activityRepository = object : app.mystery0.nodeflow.domain.account.AccountActivityRepository {
+                override val activityPercent: Flow<Float?> = activity
+            },
+        )
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.activityPercent).isEqualTo(59f)
+        val initialLoads = loads
+        activity.value = 60f
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.activityPercent).isEqualTo(60f)
+        assertThat(loads).isEqualTo(initialLoads)
+        vm.onEvent(AccountUiEvent.Refresh)
+        advanceUntilIdle()
+        assertThat(loads).isEqualTo(initialLoads + 1)
+        activity.value = null
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.activityPercent).isNull()
+    }
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)

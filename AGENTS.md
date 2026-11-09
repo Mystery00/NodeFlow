@@ -27,6 +27,7 @@ NodeFlow 是 Kotlin + Jetpack Compose + Material 3 的 V2EX Android 客户端，
 | --- | --- | --- |
 | 分层、工程结构、DI | [总体架构](docs/architecture/overview.md) | `core/`、`data/`、`domain/`、`feature/`、`di/` |
 | 开发流程、日志、隐私、Git、构建 | [工作流](docs/development/workflow.md) | `settings.gradle.kts`、各模块 `build.gradle.kts` |
+| Google Play 商品详情、素材、发布检查 | [Google Play 发布准备](docs/development/google-play.md) | `app/build.gradle.kts`、`app/src/main/AndroidManifest.xml` |
 | 选择验证范围、排查测试失败 | [测试与验证](docs/development/testing.md) | `app/src/test/`、`app/src/androidTest/`、`image-hosting/src/test/` |
 | 文档、Agent 指令或技能维护 | [文档规范](docs/development/documentation.md) | `AGENTS.md`、`docs/` |
 | 网络、登录、签到、通知、访问受限 | [网络与认证](docs/subsystems/network-auth.md) | `core/network/`、`core/parser/`、`data/auth/` |

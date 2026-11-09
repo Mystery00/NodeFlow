@@ -15,14 +15,17 @@ class AccountRemoteDataSource(
     private val api: V2exRawApi,
     private val parser: V2exHtmlParser,
     private val unreadStore: UnreadNotificationStore? = null,
+    private val activityStore: AccountActivityStore? = null,
 ) {
     suspend fun overview(): AccountOverview = safeNetworkCall {
         val unreadRequest = unreadStore?.beginRequest()
-        val homeResponse = runSuspendCatching { api.home() }
+        val activityRequest = activityStore?.beginRequest()
+        val homeResponse = runSuspendCatching { api.home(userAgent = app.mystery0.nodeflow.core.network.V2exUserAgents.DESKTOP) }
         val homeResult = runSuspendCatching { homeResponse.getOrThrow().bodyStringOrThrow() }
         val homeHtml = homeResult.getOrNull()
         val unreadNotificationCount = homeHtml?.let { parser.parseUnreadNotificationCount(it) }
         if (homeResponse.isSuccess && homeHtml != null) {
+            activityStore.updateFromPage(activityRequest, homeResponse.getOrThrow(), homeHtml, "/", parser)
             val raw = homeResponse.getOrThrow().raw()
             val url = raw.request.url
             if (url.scheme == "https" && url.host == "www.v2ex.com" && url.port == 443 &&

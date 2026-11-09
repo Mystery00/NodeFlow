@@ -6,6 +6,8 @@ import app.mystery0.nodeflow.core.notification.NotificationReminderChecker
 import app.mystery0.nodeflow.core.notification.NotificationReminderEnabledProvider
 import app.mystery0.nodeflow.core.notification.NotificationUnreadCountProvider
 import app.mystery0.nodeflow.core.security.EncryptedKeyValueStore
+import app.mystery0.nodeflow.data.account.AccountActivityStore
+import app.mystery0.nodeflow.domain.account.AccountActivityRepository
 import app.mystery0.nodeflow.data.account.AccountRemoteDataSource
 import app.mystery0.nodeflow.data.auth.WebAuthRemoteDataSource
 import app.mystery0.nodeflow.data.node.NodeLocalDataSource
@@ -39,11 +41,13 @@ import app.mystery0.nodeflow.core.common.IO_DISPATCHER
 import okhttp3.OkHttpClient
 
 val dataSourceModule = module {
+    single { AccountActivityStore(get<SessionStore>().session) }
+    single<AccountActivityRepository> { get<AccountActivityStore>() }
     single { UnreadNotificationStore(get<SessionStore>().session) }
     single<UnreadNotificationRepository> { get<UnreadNotificationStore>() }
 
     single {
-        TopicRemoteDataSource(get(), get(), get(), get(), get())
+        TopicRemoteDataSource(get(), get(), get(), get(), get(), get())
     }
 
     single {
@@ -51,7 +55,7 @@ val dataSourceModule = module {
     }
 
     single {
-        NodeRemoteDataSource(get(), get(), get(), get())
+        NodeRemoteDataSource(get(), get(), get(), get(), get())
     }
 
     single {
@@ -71,7 +75,7 @@ val dataSourceModule = module {
     }
 
     single {
-        AccountRemoteDataSource(get(), get(), get())
+        AccountRemoteDataSource(get(), get(), get(), get())
     }
 
     single {

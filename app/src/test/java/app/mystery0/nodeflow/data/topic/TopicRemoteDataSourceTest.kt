@@ -540,7 +540,7 @@ class TopicRemoteDataSourceTest {
             referer: String,
         ): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun home(): Response<ResponseBody> = error("Unexpected home request")
+        override suspend fun home(userAgent: String): Response<ResponseBody> = error("Unexpected home request")
 
         override suspend fun dailyMission(): Response<ResponseBody> = htmlResponse("")
 

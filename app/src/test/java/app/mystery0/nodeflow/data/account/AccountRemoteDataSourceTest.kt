@@ -343,7 +343,7 @@ class AccountRemoteDataSourceTest {
             referer: String,
         ): Response<ResponseBody> = htmlResponse("")
 
-        override suspend fun home(): Response<ResponseBody> {
+        override suspend fun home(userAgent: String): Response<ResponseBody> {
             homeError?.let { throw it }
             return htmlResponse(homeHtml, "https://www.v2ex.com/")
         }

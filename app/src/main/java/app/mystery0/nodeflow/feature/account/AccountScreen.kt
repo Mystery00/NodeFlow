@@ -100,9 +100,10 @@ fun AccountScreen(
                     verticalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
                     AccountProfileHeader(user = state.user)
-                    state.overview?.let { overview ->
+                    if (state.overview != null || state.activityPercent != null) {
                         AccountOverviewCard(
-                            overview = overview,
+                            overview = state.overview ?: app.mystery0.nodeflow.core.model.AccountOverview(),
+                            activityPercent = state.activityPercent,
                             isCheckingIn = state.isCheckingIn,
                             onCheckInClick = { onEvent(AccountUiEvent.CheckIn) },
                         )

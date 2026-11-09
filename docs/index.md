@@ -11,6 +11,7 @@
 - [开发工作流](development/workflow.md)：编码、日志、隐私、Git、构建与交付要求。
 - [测试与验证](development/testing.md)：单元测试范围、命令和真机验证要求。
 - [文档规范](development/documentation.md)：目录分类、命名、维护和新文档落位规则。
+- [Google Play 发布准备](development/google-play.md)：商品文案、素材、构建与提交审核前的核对项。
 
 ## 子系统
 

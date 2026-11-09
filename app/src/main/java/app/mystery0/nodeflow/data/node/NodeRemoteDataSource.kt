@@ -12,6 +12,8 @@ import app.mystery0.nodeflow.core.network.accessibleHtmlOrThrow
 import app.mystery0.nodeflow.core.network.bodyStringOrThrow
 import app.mystery0.nodeflow.core.network.safeNetworkCall
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.data.account.AccountActivityStore
+import app.mystery0.nodeflow.data.account.updateFromPage
 import app.mystery0.nodeflow.data.common.V2exNodeDto
 import app.mystery0.nodeflow.data.common.toNode
 import kotlinx.serialization.json.Json
@@ -22,6 +24,7 @@ class NodeRemoteDataSource(
     private val writeApi: V2exWriteApi,
     private val json: Json,
     private val parser: V2exHtmlParser,
+    private val activityStore: AccountActivityStore? = null,
 ) {
     suspend fun node(name: String): Node = safeNetworkCall {
         val apiResult = runSuspendCatching {
@@ -46,13 +49,12 @@ class NodeRemoteDataSource(
     }
 
     suspend fun topics(name: String, page: Int): List<Topic> = safeNetworkCall {
-        parser.parseTopicList(
-            html = api.nodeTopicsHtml(
-                nodeName = name,
-                page = page.takeIf { it > 1 },
-            ).accessibleHtmlOrThrow(V2exHtmlAccessTarget.NodeTopics),
-            sourceNodeName = name,
-        )
+        val activityRequest = activityStore?.beginRequest()
+        val response = api.nodeTopicsHtml(nodeName = name, page = page.takeIf { it > 1 })
+        val html = response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.NodeTopics)
+        parser.parseTopicList(html, sourceNodeName = name).also {
+            activityStore.updateFromPage(activityRequest, response, html, "/go/$name", parser)
+        }
     }
 
     suspend fun planes(): List<NodePlane> = safeNetworkCall {

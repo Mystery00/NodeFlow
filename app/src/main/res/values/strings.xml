@@ -50,4 +50,5 @@
     <string name="base64_expanded">Base64 内容已显示</string>
     <string name="base64_collapsed">Base64 内容已隐藏</string>
     <string name="base64_failed">无法解码为有效文本，已保留原文</string>
+    <string name="account_daily_activity">今日活跃度：%1$s%%</string>
 </resources>
