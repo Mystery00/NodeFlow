@@ -38,20 +38,6 @@ NodeFlow 由 Mystery0 独立开发，与 V2EX 官方无从属关系。部分内�
 ## 提交审核前
 
 1. 创建应用并由开发者核对创建表单中的声明。随后保存商品详情，确认公开支持邮箱、分发地区、应用访问权限、目标受众及内容分级。浏览公开内容可使用访客模式。对需登录的回复、收藏与通知功能，准备审核专用账号及操作说明，覆盖验证码等可能影响审核的步骤。[应用内容设置](https://support.google.com/googleplay/android-developer/answer/9859455?hl=zh-Hans)
-2. 发布含隐私联系方式的公开隐私政策，并在应用内提供入口。填写数据安全表单时，以拟上传版本核对数据流。登录凭据用于与 V2EX 交互，Cookie 和个人访问令牌在本地加密保存。用户提交的回复会发送至 V2EX，选取上传的图片会发送至所选图床。正文中的外链媒体可能向对应主机发起加载请求。后台提醒默认关闭，开启后会定期请求 V2EX。普通设置与会话排除在系统备份之外，Room 数据库可能随 Android 备份或迁移。当前登录流程使用已有 V2EX 账号。详见[网络与认证](../subsystems/network-auth.md)和[存储](../subsystems/storage.md)。[用户数据政策](https://support.google.com/googleplay/android-developer/answer/10144311?hl=zh-Hans) · [数据安全表单](https://support.google.com/googleplay/android-developer/answer/10787469?hl=zh-Hans)
+2. 将公开的 [NodeFlow 隐私政策](../../PRIVACY.md)链接填入 Play Console，并在应用内提供入口。填写数据安全表单时，以拟上传版本核对数据流。详见[网络与认证](../subsystems/network-auth.md)和[存储](../subsystems/storage.md)。[用户数据政策](https://support.google.com/googleplay/android-developer/answer/10144311?hl=zh-Hans) · [数据安全表单](https://support.google.com/googleplay/android-developer/answer/10787469?hl=zh-Hans)
 3. 补齐公开社区内容的审核链路。当前代码有节点屏蔽，尚未找到应用内举报内容、举报用户、屏蔽用户，以及发布回复或上传图片前接受内容规则的流程。确定举报受理渠道和处理责任后，再将这些功能纳入送审版本。[用户生成内容政策](https://support.google.com/googleplay/android-developer/answer/9876937?hl=zh-Hans)
 4. 先在测试轨道验证签名构建的访客浏览及登录后流程，再根据 Play Console 的正式版资格推进。若此个人开发者账号适用新账号测试要求，则须有至少 12 位测试人员连续参与封闭式测试 14 天，再申请正式版发布权限。[个人账号测试要求](https://support.google.com/googleplay/android-developer/answer/14151465?hl=zh-Hans)
-
-## 隐私政策草稿
-
-发布前补齐生效日期和可接收隐私请求的公开联系方式，并将政策正文发布到无需登录即可访问的网页。
-
-**NodeFlow 隐私政策**
-
-NodeFlow 由 Mystery0 开发，可用于访问 V2EX 社区。你可以用访客身份浏览公开内容。登录时，你输入的 V2EX 登录信息会通过 HTTPS 提交给 V2EX 验证。应用将用户名及维持登录所需的 Cookie 和个人访问令牌加密保存在设备上，用于执行收藏、回复、签到和查看通知等操作。退出登录会清理本地会话。启用新消息提醒后，应用会在后台定期使用该会话检查 V2EX 未读通知。你可在设置中关闭提醒。
-
-你提交的回复会发送至 V2EX，并按社区规则展示和保留。你选取并上传的图片会发送到所选图床（V2EX 或 Imgur）。查看主题时，应用可能从 V2EX、图片或媒体所在的其他主机加载内容。相应服务可收到建立连接所需的网络信息，例如 IP 地址。V2EX 账号及服务上保存的内容由 V2EX 和对应的图床分别管理。
-
-应用在设备上保存设置、阅读缓存、未提交的回复草稿和草稿图片记录。你可以从应用设置清理主题、节点和用户缓存，在回复编辑器处理草稿，或从 Android 设置清除应用存储以移除本机数据。清除本机数据不会删除已经发送到 V2EX 或图床的内容。登录会话和普通设置不纳入 Android 云备份或设备迁移，数据库内容可能随 Android 备份或迁移，具体取决于系统设置。备份的管理由 Android 提供。
-
-隐私联系渠道：[发布前填入开发者隐私联系邮箱或咨询页面]。
