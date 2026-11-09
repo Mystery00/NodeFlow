@@ -8,6 +8,15 @@
 
 NodeFlow 专注原生 Android 与 Material You 体验，提供主题、节点、回复、用户资料、通知、账户和设置等功能。NodeFlow 与 V2EX 官方没有从属关系。
 
+## 应用截图
+
+<p align="center">
+  <img src="docs/assets/google-play/phone/01-home.png" width="23%" alt="NodeFlow 首页主题列表">
+  <img src="docs/assets/google-play/phone/02-topic.png" width="23%" alt="NodeFlow 主题正文与回复">
+  <img src="docs/assets/google-play/phone/03-nodes.png" width="23%" alt="NodeFlow 节点分类">
+  <img src="docs/assets/google-play/phone/04-settings.png" width="23%" alt="NodeFlow 外观与内容设置">
+</p>
+
 ## 下载
 
 安装包见 [GitHub Releases](https://github.com/Mystery00/NodeFlow/releases)。标记为 Pre-release 的版本为测试包；正式版以发布页实际条目为准。当前最低支持 Android 10（API 29）。
