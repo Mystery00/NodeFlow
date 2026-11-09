@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.common.toUserMessage
 import app.mystery0.nodeflow.core.model.AccountOverview
+import app.mystery0.nodeflow.domain.account.AccountActivityRepository
 import app.mystery0.nodeflow.domain.account.CheckInUseCase
 import app.mystery0.nodeflow.domain.account.GetAccountOverviewUseCase
 import app.mystery0.nodeflow.domain.auth.AuthRepository
@@ -26,6 +27,7 @@ class AccountViewModel(
     private val checkIn: CheckInUseCase,
     private val authRepository: AuthRepository,
     observeUnreadCount: ObserveUnreadNotificationCountUseCase,
+    activityRepository: AccountActivityRepository? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AccountUiState())
     val uiState: StateFlow<AccountUiState> = _uiState.asStateFlow()
@@ -35,6 +37,13 @@ class AccountViewModel(
     private var authenticationError: String? = null
 
     init {
+        activityRepository?.let { repository ->
+            viewModelScope.launch {
+                repository.activityPercent.collect { percent ->
+                    _uiState.update { it.copy(activityPercent = percent) }
+                }
+            }
+        }
         viewModelScope.launch {
             observeUnreadCount().collect { count ->
                 _uiState.update { it.copy(unreadNotificationCount = count) }

@@ -149,7 +149,7 @@ class NotificationRemoteDataSourceTest {
         override suspend fun captcha(cacheBust: Long, referer: String) = emptyResponse()
         override suspend fun signIn(fields: Map<String, String>, origin: String, referer: String) = emptyResponse()
         override suspend fun signInTwoFactor(next: String, fields: Map<String, String>, referer: String) = emptyResponse()
-        override suspend fun home() = emptyResponse()
+        override suspend fun home(userAgent: String) = emptyResponse()
         override suspend fun dailyMission() = emptyResponse()
         override suspend fun redeemDailyMission(once: String, referer: String) = emptyResponse()
         override suspend fun balance() = emptyResponse()

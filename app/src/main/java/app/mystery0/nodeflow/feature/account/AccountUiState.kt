@@ -9,6 +9,7 @@ data class AccountUiState(
     val user: User? = null,
     val overview: AccountOverview? = null,
     val unreadNotificationCount: Int? = null,
+    val activityPercent: Float? = null,
     val isLoading: Boolean = false,
     val isCheckingIn: Boolean = false,
     val toastMessage: String? = null,

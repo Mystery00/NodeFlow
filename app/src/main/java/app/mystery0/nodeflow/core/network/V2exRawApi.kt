@@ -86,7 +86,9 @@ interface V2exRawApi {
     ): Response<ResponseBody>
 
     @GET(".")
-    suspend fun home(): Response<ResponseBody>
+    suspend fun home(
+        @Header("User-Agent") userAgent: String = V2exUserAgents.MOBILE,
+    ): Response<ResponseBody>
 
     @GET("mission/daily")
     suspend fun dailyMission(): Response<ResponseBody>

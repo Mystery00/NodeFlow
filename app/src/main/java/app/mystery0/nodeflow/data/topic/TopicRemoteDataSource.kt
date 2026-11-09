@@ -17,6 +17,8 @@ import app.mystery0.nodeflow.data.common.V2exReplyDto
 import app.mystery0.nodeflow.data.common.V2exTopicDto
 import app.mystery0.nodeflow.data.common.toReply
 import app.mystery0.nodeflow.data.common.toTopic
+import app.mystery0.nodeflow.data.account.AccountActivityStore
+import app.mystery0.nodeflow.data.account.updateFromPage
 import app.mystery0.nodeflow.data.notification.UnreadNotificationStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
@@ -27,8 +29,10 @@ class TopicRemoteDataSource(
     private val parser: V2exHtmlParser,
     private val thankApi: V2exThankApi? = null,
     private val unreadStore: UnreadNotificationStore? = null,
+    private val activityStore: AccountActivityStore? = null,
 ) {
     suspend fun favoriteTopics(page: Int): FavoriteTopicsPage = safeNetworkCall {
+        val activityRequest = activityStore?.beginRequest()
         val response = api.favoriteTopicsHtml(page)
         val url = response.raw().request.url
         val trustedOrigin = url.scheme == "https" && url.host == "www.v2ex.com" && url.port == 443
@@ -54,18 +58,22 @@ class TopicRemoteDataSource(
         if (parser.hasAccessChallenge(html)) {
             throw NodeFlowException(NodeFlowException.Kind.AccessDenied, "V2EX 暂时拒绝访问收藏，请稍后重试")
         }
-        parser.parseFavoriteTopicsPage(html, page)
+        parser.parseFavoriteTopicsPage(html, page).also {
+            activityStore.updateFromPage(activityRequest, response, html, "/my/topics", parser)
+        }
     }
 
     suspend fun homeTopics(page: Int): List<Topic> = safeNetworkCall {
+        val activityRequest = activityStore?.beginRequest()
         val response = if (page == HOME_TOPICS_PAGE) {
             api.allTopicsHtml()
         } else {
             api.recentTopicsHtml(page - HOME_TOPICS_PAGE)
         }
-        parser.parseTopicList(
-            html = response.bodyStringOrThrow(),
-        )
+        val html = response.bodyStringOrThrow()
+        parser.parseTopicList(html).also {
+            activityStore.updateFromPage(activityRequest, response, html, if (page == HOME_TOPICS_PAGE) "/" else "/recent", parser)
+        }
     }
 
     // 单页抓取：null 表示页面未被识别为主题（调用方决定是否走 JSON 兜底）
@@ -75,6 +83,7 @@ class TopicRemoteDataSource(
         floorOffset: Int,
     ): V2exHtmlParser.ParsedTopicHtml? = safeNetworkCall {
         val unreadRequest = unreadStore?.beginRequest()
+        val activityRequest = activityStore?.beginRequest()
         val response = api.topicHtml(topicId, page = page.takeIf { it > 1 })
         val html = response.accessibleHtmlOrThrow(V2exHtmlAccessTarget.Topic)
         val parsed = parser.parseTopicHtml(topicId, html, floorOffset = floorOffset)
@@ -86,6 +95,9 @@ class TopicRemoteDataSource(
             !parser.hasSignInEntry(html) && !parser.hasAccessChallenge(html)
         ) {
             unreadStore?.update(unreadRequest, parser.parseUnreadNotificationCount(html, allowImplicitZero = false))
+        }
+        if (parsed != null) {
+            activityStore.updateFromPage(activityRequest, response, html, "/t/$topicId", parser)
         }
         parsed
     }

@@ -169,7 +169,7 @@ class NotificationReminderRemoteDataSourceTest {
         private val url: String = "https://www.v2ex.com/",
         private val code: Int = 200,
     ) : V2exRawApi {
-        override suspend fun home(): Response<ResponseBody> {
+        override suspend fun home(userAgent: String): Response<ResponseBody> {
             val raw = okhttp3.Response.Builder()
                 .request(Request.Builder().url(url).build())
                 .protocol(Protocol.HTTP_1_1)

@@ -268,7 +268,7 @@ class WebAuthRemoteDataSourceTest {
             return htmlResponse(signInResponseHtml)
         }
 
-        override suspend fun home(): Response<ResponseBody> {
+        override suspend fun home(userAgent: String): Response<ResponseBody> {
             homeRequestCount += 1
             return htmlResponse(homeHtml)
         }

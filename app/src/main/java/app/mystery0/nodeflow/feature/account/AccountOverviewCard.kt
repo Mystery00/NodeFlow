@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -15,25 +17,50 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import app.mystery0.nodeflow.R
 import app.mystery0.nodeflow.core.model.AccountOverview
 import app.mystery0.nodeflow.core.model.DailyCheckIn
 
 @Composable
-internal fun AccountOverviewCard(overview: AccountOverview, isCheckingIn: Boolean, onCheckInClick: () -> Unit) {
+internal fun AccountOverviewCard(
+    overview: AccountOverview,
+    isCheckingIn: Boolean,
+    onCheckInClick: () -> Unit,
+    activityPercent: Float? = null,
+) {
     val coins = listOfNotNull(
         overview.wealth?.gold?.let { stringResource(R.string.account_gold, "%,d".format(it)) },
         overview.wealth?.silver?.let { stringResource(R.string.account_silver, "%,d".format(it)) },
         overview.wealth?.bronze?.let { stringResource(R.string.account_bronze, "%,d".format(it)) },
     )
-    if (coins.isEmpty() && overview.checkIn == null) return
+    val activity = activityPercent?.takeIf { it.isFinite() && it in 0f..100f }
+    if (coins.isEmpty() && overview.checkIn == null && activity == null) return
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            activity?.let { percent ->
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        stringResource(R.string.account_daily_activity, java.text.NumberFormat.getNumberInstance().format(percent)),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    // 确定型直线进度兼作分隔，左右沿用卡片内容边距，不使用加载动画样式。
+                    LinearProgressIndicator(
+                        progress = { percent / 100f },
+                        modifier = Modifier.fillMaxWidth().height(3.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        strokeCap = StrokeCap.Round,
+                        gapSize = 0.dp,
+                        drawStopIndicator = {},
+                    )
+                }
+            }
             if (coins.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.account_wealth), style = MaterialTheme.typography.titleSmall)

@@ -34,6 +34,43 @@ class AccountScreenTest {
     @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
+    fun activityShowsAsSeparatorAboveWealthWithAccessibleProgress() {
+        composeRule.setContent {
+            NodeFlowTheme(AppSettings(themeMode = ThemeMode.Light)) {
+                AccountScreen(sampleState().copy(activityPercent = 59f), {}, {}, {}, {})
+            }
+        }
+        val activity = composeRule.onNodeWithText("今日活跃度：59%")
+        activity.assertIsDisplayed()
+        val progress = composeRule.onNode(SemanticsMatcher.expectValue(
+            SemanticsProperties.ProgressBarRangeInfo,
+            androidx.compose.ui.semantics.ProgressBarRangeInfo(0.59f, 0f..1f),
+        ))
+        progress.assertIsDisplayed()
+        val wealth = composeRule.onNodeWithText("账户财富")
+        assertThat(progress.fetchSemanticsNode().boundsInRoot.top)
+            .isAtLeast(activity.fetchSemanticsNode().boundsInRoot.bottom)
+        assertThat(wealth.fetchSemanticsNode().boundsInRoot.top)
+            .isAtLeast(progress.fetchSemanticsNode().boundsInRoot.bottom)
+    }
+
+    @Test
+    fun activityOnlyCardSupportsDarkThemeAndLargeFont() {
+        composeRule.setContent {
+            val density = LocalDensity.current.density
+            CompositionLocalProvider(LocalDensity provides Density(density, fontScale = 2f)) {
+                NodeFlowTheme(AppSettings(themeMode = ThemeMode.Dark)) {
+                    AccountScreen(sampleState().copy(overview = AccountOverview(), activityPercent = 100f), {}, {}, {}, {},
+                        modifier = Modifier.requiredSize(320.dp, 600.dp))
+                }
+            }
+        }
+        composeRule.onNodeWithText("今日活跃度：100%").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("账户财富").assertDoesNotExist()
+        composeRule.onNodeWithText("设置").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun logoutRequiresConfirmationAndMenuCallbacksWork() {
         val events = mutableListOf<AccountUiEvent>()
         var settingsOpened = false
