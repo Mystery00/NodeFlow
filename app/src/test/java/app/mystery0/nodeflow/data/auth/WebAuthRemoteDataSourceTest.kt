@@ -153,6 +153,23 @@ class WebAuthRemoteDataSourceTest {
     }
 
     @Test
+    fun login_prioritizesTwoFactorFormOverAccountMarkers() = runTest {
+        val api = FakeV2exRawApi(signInResponseHtml = twoFactorPageWithAccountMarkers())
+        val dataSource = WebAuthRemoteDataSource(api, parser, cookieJar)
+
+        val result = dataSource.login(
+            username = "currentUser",
+            password = "sample-password",
+            captcha = "ABCD",
+            challenge = sampleChallenge(),
+        )
+
+        assertThat(result).isEqualTo(
+            AuthLoginResult.TwoFactorRequired(TwoFactorChallenge(once = "24680", title = "两步验证")),
+        )
+    }
+
+    @Test
     fun verifyTwoFactor_returnsSessionWhenCodeAccepted() = runTest {
         val api = FakeV2exRawApi(
             twoFactorResponseHtml = """
@@ -188,6 +205,22 @@ class WebAuthRemoteDataSourceTest {
     }
 
     @Test
+    fun verifyTwoFactor_rejectsRemainingChallengeDespiteAccountMarkers() = runTest {
+        val api = FakeV2exRawApi(twoFactorResponseHtml = twoFactorPageWithAccountMarkers())
+        val dataSource = WebAuthRemoteDataSource(api, parser, cookieJar)
+
+        val error = runCatching {
+            dataSource.verifyTwoFactor(
+                code = "123456",
+                challenge = TwoFactorChallenge(once = "24680", title = "两步验证"),
+            )
+        }.exceptionOrNull() as? NodeFlowException
+
+        assertThat(error?.kind).isEqualTo(NodeFlowException.Kind.Auth)
+        assertThat(error?.message).isEqualTo("两步验证码错误，请重试")
+    }
+
+    @Test
     fun login_throwsAuthErrorWhenRedirectedHomeIsAnonymous() = runTest {
         val api = FakeV2exRawApi(
             signInResponseHtml = """<a href="/signin">Sign In</a>""",
@@ -216,6 +249,24 @@ class WebAuthRemoteDataSourceTest {
         captchaPath = "/_captcha",
         captchaImageBytes = byteArrayOf(),
     )
+
+    private fun twoFactorPageWithAccountMarkers(): String {
+        cookieJar.saveFromResponse(
+            "https://www.v2ex.com/".toHttpUrl(),
+            listOf(Cookie.Builder().hostOnlyDomain("www.v2ex.com").name("pending").value("sample").build()),
+        )
+        return """
+            <div id="Top">
+              <a href="/member/currentUser">currentUser</a>
+              <a href="/signout?once=12345">Sign Out</a>
+            </div>
+            <form method="post" action="/2fa?next=/mission/daily">
+              <h1>两步验证</h1>
+              <input type="text" name="code">
+              <input type="hidden" name="once" value="24680">
+            </form>
+        """.trimIndent()
+    }
 
     private class FakeV2exRawApi(
         private val signInPageHtml: String = "",

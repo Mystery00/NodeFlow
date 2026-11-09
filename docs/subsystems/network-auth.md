@@ -41,6 +41,7 @@ V2EX 可能返回正常内容、登录页、`/restricted`、首页重定向、Cl
 
 ## 登录态与隐私
 
+- 登录响应优先识别两步验证表单。响应同时带有账号标记时仍需完成两步验证，提交验证码后若服务器继续返回验证表单，则保持待验证状态。
 - 复用 `V2exCookieJar`、CookieStorage、AuthInterceptor、SessionStore 和相关 Repository，不建立第二套会话状态。
 - Cookie、Personal Access Token 和会话数据只以密文落盘；生产实现使用 Android Keystore 中不可导出的 AES-256 密钥与 AES/GCM，应用私有存储只保存版本化 IV 与密文载荷。
 - CookieStorage 保留 host-only/origin、domain、path、expiry、persistent、secure 和 HttpOnly 属性；但 Session 还保存 Cookie header 快照。`AuthInterceptor` 在目标 URL 没有可用 Cookie 时可由快照恢复，该路径只恢复名称和值，并设置目标 domain 与 `/` 路径，无法保留原 expiry、secure 等属性。
