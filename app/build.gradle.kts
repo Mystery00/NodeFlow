@@ -1,3 +1,6 @@
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import com.android.build.api.variant.HostTestBuilder
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -46,6 +49,11 @@ android {
             isMinifyEnabled = false
             versionNameSuffix = ".d$gitVersionCode.$gitVersionName"
         }
+        create("deviceTest") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".uitest"
+            matchingFallbacks += "debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -61,6 +69,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
+    // 设备测试的安装与清理只作用于独立测试包，保留日常安装的会话和数据。
+    testBuildType = "deviceTest"
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {
@@ -87,6 +97,13 @@ android {
     }
     sourceSets {
         getByName("androidTest").assets.directories.add("$projectDir/schemas")
+    }
+}
+
+extensions.configure<ApplicationAndroidComponentsExtension> {
+    // 显式保留各构建的 JVM 测试，避免切换设备测试目标影响 Compose Preview。
+    beforeVariants {
+        it.hostTests.getValue(HostTestBuilder.UNIT_TEST_TYPE).enable = true
     }
 }
 
@@ -161,6 +178,7 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    add("deviceTestImplementation", libs.androidx.compose.ui.test.manifest)
 }
 
 apply(from = rootProject.file("signing.gradle"))

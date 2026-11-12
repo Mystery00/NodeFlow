@@ -31,11 +31,11 @@ PowerShell 在仓库根目录运行以下命令，按验证矩阵选用，不要
 .\gradlew.bat :image-hosting:test
 .\gradlew.bat :app:assembleDebug
 .\gradlew.bat :app:lintDebug
-# 需要已连接的模拟器或设备
-.\gradlew.bat :app:connectedDebugAndroidTest
+# 需要已连接的模拟器或设备；使用独立测试包，保留日常安装
+.\gradlew.bat :app:connectedDeviceTestAndroidTest
 ```
 
-同一工作目录的 Gradle 任务串行或在一次调用中执行，避免争用构建输出。环境缺失时先诊断并在授权范围内修复；确实无法运行则交付已完成部分和阻塞原因，不把未运行描述为通过。
+同一工作目录的 Gradle 任务串行或在一次调用中执行，避免争用构建输出。设备测试固定使用 `deviceTest` 构建及独立包名，运行前核对 APK 与 instrumentation 目标；日常安装和登录态保护规则见[测试与验证](testing.md#保留日常安装与登录态)。环境缺失时先诊断并在授权范围内修复；确实无法运行则交付已完成部分和阻塞原因，不把未运行描述为通过。
 
 Release 验证使用 `.\gradlew.bat :app:assembleRelease`。`signing.gradle` 按键优先读取 `local.properties`，缺失时回退同名环境变量：`SIGN_KEY_STORE_FILE`、`SIGN_KEY_STORE_PASSWORD`、`SIGN_KEY_ALIAS`、`SIGN_KEY_PASSWORD`。缺少签名配置不影响 Debug，Release 打包会失败。
 
@@ -49,7 +49,7 @@ Release 验证使用 `.\gradlew.bat :app:assembleRelease`。`signing.gradle` 按
 
 主分支 CI 先执行 `:app:testDebugUnitTest` 与 `:image-hosting:test`，通过后再执行 `:app:assembleRelease`，由 Gradle 完成签名、R8 混淆和资源压缩。工作流尚未运行 Lint、Debug 打包或模拟器测试，CI 绿色不能替代设备验收。
 
-构建成功后，从 release 的 `output-metadata.json` 读取版本号及 APK 文件名，收集并上传 `NodeFlow-release-<versionName>.apk` 和对应 `NodeFlow-<versionName>-mapping.txt`；预发布附件保留该构建对应的 mapping，完整 R8 报告作为 Actions Artifact 保留 90 天。签名不同的旧 Debug 包不能覆盖安装，卸载前应先处理需要保留的本地数据。
+构建成功后，从 release 的 `output-metadata.json` 读取版本号及 APK 文件名，收集并上传 `NodeFlow-release-<versionName>.apk` 和对应 `NodeFlow-<versionName>-mapping.txt`；预发布附件保留该构建对应的 mapping，完整 R8 报告作为 Actions Artifact 保留 90 天。签名不同的旧 Debug 包不能覆盖安装；遇到冲突时停止，保留原安装及其本地数据。
 
 ## 正式发布工作流
 

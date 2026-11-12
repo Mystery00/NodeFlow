@@ -31,7 +31,7 @@ JVM 测试位于 `app/src/test/`，重点覆盖 UseCase、Repository、数据源
 需要真实 Room 的测试放入 `app/src/androidTest/`，不能用 Fake DAO 的 JVM 测试替代。`DatabaseMigrationPolicyTest` 使用生产 Koin 数据库模块和独立临时目录，覆盖版本 1 草稿重开保留、模拟版本 2→1 缺失迁移时拒绝打开且数据保留；不接触应用的真实 `nodeflow.db`。`ListCacheMergeTest` 额外覆盖列表刷新保留主题/节点详情及显式清除正文。
 目前没有实际版本升级路径的 Migration 测试，也没有全量 DAO 行为覆盖；新增 schema/迁移时仍需补齐对应测试。
 
-聚焦命令：`./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=app.mystery0.nodeflow.core.database.DatabaseMigrationPolicyTest`。当前版本 1 基线及迁移规则见[存储说明](../subsystems/storage.md)。
+聚焦命令：`./gradlew :app:connectedDeviceTestAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=app.mystery0.nodeflow.core.database.DatabaseMigrationPolicyTest`。当前版本 1 基线及迁移规则见[存储说明](../subsystems/storage.md)。
 
 ## 富文本布局的 JVM 原生渲染回归
 
@@ -52,6 +52,23 @@ JVM 测试位于 `app/src/test/`，重点覆盖 UseCase、Repository、数据源
 - `ZoomableImageViewerTest` 使用本地生成图片，覆盖加载、分享/关闭回调和加载失败时禁用分享，不等于真实图床访问或系统分享目标验收。
 
 ## 真机或模拟器验证
+
+### 保留日常安装与登录态
+
+设备自动化固定使用 `deviceTest` 构建：目标包名为 `app.mystery0.nodeflow.uitest`，测试 APK 包名为 `app.mystery0.nodeflow.uitest.test`，应用名称为“NodeFlow 测试”。它使用 Debug 签名和独立的应用存储，不读取日常包的会话、Cookie 或数据库。`testBuildType` 已设为 `deviceTest`，默认 `connectedAndroidTest` 也只针对该测试构建；不要通过临时参数或 init script 把目标包名改回日常包。
+
+```powershell
+# 先构建并核对 APK 的 applicationId 与 instrumentation targetPackage
+.\gradlew.bat :app:assembleDeviceTest :app:assembleDeviceTestAndroidTest
+# 运行所需测试；可追加 android.testInstrumentationRunnerArguments.class 筛选
+.\gradlew.bat :app:connectedDeviceTestAndroidTest
+```
+
+设备测试工具可能在失败后仍清理目标应用，因此运行前必须确认目标 APK 和 instrumentation 都指向上述测试包。只有“NodeFlow 测试”可被测试工具安装、卸载或重建；模拟器中用户日常使用的 `app.mystery0.nodeflow` 不得被卸载或执行 `pm clear`。不以“先卸载再安装”处理签名冲突，也不复制用户凭据到测试包。
+
+需要在日常包体验新版时，先核对现有安装与待安装 APK 的签名、包名和版本，再用 `adb install -r` 同签名覆盖安装。签名不匹配或版本不兼容时停止安装，保留现有应用。覆盖安装通常保留本地数据，但登录是否持续有效仍受服务端会话和应用数据迁移逻辑影响。
+
+### 验证范围
 
 只验证本次受影响的流程，典型范围如下：
 
