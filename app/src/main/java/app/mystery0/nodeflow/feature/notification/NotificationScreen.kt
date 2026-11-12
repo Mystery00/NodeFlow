@@ -26,6 +26,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,6 +64,7 @@ fun NotificationScreen(
     onTopicClick: (Long, Int?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     var previewImageUrl by remember { mutableStateOf<String?>(null) }
     val refreshErrorHost = rememberRefreshErrorSnackbar(
         (notifications.loadState.refresh as? LoadState.Error)?.error?.toUserMessage()
@@ -68,7 +72,7 @@ fun NotificationScreen(
     ) { notifications.retry() }
     Scaffold(
         snackbarHost = { SnackbarHost(refreshErrorHost) },
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("消息") },
@@ -80,6 +84,7 @@ fun NotificationScreen(
                         Icon(Icons.Outlined.Refresh, contentDescription = "刷新")
                     }
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { paddingValues ->
