@@ -765,6 +765,28 @@ class V2exHtmlParserTest {
     }
 
     @Test
+    fun parseTopicList_detectsItemPinnedClassWithoutInlineBackground() {
+        val html = """
+            <html><body>
+              <div class="cell item item-pinned">
+                <a class="topic-link" href="/t/511">置顶主题一</a>
+              </div>
+              <div class="cell item item-pinned">
+                <a class="topic-link" href="/t/512">置顶主题二</a>
+              </div>
+              <div class="cell item">
+                <a class="topic-link" href="/t/513">普通主题</a>
+              </div>
+            </body></html>
+        """.trimIndent()
+
+        val topics = parser.parseTopicList(html)
+
+        assertThat(topics.map { it.id }).containsExactly(511L, 512L, 513L).inOrder()
+        assertThat(topics.map { it.isPinned }).containsExactly(true, true, false).inOrder()
+    }
+
+    @Test
     fun parseTopicList_detectsCornerStarBackgroundAsPinned() {
         val html = """
             <html><body>

@@ -882,7 +882,7 @@ class V2exHtmlParser {
     }
 
     private fun Element.hasPinnedTopicMarker(): Boolean {
-        // V2EX 使用右上角星形背景图（corner_star.png）标记置顶帖子
+        // 兼容旧模板通过右上角星形背景图标记置顶的方式。
         val style = attr("style")
         if (style.contains(PINNED_CORNER_STAR_IMAGE)) return true
 
@@ -1128,6 +1128,7 @@ class V2exHtmlParser {
             Regex("""(?:^|\s)@([A-Za-z0-9_][A-Za-z0-9_-]{0,31})\s*#(\d{1,4})(?=$|[^A-Za-z0-9_-])""")
         const val PINNED_CORNER_STAR_IMAGE = "corner_star.png"
         val PINNED_TOPIC_CLASS_NAMES = setOf(
+            "item-pinned",
             "pinned",
             "sticky",
             "topic-pinned",

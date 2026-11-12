@@ -6,7 +6,7 @@
 - Parser 优先使用稳定的 id、class、属性和语义关系，避免绝对节点索引。
 - 页面必须先经过访问状态分类，不能把登录页、受限页或 Cloudflare 页面当作业务内容。
 - 新解析规则使用最小、脱敏 fixture 覆盖正常、缺失字段、空内容和异常页面。
-- 主题列表置顶由 `V2exHtmlParser.hasPinnedTopicMarker` 识别：条目的 `corner_star.png` 背景图、显式 class、data 属性或状态标签。当前没有最长倒序子序列、60 秒容差或按时间异常推断的逻辑；无标记的主题不凭列表位置推断置顶。
+- 主题列表置顶由 `V2exHtmlParser.hasPinnedTopicMarker` 识别：条目的 `item-pinned` 等显式 class、旧模板的 `corner_star.png` 背景图、data 属性或状态标签。当前没有最长倒序子序列、60 秒容差或按时间异常推断的逻辑；无标记的主题不凭列表位置推断置顶。
 
 ## 富文本与链接
 
