@@ -38,6 +38,7 @@
 
 ## 历史设计与计划
 
+- [登录与两步验证界面优化](plans/2026-11-12-auth-flow-design.md)：页面审查、交互设计及验证记录。
 - [`plans/`](plans/)：历史设计说明和实施计划，通过文件名中的 `-design` 区分；包含当时拟议、已实施及后来被替代的步骤，不能整体视为已完成或仍待执行。
 - [图床适配模块与 Imgur 网页上传设计](plans/2026-09-24-image-hosting-adapters-design.md) / [实施计划](plans/2026-09-24-image-hosting-adapters.md)
 - [可靠性、凭据加密与数据库基线重置设计](plans/2026-08-30-reliability-secure-session-database-baseline-design.md) / [实施计划](plans/2026-08-30-reliability-secure-session-database-baseline.md)

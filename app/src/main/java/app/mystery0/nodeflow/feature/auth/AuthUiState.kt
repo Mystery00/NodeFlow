@@ -16,13 +16,13 @@ data class AuthUiState(
     val loginCompleted: Boolean = false,
 ) {
     val canSubmit: Boolean
-        get() = if (twoFactorChallenge != null) {
-            twoFactorCode.isNotBlank() && !isSubmitting
-        } else {
-            username.isNotBlank() &&
-                password.isNotBlank() &&
-                captcha.isNotBlank() &&
-                challenge != null &&
-                !isSubmitting
-        }
+        get() = !isSubmitting && !isLoadingChallenge && !loginCompleted &&
+            if (twoFactorChallenge != null) {
+                twoFactorCode.length == 6 && twoFactorCode.all { it in '0'..'9' }
+            } else {
+                username.isNotBlank() &&
+                    password.isNotEmpty() &&
+                    captcha.isNotBlank() &&
+                    challenge != null
+            }
 }

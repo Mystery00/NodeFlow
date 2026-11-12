@@ -7,7 +7,6 @@ import app.mystery0.nodeflow.domain.auth.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -22,6 +21,8 @@ class AuthViewModel(
     }
 
     fun onEvent(event: AuthUiEvent) {
+        val state = _uiState.value
+        if (event != AuthUiEvent.LoginResultConsumed && (state.isSubmitting || state.loginCompleted)) return
         when (event) {
             is AuthUiEvent.UsernameChanged -> _uiState.update {
                 it.copy(username = event.value, errorMessage = null)
@@ -33,7 +34,7 @@ class AuthViewModel(
                 it.copy(captcha = event.value, errorMessage = null)
             }
             is AuthUiEvent.TwoFactorCodeChanged -> _uiState.update {
-                it.copy(twoFactorCode = event.value, errorMessage = null)
+                it.copy(twoFactorCode = event.value.filter { char -> char in '0'..'9' }.take(6), errorMessage = null)
             }
             AuthUiEvent.RefreshChallenge -> loadChallenge()
             AuthUiEvent.Submit -> submit()
@@ -44,16 +45,18 @@ class AuthViewModel(
     }
 
     private fun loadChallenge() {
+        val state = _uiState.value
+        if (state.isLoadingChallenge || state.isSubmitting || state.twoFactorChallenge != null || state.loginCompleted) return
+        // 同步进入忙碌状态，避免协程开始前的连续点击创建重复请求。
+        _uiState.update {
+            it.copy(
+                isLoadingChallenge = true,
+                challenge = null,
+                errorMessage = null,
+                captcha = "",
+            )
+        }
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoadingChallenge = true,
-                    errorMessage = null,
-                    captcha = "",
-                    twoFactorChallenge = null,
-                    twoFactorCode = "",
-                )
-            }
             val result = authRepository.loginChallenge()
             _uiState.update { current ->
                 result.fold(
@@ -84,8 +87,8 @@ class AuthViewModel(
         }
         val challenge = state.challenge ?: return
         if (!state.canSubmit) return
+        _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
             val result = authRepository.login(
                 username = state.username.trim(),
                 password = state.password,
@@ -102,13 +105,16 @@ class AuthViewModel(
                                 loginCompleted = true,
                                 password = "",
                                 captcha = "",
+                                challenge = null,
                                 twoFactorChallenge = null,
                                 twoFactorCode = "",
                             )
                             is AuthLoginResult.TwoFactorRequired -> current.copy(
                                 isSubmitting = false,
                                 errorMessage = null,
+                                password = "",
                                 captcha = "",
+                                challenge = null,
                                 twoFactorChallenge = loginResult.challenge,
                                 twoFactorCode = "",
                             )
@@ -128,8 +134,8 @@ class AuthViewModel(
     private fun submitTwoFactor(state: AuthUiState) {
         val challenge = state.twoFactorChallenge ?: return
         if (!state.canSubmit) return
+        _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
             val result = authRepository.verifyTwoFactor(
                 code = state.twoFactorCode.trim(),
                 challenge = challenge,
