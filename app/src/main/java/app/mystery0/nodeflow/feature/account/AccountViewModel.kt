@@ -56,18 +56,21 @@ class AccountViewModel(
                     loadJob?.cancel()
                     checkInJob?.cancel()
                 }
+                val username = session.username
+                val isLoggedIn = !username.isNullOrBlank() && !session.cookieHeader.isNullOrBlank()
                 _uiState.update {
                     it.copy(
                         session = session,
-                        user = if (accountChanged || session.username.isNullOrBlank()) null else it.user,
-                        overview = if (accountChanged || session.username.isNullOrBlank()) null else it.overview,
+                        user = if (accountChanged || !isLoggedIn) null else it.user,
+                        overview = if (accountChanged || !isLoggedIn) null else it.overview,
+                        // 会话切为已登录时同步进入加载态，避免概览返回前露出「已登录+非加载+未知未读」的 ! 角标空窗。
+                        isLoading = isLoggedIn,
                         isCheckingIn = if (accountChanged) false else it.isCheckingIn,
-                        errorMessage = if (session.username.isNullOrBlank()) authenticationError else null,
+                        errorMessage = if (username.isNullOrBlank()) authenticationError else null,
                         toastMessage = null,
                     )
                 }
-                val username = session.username
-                if (username.isNullOrBlank() || session.cookieHeader.isNullOrBlank()) {
+                if (!isLoggedIn) {
                     loadJob?.cancel()
                     checkInJob?.cancel()
                     _uiState.update {

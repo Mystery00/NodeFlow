@@ -223,7 +223,7 @@ class V2exHtmlParser {
             ?.attr("src")
             ?.normalizeV2exUrl()
             ?.replace("normal.png", "large.png")
-        val hasLoggedInMarker = document.select("a[href^=/signout]").isNotEmpty() ||
+        val hasLoggedInMarker = document.hasSignOutControl() ||
             document.select("input[onclick*=mission/daily], input[onclick*=balance]").isNotEmpty() ||
             document.text().contains("已连续") ||
             avatarUrl != null
@@ -287,15 +287,19 @@ class V2exHtmlParser {
             countPattern.matchEntire(text.trim())?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
         }
         // 首页移动模板在没有未读时省略按钮；帖子页必须看到显式数量才更新。
-        return count ?: if (allowImplicitZero && document.select("a[href^=/signout]").isNotEmpty()) 0 else null
+        return count ?: if (allowImplicitZero && document.hasSignOutControl()) 0 else null
     }
 
     fun hasSignInEntry(html: String): Boolean {
         val document = Jsoup.parse(html, V2EX_BASE_URL)
-        val hasSignOut = document.select("a[href^=/signout]").isNotEmpty()
+        document.select(".topic_content, .reply_content, .payload").remove()
+        val hasSignOut = document.hasSignOutControl()
         val hasSignIn = document.select("a[href^=/signin], form[action=/signin]").isNotEmpty()
         return hasSignIn && !hasSignOut
     }
+
+    private fun Document.hasSignOutControl(): Boolean =
+        select("a[href^=/signout], a[onclick*=/signout]").isNotEmpty()
 
     fun parseDailyCheckIn(html: String): DailyCheckIn? = parseDailyCheckInPage(html)?.checkIn
 
