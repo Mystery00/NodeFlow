@@ -24,8 +24,8 @@ NodeFlow 由 Mystery0 独立开发，与 V2EX 官方无从属关系。部分内�
 | 项目 | 文件 | 规格 |
 | --- | --- | --- |
 | 应用图标 | [ic_launcher-playstore.png](../../app/src/main/ic_launcher-playstore.png) | 512 × 512，RGBA PNG |
-| 置顶大图 | [feature-graphic.png](../assets/google-play/feature-graphic.png) | 1024 × 500，RGB PNG |
-| 手机截图 | [首页](../assets/google-play/phone/01-home.png)、[主题与回复](../assets/google-play/phone/02-topic.png)、[节点分类](../assets/google-play/phone/03-nodes.png)、[设置](../assets/google-play/phone/04-settings.png) | 1080 × 1920，RGB PNG |
+| 置顶大图 | [feature-graphic.png](../assets/feature-graphic.png) | 1024 × 500，RGB PNG |
+| 手机截图 | [首页](../assets/screenshots/01-home.png)、[主题与回复](../assets/screenshots/02-topic.png)、[节点分类](../assets/screenshots/03-nodes.png)、[设置](../assets/screenshots/04-settings.png) | 1080 × 1920，RGB PNG |
 
 截图来自 Android 模拟器中运行的 NodeFlow。主题、作者和回复使用虚构示例，通过本地网络替身输入应用，适合公开展示。以上截图名称也可用作上传时的替代文本。[Google Play 预览资源规范](https://support.google.com/googleplay/android-developer/answer/9866151?hl=zh-Hans)
 
