@@ -6,6 +6,7 @@ sealed interface AuthUiEvent {
     data class CaptchaChanged(val value: String) : AuthUiEvent
     data class TwoFactorCodeChanged(val value: String) : AuthUiEvent
     data object RefreshChallenge : AuthUiEvent
+    data object BackToCredentials : AuthUiEvent
     data object Submit : AuthUiEvent
     data object LoginResultConsumed : AuthUiEvent
 }

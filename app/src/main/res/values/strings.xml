@@ -15,8 +15,13 @@
     <string name="auth_captcha_refresh_description">换一张验证码</string>
     <string name="auth_captcha_retry">重新加载</string>
     <string name="auth_captcha_loading">正在获取验证码…</string>
+    <string name="auth_captcha_loading_short">加载中…</string>
     <string name="auth_captcha_failed">验证码图片加载失败</string>
-    <string name="auth_captcha_hint">输入上图中的字符</string>
+    <string name="auth_captcha_tap_retry">点击重试</string>
+    <string name="auth_captcha_hint">输入图中字符</string>
+    <string name="auth_clear_input">清除输入</string>
+    <string name="auth_paste">粘贴</string>
+    <string name="auth_switch_account">切换账号</string>
     <string name="auth_two_factor">两步验证</string>
     <string name="auth_two_factor_heading">确认是你本人</string>
     <string name="auth_verified">账号密码已验证</string>
@@ -25,6 +30,7 @@
     <string name="auth_two_factor_code">两步验证码</string>
     <string name="auth_two_factor_hint">6 位数字</string>
     <string name="auth_two_factor_help">验证码由身份验证器自动更新。</string>
+    <string name="auth_two_factor_progress">%1$d/6</string>
     <string name="auth_verify_and_login">验证并登录</string>
     <string name="auth_logging_in">正在登录…</string>
     <string name="auth_verifying">正在验证…</string>

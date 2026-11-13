@@ -37,6 +37,7 @@ class AuthViewModel(
                 it.copy(twoFactorCode = event.value.filter { char -> char in '0'..'9' }.take(6), errorMessage = null)
             }
             AuthUiEvent.RefreshChallenge -> loadChallenge()
+            AuthUiEvent.BackToCredentials -> backToCredentials()
             AuthUiEvent.Submit -> submit()
             AuthUiEvent.LoginResultConsumed -> _uiState.update {
                 it.copy(loginCompleted = false)
@@ -44,7 +45,22 @@ class AuthViewModel(
         }
     }
 
-    private fun loadChallenge() {
+    private fun backToCredentials() {
+        val state = _uiState.value
+        if (state.twoFactorChallenge == null || state.isSubmitting || state.loginCompleted) return
+        _uiState.update {
+            it.copy(
+                twoFactorChallenge = null,
+                twoFactorCode = "",
+                errorMessage = null,
+                challenge = null,
+                captcha = "",
+            )
+        }
+        loadChallenge()
+    }
+
+    private fun loadChallenge(preserveError: Boolean = false) {
         val state = _uiState.value
         if (state.isLoadingChallenge || state.isSubmitting || state.twoFactorChallenge != null || state.loginCompleted) return
         // 同步进入忙碌状态，避免协程开始前的连续点击创建重复请求。
@@ -52,7 +68,7 @@ class AuthViewModel(
             it.copy(
                 isLoadingChallenge = true,
                 challenge = null,
-                errorMessage = null,
+                errorMessage = if (preserveError) it.errorMessage else null,
                 captcha = "",
             )
         }
@@ -64,7 +80,7 @@ class AuthViewModel(
                         current.copy(
                             challenge = challenge,
                             isLoadingChallenge = false,
-                            errorMessage = null,
+                            errorMessage = if (preserveError) current.errorMessage else null,
                         )
                     },
                     onFailure = { error ->
@@ -123,10 +139,15 @@ class AuthViewModel(
                     onFailure = { error ->
                         current.copy(
                             isSubmitting = false,
+                            challenge = null,
+                            captcha = "",
                             errorMessage = error.message ?: "登录失败",
                         )
                     },
                 )
+            }
+            if (result.isFailure) {
+                loadChallenge(preserveError = true)
             }
         }
     }
