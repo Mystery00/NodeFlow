@@ -10,10 +10,10 @@ import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagSyncedAtUseCase
 import app.mystery0.nodeflow.domain.membertag.RefreshMemberTagsUseCase
 import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
-import app.mystery0.nodeflow.domain.settings.SettingsRepository
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.imagehosting.contract.*
 import app.mystery0.nodeflow.imagehosting.registry.DefaultImageHostRegistry
+import app.mystery0.nodeflow.testing.FakeSettingsRepository
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -114,7 +114,11 @@ class SettingsViewModelTest {
         clearCacheError: Throwable? = null,
         imageHostRegistry: DefaultImageHostRegistry = DefaultImageHostRegistry(emptyList()),
     ): SettingsViewModel {
-        val settingsRepository = FakeSettingsRepository(clearCacheError)
+        val settingsRepository = object : FakeSettingsRepository() {
+            override suspend fun clearCache() {
+                clearCacheError?.let { throw it }
+            }
+        }
         val memberTagRepository = FakeMemberTagRepository()
         return SettingsViewModel(
             observeSettings = ObserveSettingsUseCase(settingsRepository),
@@ -125,30 +129,6 @@ class SettingsViewModelTest {
             applicationContext = ContextWrapper(null),
             imageHostRegistry = imageHostRegistry,
         )
-    }
-
-    private class FakeSettingsRepository(
-        private val clearCacheError: Throwable?,
-    ) : SettingsRepository {
-        override val settings: Flow<AppSettings> = MutableStateFlow(AppSettings())
-
-        override suspend fun setThemeMode(themeMode: ThemeMode) = Unit
-
-        override suspend fun setDynamicColor(enabled: Boolean) = Unit
-
-        override suspend fun setPinnedHomeNode(node: PinnedHomeNode?) = Unit
-
-        override suspend fun setCustomImageHosts(hosts: List<String>) = Unit
-
-        override suspend fun setReplyImageHost(hostId: String) = Unit
-
-        override suspend fun setShowMemberTags(enabled: Boolean) = Unit
-
-        override suspend fun setNotificationReminder(enabled: Boolean) = Unit
-
-        override suspend fun clearCache() {
-            clearCacheError?.let { throw it }
-        }
     }
 
     private class FakeMemberTagRepository : MemberTagRepository {

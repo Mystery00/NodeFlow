@@ -3,13 +3,12 @@ package app.mystery0.nodeflow.data.membertag
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.testing.TestV2exRawApi
+import app.mystery0.nodeflow.testing.emptyHtmlResponse
+import app.mystery0.nodeflow.testing.testHtmlResponse
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Protocol
-import okhttp3.Request
 import okhttp3.ResponseBody
-import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
 import retrofit2.Response
 
@@ -120,7 +119,7 @@ class MemberTagRemoteDataSourceTest {
         var noteContent: String?,
         private val ignoreSubmits: Boolean = false,
         private val signInRedirect: Boolean = false,
-    ) : V2exRawApi {
+    ) : TestV2exRawApi(fallback = { emptyHtmlResponse() }) {
         var editSubmitCount = 0
             private set
         var newSubmitCount = 0
@@ -129,7 +128,7 @@ class MemberTagRemoteDataSourceTest {
 
         override suspend fun notesHtml(): Response<ResponseBody> {
             if (signInRedirect) {
-                return htmlResponse(
+                return testHtmlResponse(
                     "<form action='/signin'><input name='once'></form>",
                     "https://www.v2ex.com/signin?next=/notes",
                 )
@@ -137,10 +136,10 @@ class MemberTagRemoteDataSourceTest {
             val link = noteContent
                 ?.let { "<a href=\"/notes/$noteId\">${it.take(40)}</a>" }
                 .orEmpty()
-            return htmlResponse("<html><body>$link</body></html>", "https://www.v2ex.com/notes")
+            return testHtmlResponse("<html><body>$link</body></html>", "https://www.v2ex.com/notes")
         }
 
-        override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = htmlResponse(
+        override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = testHtmlResponse(
             "<html><body><textarea name=\"content\">${noteContent.orEmpty()}</textarea></body></html>",
             "https://www.v2ex.com/notes/edit/$id",
         )
@@ -148,53 +147,13 @@ class MemberTagRemoteDataSourceTest {
         override suspend fun noteEditSubmit(id: Long, content: String, syntax: String): Response<ResponseBody> {
             editSubmitCount++
             if (!ignoreSubmits) noteContent = content
-            return htmlResponse("<html><body></body></html>", "https://www.v2ex.com/notes/$id")
+            return testHtmlResponse("<html><body></body></html>", "https://www.v2ex.com/notes/$id")
         }
 
         override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> {
             newSubmitCount++
             if (!ignoreSubmits) noteContent = content
-            return htmlResponse("<html><body></body></html>", "https://www.v2ex.com/notes/$noteId")
-        }
-
-        override suspend fun topic(id: Long) = emptyResponse()
-        override suspend fun replies(topicId: Long) = emptyResponse()
-        override suspend fun node(name: String) = emptyResponse()
-        override suspend fun member(username: String) = emptyResponse()
-        override suspend fun nodeTopicsHtml(nodeName: String, page: Int?) = emptyResponse()
-        override suspend fun recentTopicsHtml(page: Int?) = emptyResponse()
-        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
-
-        override suspend fun allTopicsHtml() = emptyResponse()
-        override suspend fun planesHtml() = emptyResponse()
-        override suspend fun topicHtml(topicId: Long, page: Int?) = emptyResponse()
-        override suspend fun memberHtml(username: String) = emptyResponse()
-        override suspend fun signInPage(next: String) = emptyResponse()
-        override suspend fun captcha(cacheBust: Long, referer: String) = emptyResponse()
-        override suspend fun signIn(fields: Map<String, String>, origin: String, referer: String) = emptyResponse()
-        override suspend fun signInTwoFactor(next: String, fields: Map<String, String>, referer: String) = emptyResponse()
-        override suspend fun home(userAgent: String) = emptyResponse()
-        override suspend fun dailyMission() = emptyResponse()
-        override suspend fun redeemDailyMission(once: String, referer: String) = emptyResponse()
-        override suspend fun balance() = emptyResponse()
-        override suspend fun notifications(page: Int) = emptyResponse()
-        override suspend fun favoriteTopic(topicId: Long, once: String, referer: String) =
-            emptyResponse()
-
-        override suspend fun unfavoriteTopic(topicId: Long, once: String, referer: String) =
-            emptyResponse()
-
-        private fun emptyResponse(): Response<ResponseBody> = Response.success("".toResponseBody())
-
-        private fun htmlResponse(html: String, url: String): Response<ResponseBody> {
-            val body = html.toResponseBody("text/html".toMediaType())
-            val raw = okhttp3.Response.Builder()
-                .request(Request.Builder().url(url).build())
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(body, raw)
+            return testHtmlResponse("<html><body></body></html>", "https://www.v2ex.com/notes/$noteId")
         }
     }
 }

@@ -4,12 +4,11 @@ import app.mystery0.nodeflow.core.model.AuthLoginResult
 import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.model.LoginChallenge
 import app.mystery0.nodeflow.core.model.TwoFactorChallenge
-import app.mystery0.nodeflow.domain.auth.AuthRepository
+import app.mystery0.nodeflow.testing.FakeAuthRepository
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -44,9 +43,18 @@ class AuthViewModelTest {
         assertThat(ready.copy(loginCompleted = true).canSubmit).isFalse()
     }
 
+    @Test fun asciiCredentialInputKeepsPrintableAsciiAndStripsOthers() {
+        assertThat(asciiCredentialInput("User_01@v2ex.com")).isEqualTo("User_01@v2ex.com")
+        assertThat(asciiCredentialInput("P@ss-word!123")).isEqualTo("P@ss-word!123")
+        assertThat(asciiCredentialInput("用户abc名")).isEqualTo("abc")
+        assertThat(asciiCredentialInput("ｆｕｌｌ宽width")).isEqualTo("width")
+        assertThat(asciiCredentialInput("emoji😀ok")).isEqualTo("emojiok")
+        assertThat(asciiCredentialInput("a b\tc\nd")).isEqualTo("abcd")
+    }
+
     @Test fun challengeRefreshIsSingleFlight() = runTest(dispatcher) {
         val gate = CompletableDeferred<Result<LoginChallenge>>()
-        val repository = FakeAuthRepository().apply { challengeResult = { gate.await() } }
+        val repository = fakeAuthRepository().apply { challengeResult = { gate.await() } }
         val viewModel = AuthViewModel(repository)
         viewModel.onEvent(AuthUiEvent.RefreshChallenge)
         viewModel.onEvent(AuthUiEvent.RefreshChallenge)
@@ -58,7 +66,7 @@ class AuthViewModelTest {
     }
 
     @Test fun refreshKeepsCredentialsAndClearsOldCaptchaBeforeLoading() = runTest(dispatcher) {
-        val repository = FakeAuthRepository()
+        val repository = fakeAuthRepository()
         val viewModel = AuthViewModel(repository)
         advanceUntilIdle()
         fillCredentials(viewModel)
@@ -73,7 +81,7 @@ class AuthViewModelTest {
 
     @Test fun rapidSubmitAndRefreshCannotDuplicateOrChangeInFlightLogin() = runTest(dispatcher) {
         val gate = CompletableDeferred<Result<AuthLoginResult>>()
-        val repository = FakeAuthRepository().apply { loginResult = { gate.await() } }
+        val repository = fakeAuthRepository().apply { loginResult = { _, _, _, _ -> gate.await() } }
         val viewModel = AuthViewModel(repository)
         advanceUntilIdle()
         fillCredentials(viewModel)
@@ -92,7 +100,9 @@ class AuthViewModelTest {
     }
 
     @Test fun enteringTwoFactorKeepsAccountContextAndDiscardsFirstStepSecrets() = runTest(dispatcher) {
-        val repository = FakeAuthRepository().apply { loginResult = { Result.success(AuthLoginResult.TwoFactorRequired(twoFactor)) } }
+        val repository = fakeAuthRepository().apply {
+            loginResult = { _, _, _, _ -> Result.success(AuthLoginResult.TwoFactorRequired(twoFactor)) }
+        }
         val viewModel = AuthViewModel(repository)
         advanceUntilIdle()
         fillCredentials(viewModel)
@@ -111,10 +121,50 @@ class AuthViewModelTest {
         assertThat(viewModel.uiState.value.twoFactorChallenge).isEqualTo(twoFactor)
     }
 
+    @Test fun backToCredentialsClearsTwoFactorAndRefreshesChallenge() = runTest(dispatcher) {
+        val repository = fakeAuthRepository().apply {
+            loginResult = { _, _, _, _ -> Result.success(AuthLoginResult.TwoFactorRequired(twoFactor)) }
+        }
+        val viewModel = AuthViewModel(repository)
+        advanceUntilIdle()
+        fillCredentials(viewModel)
+        viewModel.onEvent(AuthUiEvent.Submit)
+        advanceUntilIdle()
+        viewModel.onEvent(AuthUiEvent.TwoFactorCodeChanged("123456"))
+
+        viewModel.onEvent(AuthUiEvent.BackToCredentials)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.twoFactorChallenge).isNull()
+        assertThat(state.twoFactorCode).isEmpty()
+        assertThat(state.username).isEqualTo("reader@example.test")
+        assertThat(state.challenge).isEqualTo(challenge)
+        assertThat(repository.challengeCalls).isEqualTo(2)
+    }
+
+    @Test fun loginFailureKeepsErrorAndRefreshesCaptchaChallenge() = runTest(dispatcher) {
+        val repository = fakeAuthRepository().apply {
+            loginResult = { _, _, _, _ -> Result.failure(IllegalStateException("验证码无效")) }
+        }
+        val viewModel = AuthViewModel(repository)
+        advanceUntilIdle()
+        fillCredentials(viewModel)
+
+        viewModel.onEvent(AuthUiEvent.Submit)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.errorMessage).isEqualTo("验证码无效")
+        assertThat(state.captcha).isEmpty()
+        assertThat(state.challenge).isEqualTo(challenge)
+        assertThat(repository.challengeCalls).isEqualTo(2)
+    }
+
     @Test fun formattedCodeCanBePastedAndFailedVerificationCanBeRetried() = runTest(dispatcher) {
-        val repository = FakeAuthRepository().apply {
-            loginResult = { Result.success(AuthLoginResult.TwoFactorRequired(twoFactor)) }
-            verificationResult = Result.failure(IllegalStateException("验证码无效或已过期"))
+        val repository = fakeAuthRepository().apply {
+            loginResult = { _, _, _, _ -> Result.success(AuthLoginResult.TwoFactorRequired(twoFactor)) }
+            verifyTwoFactorResult = { _, _ -> Result.failure(IllegalStateException("验证码无效或已过期")) }
         }
         val viewModel = AuthViewModel(repository)
         advanceUntilIdle()
@@ -127,11 +177,11 @@ class AuthViewModelTest {
         viewModel.onEvent(AuthUiEvent.Submit)
         advanceUntilIdle()
         assertThat(repository.verificationCalls).isEqualTo(1)
-        assertThat(repository.lastCode).isEqualTo("123456")
+        assertThat(repository.lastVerificationCode).isEqualTo("123456")
         assertThat(viewModel.uiState.value.twoFactorChallenge).isEqualTo(twoFactor)
         assertThat(viewModel.uiState.value.errorMessage).isNotEmpty()
         assertThat(viewModel.uiState.value.canSubmit).isTrue()
-        repository.verificationResult = Result.success(AuthSession(username = "reader"))
+        repository.verifyTwoFactorResult = { _, _ -> Result.success(AuthSession(username = "reader")) }
         viewModel.onEvent(AuthUiEvent.TwoFactorCodeChanged("654321"))
         assertThat(viewModel.uiState.value.errorMessage).isNull()
         viewModel.onEvent(AuthUiEvent.Submit)
@@ -147,25 +197,9 @@ class AuthViewModelTest {
         viewModel.onEvent(AuthUiEvent.CaptchaChanged("A7K2"))
     }
 
-    private inner class FakeAuthRepository : AuthRepository {
-        override val session = MutableStateFlow(AuthSession())
-        var challengeCalls = 0
-        var loginCalls = 0
-        var verificationCalls = 0
-        var lastCode: String? = null
-        var challengeResult: suspend () -> Result<LoginChallenge> = { Result.success(challenge) }
-        var loginResult: suspend () -> Result<AuthLoginResult> = { Result.success(AuthLoginResult.Completed(AuthSession(username = "reader"))) }
-        var verificationResult: Result<AuthSession> = Result.success(AuthSession(username = "reader"))
-        override suspend fun loginChallenge(): Result<LoginChallenge> { challengeCalls++; return challengeResult() }
-        override suspend fun login(username: String, password: String, captcha: String, challenge: LoginChallenge): Result<AuthLoginResult> {
-            loginCalls++
-            return loginResult()
-        }
-        override suspend fun verifyTwoFactor(code: String, challenge: TwoFactorChallenge): Result<AuthSession> {
-            verificationCalls++
-            lastCode = code
-            return verificationResult
-        }
-        override suspend fun clearSession() = Unit
+    private fun fakeAuthRepository() = FakeAuthRepository().apply {
+        challengeResult = { Result.success(challenge) }
+        loginResult = { _, _, _, _ -> Result.success(AuthLoginResult.Completed(AuthSession(username = "reader"))) }
+        verifyTwoFactorResult = { _, _ -> Result.success(AuthSession(username = "reader")) }
     }
 }

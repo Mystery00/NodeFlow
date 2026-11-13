@@ -1,27 +1,25 @@
 package app.mystery0.nodeflow.feature.favorites
 
 import androidx.lifecycle.ViewModelStore
+import androidx.paging.LoadState
 import androidx.paging.PagingData
 import androidx.paging.AsyncPagingDataDiffer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListUpdateCallback
+import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.AuthSession
-import app.mystery0.nodeflow.core.model.AuthLoginResult
-import app.mystery0.nodeflow.core.model.LoginChallenge
-import app.mystery0.nodeflow.core.model.TwoFactorChallenge
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.User
-import app.mystery0.nodeflow.domain.auth.AuthRepository
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.topic.FavoriteTopicsRepository
 import app.mystery0.nodeflow.domain.topic.GetFavoriteTopicsPagingUseCase
+import app.mystery0.nodeflow.testing.FakeAuthRepository
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.collectLatest
@@ -45,7 +43,7 @@ class FavoriteTopicsViewModelTest {
 
     @Test
     fun changingAccountClearsVisibleTopicsAndCancelsOldGenerationBeforeNewResponse() = runTest(dispatcher) {
-        val auth = FakeAuthRepository().apply { session.value = AuthSession(username = "test-a", cookieHeader = "test-session") }
+        val auth = FakeAuthRepository(AuthSession(username = "test-a", cookieHeader = "test-session"))
         val newAccountResponse = CompletableDeferred<Unit>()
         var generation = 0
         var oldGenerationCancelled = false
@@ -81,14 +79,14 @@ class FavoriteTopicsViewModelTest {
         val job = launch { vm.topics.collectLatest { differ.submitData(it) } }
         advanceUntilIdle()
         assertThat(differ.snapshot().items.map { it.id }).containsExactly(1L)
-        auth.session.value = AuthSession(username = "test-b", cookieHeader = "test-session-b")
+        auth.sessionState.value = AuthSession(username = "test-b", cookieHeader = "test-session-b")
         advanceUntilIdle()
         assertThat(oldGenerationCancelled).isTrue()
         assertThat(differ.snapshot().items).isEmpty()
         newAccountResponse.complete(Unit)
         advanceUntilIdle()
         assertThat(differ.snapshot().items.map { it.id }).containsExactly(2L)
-        auth.session.value = AuthSession()
+        auth.sessionState.value = AuthSession()
         advanceUntilIdle()
         assertThat(differ.snapshot().items).isEmpty()
         job.cancel()
@@ -107,19 +105,19 @@ class FavoriteTopicsViewModelTest {
         val job = launch { vm.topics.collect { emissions++ } }
         advanceUntilIdle()
         assertThat(favorites.requests).isEqualTo(0)
-        auth.session.value = AuthSession(username = "test-a", cookieHeader = "test-session")
+        auth.sessionState.value = AuthSession(username = "test-a", cookieHeader = "test-session")
         advanceUntilIdle()
         assertThat(favorites.requests).isEqualTo(1)
         assertThat(vm.uiState.value.isLoggedIn).isTrue()
         val beforeLogout = emissions
-        auth.session.value = AuthSession()
+        auth.sessionState.value = AuthSession()
         advanceUntilIdle()
         assertThat(vm.uiState.value.isLoggedIn).isFalse()
         assertThat(emissions).isGreaterThan(beforeLogout)
         vm.onEvent(FavoriteTopicsUiEvent.Refresh)
         advanceUntilIdle()
         assertThat(favorites.requests).isEqualTo(1)
-        auth.session.value = AuthSession(username = "test-b", cookieHeader = "test-session-b")
+        auth.sessionState.value = AuthSession(username = "test-b", cookieHeader = "test-session-b")
         advanceUntilIdle()
         assertThat(favorites.requests).isEqualTo(2)
         job.cancel()
@@ -127,7 +125,7 @@ class FavoriteTopicsViewModelTest {
 
     @Test
     fun returningFromDetailsPreservesPagerGeneration() = runTest(dispatcher) {
-        val auth = FakeAuthRepository().apply { session.value = AuthSession(username = "tester", cookieHeader = "test-session") }
+        val auth = FakeAuthRepository(AuthSession(username = "tester", cookieHeader = "test-session"))
         val favorites = FakeFavoritesRepository()
         val vm = create(auth, favorites)
         val job = launch { vm.topics.collect { } }
@@ -144,6 +142,17 @@ class FavoriteTopicsViewModelTest {
         job.cancel()
     }
 
+    @Test
+    fun requiresLoginForSignedOutOrExpiredSessionOnAnyPage() {
+        val ready = LoadState.NotLoading(endOfPaginationReached = false)
+        val authError = LoadState.Error(NodeFlowException(NodeFlowException.Kind.Auth, "expired"))
+        assertThat(favoriteTopicsRequiresLogin(false, ready, ready)).isTrue()
+        assertThat(favoriteTopicsRequiresLogin(true, authError, ready)).isTrue()
+        assertThat(favoriteTopicsRequiresLogin(true, ready, authError)).isTrue()
+        assertThat(favoriteTopicsRequiresLogin(true, ready, ready)).isFalse()
+        assertThat(favoriteTopicsRequiresLogin(true, ready, LoadState.Error(IllegalStateException("Test error")))).isFalse()
+    }
+
     private fun create(auth: FakeAuthRepository, favorites: FakeFavoritesRepository) = FavoriteTopicsViewModel(
         ObserveAuthSessionUseCase(auth), GetFavoriteTopicsPagingUseCase(favorites),
     ).also { store.put("favorites", it) }
@@ -153,14 +162,5 @@ class FavoriteTopicsViewModelTest {
     ) : FavoriteTopicsRepository {
         var requests = 0
         override fun favoriteTopicsPaging() = pageFlow().also { requests++ }
-    }
-
-    private class FakeAuthRepository : AuthRepository {
-        override val session = MutableStateFlow(AuthSession())
-        override suspend fun loginChallenge(): Result<LoginChallenge> = error("Unused")
-        override suspend fun login(username: String, password: String, captcha: String, challenge: LoginChallenge): Result<AuthLoginResult> = error("Unused")
-        override suspend fun verifyTwoFactor(code: String, challenge: TwoFactorChallenge): Result<AuthSession> = error("Unused")
-        suspend fun setSession(session: AuthSession) { this.session.value = session }
-        override suspend fun clearSession() { session.value = AuthSession() }
     }
 }

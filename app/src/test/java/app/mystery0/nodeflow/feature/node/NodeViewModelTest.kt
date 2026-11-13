@@ -1,34 +1,22 @@
 package app.mystery0.nodeflow.feature.node
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.paging.PagingData
 import app.mystery0.nodeflow.core.common.NodeFlowException
-import app.mystery0.nodeflow.core.model.AppSettings
-import app.mystery0.nodeflow.core.model.AuthLoginResult
 import app.mystery0.nodeflow.core.model.AuthSession
-import app.mystery0.nodeflow.core.model.LoginChallenge
 import app.mystery0.nodeflow.core.model.Node
-import app.mystery0.nodeflow.core.model.NodePlane
-import app.mystery0.nodeflow.core.model.PinnedHomeNode
-import app.mystery0.nodeflow.core.model.ThemeMode
-import app.mystery0.nodeflow.core.model.Topic
-import app.mystery0.nodeflow.core.model.TwoFactorChallenge
-import app.mystery0.nodeflow.domain.auth.AuthRepository
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.node.BlockNodeUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.node.GetNodeUseCase
-import app.mystery0.nodeflow.domain.node.NodeRepository
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
-import app.mystery0.nodeflow.domain.settings.SettingsRepository
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
+import app.mystery0.nodeflow.testing.FakeAuthRepository
+import app.mystery0.nodeflow.testing.FakeNodeRepository
+import app.mystery0.nodeflow.testing.FakeSettingsRepository
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -55,20 +43,21 @@ class NodeViewModelTest {
 
     @Test
     fun authSession_updatesLoggedInState() = runTest(dispatcher) {
-        val session = MutableStateFlow(AuthSession(username = "alice", cookieHeader = "cookie"))
-        val viewModel = viewModel(session = session)
+        val auth = FakeAuthRepository(AuthSession(username = "alice", cookieHeader = "cookie"))
+        val viewModel = viewModel(auth = auth)
 
         advanceUntilIdle()
         assertThat(viewModel.uiState.value.isLoggedIn).isTrue()
 
-        session.value = AuthSession()
+        auth.sessionState.value = AuthSession()
         runCurrent()
         assertThat(viewModel.uiState.value.isLoggedIn).isFalse()
     }
 
     @Test
     fun blockNode_successPublishesLoadingAndCompletedState() = runTest(dispatcher) {
-        val repository = FakeNodeRepository()
+        val blockResult = CompletableDeferred<Result<Unit>>()
+        val repository = fakeNodeRepository(blockResult)
         val viewModel = viewModel(nodeRepository = repository)
         advanceUntilIdle()
 
@@ -78,7 +67,7 @@ class NodeViewModelTest {
         assertThat(viewModel.uiState.value.isBlockingNode).isTrue()
         assertThat(repository.blockedNames).containsExactly("android")
 
-        repository.blockResult.complete(Result.success(Unit))
+        blockResult.complete(Result.success(Unit))
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.isBlockingNode).isFalse()
@@ -90,10 +79,11 @@ class NodeViewModelTest {
 
     @Test
     fun blockNode_failurePublishesAndConsumesError() = runTest(dispatcher) {
-        val repository = FakeNodeRepository()
+        val blockResult = CompletableDeferred<Result<Unit>>()
+        val repository = fakeNodeRepository(blockResult)
         val viewModel = viewModel(nodeRepository = repository)
         advanceUntilIdle()
-        repository.blockResult.complete(
+        blockResult.complete(
             Result.failure(
                 NodeFlowException(
                     kind = NodeFlowException.Kind.Network,
@@ -114,10 +104,10 @@ class NodeViewModelTest {
 
     @Test
     fun blockNode_doesNotCallUseCaseWhenLoggedOut() = runTest(dispatcher) {
-        val repository = FakeNodeRepository()
+        val repository = fakeNodeRepository()
         val viewModel = viewModel(
             nodeRepository = repository,
-            session = MutableStateFlow(AuthSession()),
+            auth = FakeAuthRepository(AuthSession()),
         )
         advanceUntilIdle()
 
@@ -128,11 +118,21 @@ class NodeViewModelTest {
         assertThat(viewModel.uiState.value.isBlockingNode).isFalse()
     }
 
+    private fun fakeNodeRepository(blockResult: CompletableDeferred<Result<Unit>> = CompletableDeferred()) =
+        object : FakeNodeRepository() {
+            init {
+                nodeResult = { name, _ -> Result.success(Node(id = 39L, name = name, title = "Android")) }
+            }
+
+            override suspend fun blockNode(name: String): Result<Unit> {
+                blockedNames += name
+                return blockResult.await()
+            }
+        }
+
     private fun viewModel(
-        nodeRepository: FakeNodeRepository = FakeNodeRepository(),
-        session: MutableStateFlow<AuthSession> = MutableStateFlow(
-            AuthSession(username = "alice", cookieHeader = "cookie"),
-        ),
+        nodeRepository: FakeNodeRepository = fakeNodeRepository(),
+        auth: FakeAuthRepository = FakeAuthRepository(AuthSession(username = "alice", cookieHeader = "cookie")),
     ): NodeViewModel {
         val settingsRepository = FakeSettingsRepository()
         return NodeViewModel(
@@ -142,61 +142,7 @@ class NodeViewModelTest {
             observeSettings = ObserveSettingsUseCase(settingsRepository),
             updateSettings = UpdateSettingsUseCase(settingsRepository),
             blockNodeUseCase = BlockNodeUseCase(nodeRepository),
-            observeAuthSession = ObserveAuthSessionUseCase(FakeAuthRepository(session)),
+            observeAuthSession = ObserveAuthSessionUseCase(auth),
         )
-    }
-
-    private class FakeNodeRepository : NodeRepository {
-        val blockedNames = mutableListOf<String>()
-        val blockResult = CompletableDeferred<Result<Unit>>()
-
-        override suspend fun node(name: String, forceRefresh: Boolean): Result<Node> =
-            Result.success(Node(id = 39L, name = name, title = "Android"))
-
-        override suspend fun blockNode(name: String): Result<Unit> {
-            blockedNames += name
-            return blockResult.await()
-        }
-
-        override suspend fun nodePlanes(forceRefresh: Boolean): Result<List<NodePlane>> =
-            Result.success(emptyList())
-
-        override fun topicsPaging(name: String): Flow<PagingData<Topic>> =
-            flowOf(PagingData.empty())
-
-        override suspend fun clearCache() = Unit
-    }
-
-    private class FakeSettingsRepository : SettingsRepository {
-        override val settings = MutableStateFlow(AppSettings())
-        override suspend fun setThemeMode(themeMode: ThemeMode) = Unit
-        override suspend fun setDynamicColor(enabled: Boolean) = Unit
-        override suspend fun setPinnedHomeNode(node: PinnedHomeNode?) = Unit
-        override suspend fun setCustomImageHosts(hosts: List<String>) = Unit
-        override suspend fun setShowMemberTags(enabled: Boolean) = Unit
-        override suspend fun setNotificationReminder(enabled: Boolean) = Unit
-        override suspend fun clearCache() = Unit
-    }
-
-    private class FakeAuthRepository(
-        override val session: Flow<AuthSession>,
-    ) : AuthRepository {
-        override suspend fun loginChallenge(): Result<LoginChallenge> =
-            Result.failure(AssertionError("Unexpected login challenge"))
-
-        override suspend fun login(
-            username: String,
-            password: String,
-            captcha: String,
-            challenge: LoginChallenge,
-        ): Result<AuthLoginResult> = Result.failure(AssertionError("Unexpected login"))
-
-        override suspend fun verifyTwoFactor(
-            code: String,
-            challenge: TwoFactorChallenge,
-        ): Result<AuthSession> = Result.failure(AssertionError("Unexpected verification"))
-
-        suspend fun setSession(session: AuthSession) = Unit
-        override suspend fun clearSession() = Unit
     }
 }

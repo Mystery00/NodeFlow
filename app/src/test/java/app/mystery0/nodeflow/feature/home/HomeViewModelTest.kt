@@ -3,21 +3,18 @@ package app.mystery0.nodeflow.feature.home
 import androidx.paging.PagingData
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.core.model.Node
-import app.mystery0.nodeflow.core.model.NodePlane
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
-import app.mystery0.nodeflow.core.model.ThemeMode
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.domain.node.GetNodeTopicsPagingUseCase
-import app.mystery0.nodeflow.domain.node.NodeRepository
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
-import app.mystery0.nodeflow.domain.settings.SettingsRepository
 import app.mystery0.nodeflow.domain.topic.GetLatestTopicsPagingUseCase
 import app.mystery0.nodeflow.domain.topic.TopicRepository
+import app.mystery0.nodeflow.testing.FakeNodeRepository
+import app.mystery0.nodeflow.testing.FakeSettingsRepository
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -47,7 +44,11 @@ class HomeViewModelTest {
     fun topics_usesPinnedNodePagingWhenHomeNodeIsPinned() = runTest(testDispatcher) {
         val settingsRepository = FakeSettingsRepository()
         val topicRepository = FakeTopicRepository()
-        val nodeRepository = FakeNodeRepository()
+        val pagingNodeNames = mutableListOf<String>()
+        val nodeRepository = FakeNodeRepository().apply {
+            nodeResult = { name, _ -> Result.success(Node(name = name, title = name)) }
+            pagingFactory = { name -> pagingNodeNames += name; flowOf(PagingData.empty()) }
+        }
         val viewModel = HomeViewModel(
             getLatestTopicsPaging = GetLatestTopicsPagingUseCase(topicRepository),
             getNodeTopicsPaging = GetNodeTopicsPagingUseCase(nodeRepository),
@@ -61,7 +62,7 @@ class HomeViewModelTest {
         }
 
         advanceUntilIdle()
-        settingsRepository.settingsFlow.value = AppSettings(
+        settingsRepository.settingsState.value = AppSettings(
             pinnedHomeNode = PinnedHomeNode(
                 name = "android",
                 title = "Android",
@@ -71,39 +72,11 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         assertThat(topicRepository.latestPagingCalls).isEqualTo(1)
-        assertThat(nodeRepository.pagingNodeNames).containsExactly("android")
+        assertThat(pagingNodeNames).containsExactly("android")
         assertThat(viewModel.uiState.value.title).isEqualTo("Android")
 
         topicsJob.cancel()
         stateJob.cancel()
-    }
-
-    private class FakeSettingsRepository : SettingsRepository {
-        val settingsFlow = MutableStateFlow(AppSettings())
-
-        override val settings: Flow<AppSettings> = settingsFlow
-
-        override suspend fun setThemeMode(themeMode: ThemeMode) = Unit
-
-        override suspend fun setDynamicColor(enabled: Boolean) = Unit
-
-        override suspend fun setPinnedHomeNode(node: PinnedHomeNode?) {
-            settingsFlow.value = settingsFlow.value.copy(pinnedHomeNode = node)
-        }
-
-        override suspend fun setCustomImageHosts(hosts: List<String>) {
-            settingsFlow.value = settingsFlow.value.copy(customImageHosts = hosts)
-        }
-
-        override suspend fun setShowMemberTags(enabled: Boolean) {
-            settingsFlow.value = settingsFlow.value.copy(showMemberTags = enabled)
-        }
-
-        override suspend fun setNotificationReminder(enabled: Boolean) {
-            settingsFlow.value = settingsFlow.value.copy(notificationReminder = enabled)
-        }
-
-        override suspend fun clearCache() = Unit
     }
 
     private class FakeTopicRepository : TopicRepository {
@@ -116,25 +89,6 @@ class HomeViewModelTest {
 
         override fun topicDetailPager(topicId: Long): app.mystery0.nodeflow.domain.topic.TopicDetailPager =
             error("不应在首页测试中创建主题详情分页器")
-
-        override suspend fun clearCache() = Unit
-    }
-
-    private class FakeNodeRepository : NodeRepository {
-        val pagingNodeNames = mutableListOf<String>()
-
-        override suspend fun nodePlanes(forceRefresh: Boolean): Result<List<NodePlane>> =
-            Result.success(emptyList())
-
-        override suspend fun node(name: String, forceRefresh: Boolean): Result<Node> =
-            Result.success(Node(name = name, title = name))
-
-        override fun topicsPaging(name: String): Flow<PagingData<Topic>> {
-            pagingNodeNames += name
-            return flowOf(PagingData.empty())
-        }
-
-        override suspend fun blockNode(name: String): Result<Unit> = Result.success(Unit)
 
         override suspend fun clearCache() = Unit
     }

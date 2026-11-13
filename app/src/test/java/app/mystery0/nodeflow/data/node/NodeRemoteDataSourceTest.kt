@@ -2,9 +2,12 @@ package app.mystery0.nodeflow.data.node
 
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.network.V2EX_ACCESS_DENIED_MESSAGE
-import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.network.V2exWriteApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.testing.TestV2exRawApi
+import app.mystery0.nodeflow.testing.emptyHtmlResponse
+import app.mystery0.nodeflow.testing.testHtmlResponse
+import app.mystery0.nodeflow.testing.testJsonResponse
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -351,103 +354,19 @@ class NodeRemoteDataSourceTest {
         private val nodeJson: String = "{}",
         private val nodeHtml: String = "",
         private val nodeTopicsFinalUrl: String? = null,
-    ) : V2exRawApi {
+    ) : TestV2exRawApi(fallback = { emptyHtmlResponse() }) {
         val nodeTopicsHtmlRequests = mutableListOf<NodeTopicsHtmlRequest>()
 
-        override suspend fun topic(id: Long): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun replies(topicId: Long): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun node(name: String): Response<ResponseBody> =
-            Response.success(nodeJson.toResponseBody("application/json".toMediaType()))
-
-        override suspend fun member(username: String): Response<ResponseBody> = htmlResponse("")
+        override suspend fun node(name: String): Response<ResponseBody> = testJsonResponse(nodeJson)
 
         override suspend fun nodeTopicsHtml(nodeName: String, page: Int?): Response<ResponseBody> {
             nodeTopicsHtmlRequests += NodeTopicsHtmlRequest(nodeName, page)
             val defaultUrl = "https://www.v2ex.com/go/$nodeName" +
                 page?.let { "?p=$it" }.orEmpty()
-            return htmlResponse(
+            return testHtmlResponse(
                 html = nodeHtml,
                 finalUrl = nodeTopicsFinalUrl ?: defaultUrl,
             )
-        }
-
-        override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
-
-        override suspend fun allTopicsHtml(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun planesHtml(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun memberHtml(username: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun signInPage(next: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun captcha(cacheBust: Long, referer: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun signIn(
-            fields: Map<String, String>,
-            origin: String,
-            referer: String,
-        ): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun signInTwoFactor(
-            next: String,
-            fields: Map<String, String>,
-            referer: String,
-        ): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun home(userAgent: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun dailyMission(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun redeemDailyMission(once: String, referer: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun balance(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun notifications(page: Int): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun notesHtml(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun noteEditSubmit(id: Long, content: String, syntax: String): Response<ResponseBody> =
-            htmlResponse("")
-
-        override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> =
-            htmlResponse("")
-
-        override suspend fun favoriteTopic(
-            topicId: Long,
-            once: String,
-            referer: String
-        ): Response<ResponseBody> =
-            htmlResponse("")
-
-        override suspend fun unfavoriteTopic(
-            topicId: Long,
-            once: String,
-            referer: String
-        ): Response<ResponseBody> =
-            htmlResponse("")
-
-        private fun htmlResponse(
-            html: String,
-            finalUrl: String? = null,
-        ): Response<ResponseBody> {
-            val body = html.toResponseBody("text/html".toMediaType())
-            if (finalUrl == null) return Response.success(body)
-            val rawResponse = OkHttpResponse.Builder()
-                .request(Request.Builder().url(finalUrl).build())
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(body, rawResponse)
         }
     }
 

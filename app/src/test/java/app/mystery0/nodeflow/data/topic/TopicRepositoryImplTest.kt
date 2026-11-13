@@ -2,13 +2,14 @@ package app.mystery0.nodeflow.data.topic
 
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.database.dao.TopicDao
-import app.mystery0.nodeflow.core.database.entity.TopicEntity
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.testing.FakeTopicDao
+import app.mystery0.nodeflow.testing.TestV2exRawApi
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -443,111 +444,9 @@ class TopicRepositoryImplTest {
         replyCount = replyCount,
     )
 
-    private class FakeTopicDao(
-        private val clearTopicDetailFailure: Throwable? = null,
-    ) : TopicDao {
-        private val topics = mutableMapOf<Long, TopicEntity>()
-
-        override suspend fun topic(id: Long): TopicEntity? = topics[id]
-
-        override suspend fun upsertTopics(topics: List<TopicEntity>) {
-            topics.forEach { this.topics[it.id] = it }
-        }
-
-        override suspend fun upsertTopic(topic: TopicEntity) {
-            topics[topic.id] = topic
-        }
-
-        override suspend fun clearTopicDetail(topicId: Long) {
-            clearTopicDetailFailure?.let { throw it }
-            topics[topicId]?.let { topic ->
-                topics[topicId] = topic.copy(
-                    content = null,
-                    contentRendered = null,
-                )
-            }
-        }
-
-        override suspend fun clear() {
-            topics.clear()
-        }
-    }
-
-    private open class FailingV2exRawApi : V2exRawApi {
-        private fun failure(): Response<ResponseBody> =
-            Response.error(500, "".toResponseBody("text/plain".toMediaType()))
-
-        override suspend fun topic(id: Long): Response<ResponseBody> = failure()
-
-        override suspend fun replies(topicId: Long): Response<ResponseBody> = failure()
-
-        override suspend fun node(name: String): Response<ResponseBody> = failure()
-
-        override suspend fun member(username: String): Response<ResponseBody> = failure()
-
-        override suspend fun nodeTopicsHtml(nodeName: String, page: Int?): Response<ResponseBody> = failure()
-
-        override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> = failure()
-
-        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
-
-        override suspend fun allTopicsHtml(): Response<ResponseBody> = failure()
-
-        override suspend fun planesHtml(): Response<ResponseBody> = failure()
-
-        override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> = failure()
-
-        override suspend fun memberHtml(username: String): Response<ResponseBody> = failure()
-
-        override suspend fun signInPage(next: String): Response<ResponseBody> = failure()
-
-        override suspend fun captcha(cacheBust: Long, referer: String): Response<ResponseBody> = failure()
-
-        override suspend fun signIn(
-            fields: Map<String, String>,
-            origin: String,
-            referer: String,
-        ): Response<ResponseBody> = failure()
-
-        override suspend fun signInTwoFactor(
-            next: String,
-            fields: Map<String, String>,
-            referer: String,
-        ): Response<ResponseBody> = failure()
-
-        override suspend fun home(userAgent: String): Response<ResponseBody> = failure()
-
-        override suspend fun dailyMission(): Response<ResponseBody> = failure()
-
-        override suspend fun redeemDailyMission(once: String, referer: String): Response<ResponseBody> = failure()
-
-        override suspend fun balance(): Response<ResponseBody> = failure()
-
-        override suspend fun notifications(page: Int): Response<ResponseBody> = failure()
-
-        override suspend fun notesHtml(): Response<ResponseBody> = failure()
-
-        override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = failure()
-
-        override suspend fun noteEditSubmit(id: Long, content: String, syntax: String): Response<ResponseBody> =
-            failure()
-
-        override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> = failure()
-
-        override suspend fun favoriteTopic(
-            topicId: Long,
-            once: String,
-            referer: String
-        ): Response<ResponseBody> =
-            failure()
-
-        override suspend fun unfavoriteTopic(
-            topicId: Long,
-            once: String,
-            referer: String
-        ): Response<ResponseBody> =
-            failure()
-    }
+    private open class FailingV2exRawApi : TestV2exRawApi(
+        fallback = { Response.error(500, "".toResponseBody("text/plain".toMediaType())) },
+    )
 
     private class AccessDeniedV2exRawApi : FailingV2exRawApi() {
         var topicHtmlCalls: Int = 0

@@ -1,12 +1,11 @@
 package app.mystery0.nodeflow.data.topic
 
-import app.mystery0.nodeflow.core.database.dao.TopicDao
-import app.mystery0.nodeflow.core.database.entity.TopicEntity
 import app.mystery0.nodeflow.core.database.entity.toEntity
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.model.User
+import app.mystery0.nodeflow.testing.FakeTopicDao
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -27,8 +26,8 @@ class TopicLocalDataSourceTest {
 
         dataSource.cacheTopicDetail(detail)
 
-        assertThat(dao.current?.isPinned).isTrue()
-        assertThat(dao.current?.contentRendered).isEqualTo("<p>正文</p>")
+        assertThat(dao.topic(42L)?.isPinned).isTrue()
+        assertThat(dao.topic(42L)?.contentRendered).isEqualTo("<p>正文</p>")
     }
 
     @Test
@@ -46,8 +45,8 @@ class TopicLocalDataSourceTest {
 
         dataSource.cacheTopicDetail(detail)
 
-        assertThat(dao.current?.votes).isEqualTo(4)
-        assertThat(dao.current?.contentRendered).isEqualTo("<p>正文</p>")
+        assertThat(dao.topic(42L)?.votes).isEqualTo(4)
+        assertThat(dao.topic(42L)?.contentRendered).isEqualTo("<p>正文</p>")
     }
 
     private fun topic(
@@ -62,26 +61,4 @@ class TopicLocalDataSourceTest {
         isPinned = isPinned,
         votes = votes,
     )
-
-    private class FakeTopicDao(initial: TopicEntity) : TopicDao {
-        var current: TopicEntity? = initial
-
-        override suspend fun topic(id: Long): TopicEntity? = current?.takeIf { it.id == id }
-
-        override suspend fun upsertTopics(topics: List<TopicEntity>) {
-            current = topics.firstOrNull()
-        }
-
-        override suspend fun upsertTopic(topic: TopicEntity) {
-            current = topic
-        }
-
-        override suspend fun clearTopicDetail(topicId: Long) {
-            current = current?.copy(content = null, contentRendered = null)
-        }
-
-        override suspend fun clear() {
-            current = null
-        }
-    }
 }

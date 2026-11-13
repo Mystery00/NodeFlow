@@ -4,10 +4,7 @@ import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.model.AccountOverview
 import app.mystery0.nodeflow.core.model.DailyCheckIn
 import app.mystery0.nodeflow.core.model.DailyCheckInResult
-import app.mystery0.nodeflow.core.model.AuthLoginResult
 import app.mystery0.nodeflow.core.model.AuthSession
-import app.mystery0.nodeflow.core.model.LoginChallenge
-import app.mystery0.nodeflow.core.model.TwoFactorChallenge
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.model.UserRecentActivity
 import app.mystery0.nodeflow.domain.account.AccountOverviewRepository
@@ -19,7 +16,10 @@ import app.mystery0.nodeflow.domain.notification.ObserveUnreadNotificationCountU
 import app.mystery0.nodeflow.domain.notification.UnreadNotificationRepository
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
 import app.mystery0.nodeflow.domain.user.UserRepository
+import app.mystery0.nodeflow.testing.FakeAuthRepository
 import com.google.common.truth.Truth.assertThat
+import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -147,9 +147,46 @@ class AccountViewModelTest {
 
         assertThat(vm.uiState.value.user).isNull()
         assertThat(vm.uiState.value.overview).isNull()
+        assertThat(vm.uiState.value.isLoading).isTrue()
         release.complete(Unit)
         advanceUntilIdle()
         assertThat(vm.uiState.value.user?.username).isEqualTo("second")
+        assertThat(vm.uiState.value.isLoading).isFalse()
+    }
+
+    @Test
+    fun loggingInSynchronouslySetsLoadingUntilOverviewCompletes() = runTest(testDispatcher) {
+        val release = CompletableDeferred<Unit>()
+        val repository = object : AccountOverviewRepository {
+            override suspend fun overview(): Result<AccountOverview> {
+                release.await()
+                return Result.success(AccountOverview(unreadNotificationCount = 0))
+            }
+            override suspend fun checkIn(): Result<DailyCheckInResult> = error("不应签到")
+        }
+        val auth = FakeAuthRepository(AuthSession())
+        val vm = createViewModel(auth, repository)
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.isLoggedIn).isFalse()
+        assertThat(vm.uiState.value.isLoading).isFalse()
+
+        auth.setSession(AuthSession(username = "reader", cookieHeader = "test-cookie"))
+        testDispatcher.scheduler.runCurrent()
+
+        assertThat(vm.uiState.value.isLoggedIn).isTrue()
+        assertThat(vm.uiState.value.isLoading).isTrue()
+        release.complete(Unit)
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.isLoading).isFalse()
+        assertThat(vm.uiState.value.overview?.unreadNotificationCount).isEqualTo(0)
+    }
+
+    @Test
+    fun formatAccountJoinDate_usesLocalCalendarDateAndIgnoresMissing() {
+        val timestamp = Instant.parse("2020-06-01T16:30:00Z").epochSecond
+        assertThat(formatAccountJoinDate(timestamp, ZoneId.of("Asia/Shanghai"))).isEqualTo("2020-06-02")
+        assertThat(formatAccountJoinDate(null)).isNull()
+        assertThat(formatAccountJoinDate(0)).isNull()
     }
 
     @Test
@@ -336,40 +373,6 @@ class AccountViewModelTest {
         authRepository = authRepository,
         observeUnreadCount = unreadUseCase(),
     )
-
-    private class FakeAuthRepository(
-        initialSession: AuthSession,
-    ) : AuthRepository {
-        private val sessionFlow = MutableStateFlow(initialSession)
-        var clearSessionCalls = 0
-            private set
-
-        override val session: Flow<AuthSession> = sessionFlow
-
-        override suspend fun loginChallenge(): Result<LoginChallenge> =
-            error("不应在个人页加载测试中请求登录表单")
-
-        override suspend fun login(
-            username: String,
-            password: String,
-            captcha: String,
-            challenge: LoginChallenge,
-        ): Result<AuthLoginResult> = error("不应在个人页加载测试中登录")
-
-        override suspend fun verifyTwoFactor(
-            code: String,
-            challenge: TwoFactorChallenge,
-        ): Result<AuthSession> = error("不应在个人页加载测试中校验两步验证码")
-
-        suspend fun setSession(session: AuthSession) {
-            sessionFlow.value = session
-        }
-
-        override suspend fun clearSession() {
-            clearSessionCalls += 1
-            sessionFlow.value = AuthSession()
-        }
-    }
 
     private class FakeUserRepository : UserRepository {
         override suspend fun user(username: String, forceRefresh: Boolean): Result<User> =

@@ -5,8 +5,10 @@ import app.mystery0.nodeflow.core.model.AuthLoginResult
 import app.mystery0.nodeflow.core.model.LoginChallenge
 import app.mystery0.nodeflow.core.model.TwoFactorChallenge
 import app.mystery0.nodeflow.core.network.V2exCookieJar
-import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.testing.TestV2exRawApi
+import app.mystery0.nodeflow.testing.emptyHtmlResponse
+import app.mystery0.nodeflow.testing.testHtmlResponse
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import okhttp3.Cookie
@@ -274,37 +276,15 @@ class WebAuthRemoteDataSourceTest {
         private val signInResponseHtml: String = "",
         private val twoFactorResponseHtml: String = "",
         private val homeHtml: String = "",
-    ) : V2exRawApi {
+    ) : TestV2exRawApi(fallback = { emptyHtmlResponse() }) {
         var lastSignInPageNext: String? = null
         var lastSignInFields: Map<String, String> = emptyMap()
         var lastTwoFactorFields: Map<String, String> = emptyMap()
         var homeRequestCount: Int = 0
 
-        override suspend fun topic(id: Long): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun replies(topicId: Long): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun node(name: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun member(username: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun nodeTopicsHtml(nodeName: String, page: Int?): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
-
-        override suspend fun allTopicsHtml(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun planesHtml(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun memberHtml(username: String): Response<ResponseBody> = htmlResponse("")
-
         override suspend fun signInPage(next: String): Response<ResponseBody> {
             lastSignInPageNext = next
-            return htmlResponse(signInPageHtml)
+            return testHtmlResponse(signInPageHtml)
         }
 
         override suspend fun captcha(cacheBust: Long, referer: String): Response<ResponseBody> =
@@ -316,45 +296,13 @@ class WebAuthRemoteDataSourceTest {
             referer: String,
         ): Response<ResponseBody> {
             lastSignInFields = fields
-            return htmlResponse(signInResponseHtml)
+            return testHtmlResponse(signInResponseHtml)
         }
 
         override suspend fun home(userAgent: String): Response<ResponseBody> {
             homeRequestCount += 1
-            return htmlResponse(homeHtml)
+            return testHtmlResponse(homeHtml)
         }
-
-        override suspend fun dailyMission(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun redeemDailyMission(once: String, referer: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun balance(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun notifications(page: Int): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun notesHtml(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun noteEditSubmit(id: Long, content: String, syntax: String): Response<ResponseBody> =
-            htmlResponse("")
-
-        override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> =
-            htmlResponse("")
-
-        override suspend fun favoriteTopic(
-            topicId: Long,
-            once: String,
-            referer: String
-        ): Response<ResponseBody> =
-            htmlResponse("")
-
-        override suspend fun unfavoriteTopic(
-            topicId: Long,
-            once: String,
-            referer: String
-        ): Response<ResponseBody> =
-            htmlResponse("")
 
         override suspend fun signInTwoFactor(
             next: String,
@@ -362,10 +310,7 @@ class WebAuthRemoteDataSourceTest {
             referer: String,
         ): Response<ResponseBody> {
             lastTwoFactorFields = fields
-            return htmlResponse(twoFactorResponseHtml)
+            return testHtmlResponse(twoFactorResponseHtml)
         }
-
-        private fun htmlResponse(html: String): Response<ResponseBody> =
-            Response.success(html.toResponseBody("text/html".toMediaType()))
     }
 }

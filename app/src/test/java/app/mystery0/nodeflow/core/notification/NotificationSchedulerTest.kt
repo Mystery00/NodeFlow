@@ -2,7 +2,7 @@ package app.mystery0.nodeflow.core.notification
 
 import app.mystery0.nodeflow.core.security.EncryptedKeyValueStore
 import app.mystery0.nodeflow.core.security.SecretCipher
-import app.mystery0.nodeflow.core.security.StringKeyValueStorage
+import app.mystery0.nodeflow.testing.FakeStringKeyValueStorage
 import androidx.work.NetworkType
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.Executors
@@ -20,7 +20,7 @@ class NotificationSchedulerTest {
 
     @Test
     fun clearBaselineRemovesEncryptedReminderValue() = runTest {
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         val encryptedStorage = EncryptedKeyValueStore(storage, FakeCipher)
         encryptedStorage.write(NotificationReminderChecker.LAST_UNREAD_COUNT_KEY, "3")
 
@@ -35,7 +35,7 @@ class NotificationSchedulerTest {
             Thread(runnable, "notification-storage-io")
         }
         val dispatcher = executor.asCoroutineDispatcher()
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         val encryptedStorage = EncryptedKeyValueStore(storage, FakeCipher)
         encryptedStorage.write(NotificationReminderChecker.LAST_UNREAD_COUNT_KEY, "3")
         try {
@@ -45,22 +45,6 @@ class NotificationSchedulerTest {
         } finally {
             dispatcher.close()
             executor.shutdownNow()
-        }
-    }
-
-    private class FakeStorage : StringKeyValueStorage {
-        val values = mutableMapOf<String, String>()
-        var lastMutationThread: String? = null
-            private set
-
-        override fun read(key: String): String? = values[key]
-        override fun write(key: String, value: String) {
-            lastMutationThread = Thread.currentThread().name
-            values[key] = value
-        }
-        override fun remove(key: String) {
-            lastMutationThread = Thread.currentThread().name
-            values.remove(key)
         }
     }
 

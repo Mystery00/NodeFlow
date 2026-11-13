@@ -1,11 +1,9 @@
 package app.mystery0.nodeflow.feature.replyeditor
 
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.SavedStateHandle
-import app.mystery0.nodeflow.core.model.AuthLoginResult
 import app.mystery0.nodeflow.core.model.AuthSession
-import app.mystery0.nodeflow.core.model.LoginChallenge
-import app.mystery0.nodeflow.core.model.TwoFactorChallenge
 import app.mystery0.nodeflow.domain.auth.AuthRepository
 import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.reply.AddReplyDraftImageUseCase
@@ -27,10 +25,10 @@ import app.mystery0.nodeflow.domain.reply.UploadedReplyImage
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.SettingsRepository
 import app.mystery0.nodeflow.core.model.AppSettings
-import app.mystery0.nodeflow.core.model.PinnedHomeNode
-import app.mystery0.nodeflow.core.model.ThemeMode
 import app.mystery0.nodeflow.imagehosting.contract.*
 import app.mystery0.nodeflow.imagehosting.registry.DefaultImageHostRegistry
+import app.mystery0.nodeflow.testing.FakeAuthRepository
+import app.mystery0.nodeflow.testing.FakeSettingsRepository
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -159,7 +157,7 @@ class ReplyEditorViewModelTest {
     fun imageSelected_forDisabledProvider_doesNotRequestLoginBeforeUpload() = runTest(dispatcher) {
         val uploads = mutableListOf<ImageHostId>()
         val viewModel = viewModel(
-            authRepository = FakeAuthRepository(authSession = AuthSession()),
+            authRepository = FakeAuthRepository(AuthSession()),
             settings = AppSettings(replyImageHost = "imgur"),
             imageRegistry = registry("imgur", enabled = false),
             imageRepository = object : ImageUploadRepository {
@@ -247,7 +245,7 @@ class ReplyEditorViewModelTest {
         advanceUntilIdle()
         viewModel.onEvent(ReplyEditorUiEvent.ImageSelected("content://image"))
         advanceUntilIdle()
-        settingsRepository.settings.value = AppSettings(replyImageHost = "v2ex")
+        settingsRepository.settingsState.value = AppSettings(replyImageHost = "v2ex")
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.recoveryAction).isEqualTo(RecoveryAction.None)
@@ -310,7 +308,7 @@ class ReplyEditorViewModelTest {
         advanceUntilIdle()
         viewModel.onEvent(ReplyEditorUiEvent.ImageSelected("content://image"))
         runCurrent()
-        settingsRepository.settings.value = AppSettings(replyImageHost = "imgur")
+        settingsRepository.settingsState.value = AppSettings(replyImageHost = "imgur")
 
         assertThat(viewModel.uiState.value.currentImageHostId).isEqualTo("v2ex")
         gate.complete(ImageUploadResult.Failure(ImageUploadFailureReason.Network, "网络错误"))
@@ -358,11 +356,23 @@ class ReplyEditorViewModelTest {
         assertThat(viewModel.uiState.value.isUploading).isFalse()
     }
 
+    @Test
+    fun insertHelpers_keepCursorAndIsolateImageUrl() {
+        val initial = TextFieldValue("前后", TextRange(1))
+        val inserted = insertFloorReference(initial, "alice", 7)
+        assertThat(inserted.text).isEqualTo("前@alice #7 后")
+        assertThat(inserted.selection.start).isEqualTo("前@alice #7 ".length)
+        assertThat(insertFloorReference(inserted, "alice", 7)).isEqualTo(inserted)
+
+        val urlResult = insertImageUrl(TextFieldValue("前后", TextRange(1)), "https://i.v2ex.co/image.png")
+        assertThat(urlResult.text).isEqualTo("前\nhttps://i.v2ex.co/image.png\n后")
+    }
+
     private fun viewModel(
         drafts: FakeDraftRepository = FakeDraftRepository(),
         replyRepository: FakeReplyRepository = FakeReplyRepository(),
         imageRepository: ImageUploadRepository? = null,
-        authRepository: AuthRepository = FakeAuthRepository(),
+        authRepository: AuthRepository = FakeAuthRepository(AuthSession(username = "tester")),
         settings: AppSettings = AppSettings(),
         settingsRepository: SettingsRepository = FakeSettingsRepository(settings),
         imageRegistry: DefaultImageHostRegistry = registry("v2ex"),
@@ -436,30 +446,5 @@ class ReplyEditorViewModelTest {
             if (throwOnClear) error("clear failed")
             clearCalls += 1
         }
-    }
-
-    private class FakeSettingsRepository(
-        settings: AppSettings,
-    ) : SettingsRepository {
-        override val settings = kotlinx.coroutines.flow.MutableStateFlow(settings)
-        override suspend fun setThemeMode(themeMode: ThemeMode) = Unit
-        override suspend fun setDynamicColor(enabled: Boolean) = Unit
-        override suspend fun setPinnedHomeNode(node: PinnedHomeNode?) = Unit
-        override suspend fun setCustomImageHosts(hosts: List<String>) = Unit
-        override suspend fun setReplyImageHost(hostId: String) = Unit
-        override suspend fun setShowMemberTags(enabled: Boolean) = Unit
-        override suspend fun setNotificationReminder(enabled: Boolean) = Unit
-        override suspend fun clearCache() = Unit
-    }
-
-    private class FakeAuthRepository(
-        private val authSession: AuthSession = AuthSession(username = "tester"),
-    ) : AuthRepository {
-        override val session: Flow<AuthSession> = flowOf(authSession)
-        override suspend fun loginChallenge(): Result<LoginChallenge> = error("unused")
-        override suspend fun login(username: String, password: String, captcha: String, challenge: LoginChallenge): Result<AuthLoginResult> = error("unused")
-        override suspend fun verifyTwoFactor(code: String, challenge: TwoFactorChallenge): Result<AuthSession> = error("unused")
-        suspend fun setSession(session: AuthSession) = Unit
-        override suspend fun clearSession() = Unit
     }
 }

@@ -4,6 +4,7 @@ import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.core.security.EncryptedKeyValueStore
 import app.mystery0.nodeflow.core.security.SecretCipher
 import app.mystery0.nodeflow.core.security.StringKeyValueStorage
+import app.mystery0.nodeflow.testing.FakeStringKeyValueStorage
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -18,7 +19,7 @@ import java.util.concurrent.TimeUnit
 class SessionStoreTest {
     @Test
     fun save_persistsCompleteSessionForANewInstanceWithoutPlaintext() = runTest {
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         val encryptedStore = EncryptedKeyValueStore(storage, FakeCipher)
         val session = AuthSession(
             personalAccessToken = "pat-secret",
@@ -36,7 +37,7 @@ class SessionStoreTest {
 
     @Test
     fun clear_removesStoredSessionAndPublishesEmptySessionImmediately() = runTest {
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         val encryptedStore = EncryptedKeyValueStore(storage, FakeCipher)
         val store = SessionStore(encryptedStore)
         store.save(AuthSession(username = "alice"))
@@ -84,7 +85,7 @@ class SessionStoreTest {
 
     @Test
     fun fatalRestoreErrorIsPropagated() {
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         storage.values["auth_session"] = "payload"
 
         val error = runCatching {
@@ -109,7 +110,7 @@ class SessionStoreTest {
 
     @Test
     fun corruptedPayload_isRemovedAndTreatedAsLoggedOut() = runTest {
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         storage.values["auth_session"] = "corrupted"
 
         val store = SessionStore(EncryptedKeyValueStore(storage, FakeCipher))
@@ -148,18 +149,6 @@ class SessionStoreTest {
         }
         override fun remove(key: String) {
             check(!failRemove) { "remove failed" }
-            values.remove(key)
-        }
-    }
-
-    private class FakeStorage : StringKeyValueStorage {
-        val values = mutableMapOf<String, String>()
-
-        override fun read(key: String): String? = values[key]
-        override fun write(key: String, value: String) {
-            values[key] = value
-        }
-        override fun remove(key: String) {
             values.remove(key)
         }
     }

@@ -1,5 +1,9 @@
 package app.mystery0.nodeflow.feature.auth
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.view.WindowInsets
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.height
@@ -28,8 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.test.filters.SdkSuppress
 import app.mystery0.nodeflow.core.designsystem.theme.NodeFlowTheme
 import app.mystery0.nodeflow.core.model.AppSettings
+import app.mystery0.nodeflow.core.model.LoginChallenge
 import app.mystery0.nodeflow.core.model.TwoFactorChallenge
 import com.google.common.truth.Truth.assertThat
+import java.io.ByteArrayOutputStream
 import org.junit.Rule
 import org.junit.Test
 
@@ -104,13 +110,14 @@ class AuthScreenTest {
         rule.onNodeWithText("重新获取登录验证码").assertDoesNotExist()
         rule.onNodeWithContentDescription("换一张验证码").assertDoesNotExist()
         field("两步验证码").performImeAction()
-        rule.runOnIdle { assertThat(events).containsExactly(AuthUiEvent.Submit) }
+        rule.onNodeWithText("切换账号").performClick()
+        rule.runOnIdle { assertThat(events).containsExactly(AuthUiEvent.Submit, AuthUiEvent.BackToCredentials).inOrder() }
     }
 
     @Test fun failedCaptchaCanRetryWithoutSubmittingCredentials() {
         val events = mutableListOf<AuthUiEvent>()
         rule.setContent { NodeFlowTheme(AppSettings()) { AuthScreen(AuthUiState(), events::add, {}, {}) } }
-        rule.onNodeWithText("验证码图片加载失败").assertIsDisplayed()
+        rule.onNodeWithText("点击重试").assertIsDisplayed()
         rule.onNode(hasText("登录") and hasClickAction()).assertIsNotEnabled()
         rule.onNodeWithContentDescription("换一张验证码").performClick()
         rule.runOnIdle { assertThat(events).containsExactly(AuthUiEvent.RefreshChallenge) }
@@ -120,4 +127,17 @@ class AuthScreenTest {
     private fun readyLogin() = AuthUiState(
         challenge = sampleLoginChallenge(), username = "reader@example.test", password = "sample-password", captcha = "A7K2",
     )
+
+    private fun sampleLoginChallenge(): LoginChallenge {
+        val bitmap = Bitmap.createBitmap(280, 80, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        canvas.drawText("A7K2", 64f, 58f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.DKGRAY; textSize = 52f })
+        val bytes = ByteArrayOutputStream().use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            stream.toByteArray()
+        }
+        bitmap.recycle()
+        return LoginChallenge("username", "password", "captcha", "test-only", "/mission/daily", "/_captcha", bytes)
+    }
 }

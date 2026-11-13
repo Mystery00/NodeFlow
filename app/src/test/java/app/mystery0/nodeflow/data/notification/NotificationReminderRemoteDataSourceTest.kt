@@ -3,6 +3,8 @@ package app.mystery0.nodeflow.data.notification
 import app.mystery0.nodeflow.core.common.NodeFlowException
 import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.testing.TestV2exRawApi
+import app.mystery0.nodeflow.testing.emptyHtmlResponse
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
@@ -168,7 +170,7 @@ class NotificationReminderRemoteDataSourceTest {
         private val html: String,
         private val url: String = "https://www.v2ex.com/",
         private val code: Int = 200,
-    ) : V2exRawApi {
+    ) : TestV2exRawApi(fallback = { emptyHtmlResponse() }) {
         override suspend fun home(userAgent: String): Response<ResponseBody> {
             val raw = okhttp3.Response.Builder()
                 .request(Request.Builder().url(url).build())
@@ -182,33 +184,5 @@ class NotificationReminderRemoteDataSourceTest {
                 Response.error(html.toResponseBody("text/html".toMediaType()), raw)
             }
         }
-
-        private fun empty() = Response.success("".toResponseBody())
-        override suspend fun topic(id: Long) = empty()
-        override suspend fun replies(topicId: Long) = empty()
-        override suspend fun node(name: String) = empty()
-        override suspend fun member(username: String) = empty()
-        override suspend fun nodeTopicsHtml(nodeName: String, page: Int?) = empty()
-        override suspend fun recentTopicsHtml(page: Int?) = empty()
-        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
-
-        override suspend fun allTopicsHtml() = empty()
-        override suspend fun planesHtml() = empty()
-        override suspend fun topicHtml(topicId: Long, page: Int?) = empty()
-        override suspend fun memberHtml(username: String) = empty()
-        override suspend fun signInPage(next: String) = empty()
-        override suspend fun captcha(cacheBust: Long, referer: String) = empty()
-        override suspend fun signIn(fields: Map<String, String>, origin: String, referer: String) = empty()
-        override suspend fun signInTwoFactor(next: String, fields: Map<String, String>, referer: String) = empty()
-        override suspend fun dailyMission() = empty()
-        override suspend fun redeemDailyMission(once: String, referer: String) = empty()
-        override suspend fun balance() = empty()
-        override suspend fun notifications(page: Int) = empty()
-        override suspend fun notesHtml() = empty()
-        override suspend fun noteEditHtml(id: Long) = empty()
-        override suspend fun noteEditSubmit(id: Long, content: String, syntax: String) = empty()
-        override suspend fun noteNewSubmit(content: String, syntax: String) = empty()
-        override suspend fun favoriteTopic(topicId: Long, once: String, referer: String) = empty()
-        override suspend fun unfavoriteTopic(topicId: Long, once: String, referer: String) = empty()
     }
 }

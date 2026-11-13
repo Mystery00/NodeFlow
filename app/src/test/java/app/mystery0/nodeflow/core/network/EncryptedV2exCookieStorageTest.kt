@@ -2,7 +2,7 @@ package app.mystery0.nodeflow.core.network
 
 import app.mystery0.nodeflow.core.security.EncryptedKeyValueStore
 import app.mystery0.nodeflow.core.security.SecretCipher
-import app.mystery0.nodeflow.core.security.StringKeyValueStorage
+import app.mystery0.nodeflow.testing.FakeStringKeyValueStorage
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import java.util.Base64
@@ -10,7 +10,7 @@ import java.util.Base64
 class EncryptedV2exCookieStorageTest {
     @Test
     fun saveAndLoad_roundTripsCompleteCookieListWithoutPlaintext() {
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         val cookieStorage = EncryptedV2exCookieStorage(
             EncryptedKeyValueStore(storage, FakeCipher),
         )
@@ -34,7 +34,7 @@ class EncryptedV2exCookieStorageTest {
 
     @Test
     fun fatalRestoreErrorIsPropagated() {
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         storage.values["v2ex_cookies"] = "payload"
 
         val error = runCatching {
@@ -47,7 +47,7 @@ class EncryptedV2exCookieStorageTest {
 
     @Test
     fun clear_removesCookies() {
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         val cookieStorage = EncryptedV2exCookieStorage(EncryptedKeyValueStore(storage, FakeCipher))
         cookieStorage.save(listOf(StoredCookie("https://www.v2ex.com/", "A2=auth")))
 
@@ -59,24 +59,12 @@ class EncryptedV2exCookieStorageTest {
 
     @Test
     fun corruptedPayload_isRemovedAndReturnsEmptyList() {
-        val storage = FakeStorage()
+        val storage = FakeStringKeyValueStorage()
         storage.values["v2ex_cookies"] = "corrupted"
         val cookieStorage = EncryptedV2exCookieStorage(EncryptedKeyValueStore(storage, FakeCipher))
 
         assertThat(cookieStorage.load()).isEmpty()
         assertThat(storage.values).isEmpty()
-    }
-
-    private class FakeStorage : StringKeyValueStorage {
-        val values = mutableMapOf<String, String>()
-
-        override fun read(key: String): String? = values[key]
-        override fun write(key: String, value: String) {
-            values[key] = value
-        }
-        override fun remove(key: String) {
-            values.remove(key)
-        }
     }
 
     private object FatalCipher : SecretCipher {

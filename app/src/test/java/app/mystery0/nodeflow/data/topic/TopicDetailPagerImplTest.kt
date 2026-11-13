@@ -1,14 +1,13 @@
 package app.mystery0.nodeflow.data.topic
 
 import app.mystery0.nodeflow.core.common.NodeFlowException
-import app.mystery0.nodeflow.core.database.dao.TopicDao
-import app.mystery0.nodeflow.core.database.entity.TopicEntity
 import app.mystery0.nodeflow.core.model.Node
 import app.mystery0.nodeflow.core.model.Reply
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TopicDetail
 import app.mystery0.nodeflow.core.model.User
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.testing.FakeTopicDao
 import com.google.common.truth.Truth.assertThat
 import java.io.IOException
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -351,30 +350,6 @@ class TopicDetailPagerImplTest {
         var result = loadFirst()
         while (result.getOrNull()?.hasMore == true) result = loadNext()
         return result
-    }
-
-    private class FakeTopicDao : TopicDao {
-        private val topics = mutableMapOf<Long, TopicEntity>()
-
-        override suspend fun topic(id: Long): TopicEntity? = topics[id]
-
-        override suspend fun upsertTopics(topics: List<TopicEntity>) {
-            topics.forEach { this.topics[it.id] = it }
-        }
-
-        override suspend fun upsertTopic(topic: TopicEntity) {
-            topics[topic.id] = topic
-        }
-
-        override suspend fun clearTopicDetail(topicId: Long) {
-            topics[topicId]?.let { topic ->
-                topics[topicId] = topic.copy(content = null, contentRendered = null)
-            }
-        }
-
-        override suspend fun clear() {
-            topics.clear()
-        }
     }
 
     private companion object {

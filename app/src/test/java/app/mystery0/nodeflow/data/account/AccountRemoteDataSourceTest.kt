@@ -1,8 +1,10 @@
 package app.mystery0.nodeflow.data.account
 
 import app.mystery0.nodeflow.core.common.NodeFlowException
-import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
+import app.mystery0.nodeflow.testing.TestV2exRawApi
+import app.mystery0.nodeflow.testing.emptyHtmlResponse
+import app.mystery0.nodeflow.testing.testHtmlResponse
 import com.google.common.truth.Truth.assertThat
 import app.mystery0.nodeflow.core.model.AuthSession
 import app.mystery0.nodeflow.data.notification.UnreadNotificationStore
@@ -10,11 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Protocol
-import okhttp3.Request
 import okhttp3.ResponseBody
-import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
 import retrofit2.Response
 
@@ -297,7 +295,7 @@ class AccountRemoteDataSourceTest {
         private val balanceError: Throwable? = null,
         private val homeError: Throwable? = null,
         private val dailyError: Throwable? = null,
-    ) : V2exRawApi {
+    ) : TestV2exRawApi(fallback = { emptyHtmlResponse() }) {
         var dailyCalls = 0
         var redeemCalls: Int = 0
             private set
@@ -305,109 +303,28 @@ class AccountRemoteDataSourceTest {
             private set
         var lastRedeemReferer: String? = null
             private set
-        override suspend fun topic(id: Long): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun replies(topicId: Long): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun node(name: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun member(username: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun nodeTopicsHtml(nodeName: String, page: Int?): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun recentTopicsHtml(page: Int?): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun favoriteTopicsHtml(page: Int): Response<ResponseBody> = error("Unexpected favorites request")
-
-        override suspend fun allTopicsHtml(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun planesHtml(): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun memberHtml(username: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun signInPage(next: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun captcha(cacheBust: Long, referer: String): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun signIn(
-            fields: Map<String, String>,
-            origin: String,
-            referer: String,
-        ): Response<ResponseBody> = htmlResponse("")
-
-        override suspend fun signInTwoFactor(
-            next: String,
-            fields: Map<String, String>,
-            referer: String,
-        ): Response<ResponseBody> = htmlResponse("")
 
         override suspend fun home(userAgent: String): Response<ResponseBody> {
             homeError?.let { throw it }
-            return htmlResponse(homeHtml, "https://www.v2ex.com/")
+            return testHtmlResponse(homeHtml, "https://www.v2ex.com/")
         }
 
         override suspend fun dailyMission(): Response<ResponseBody> {
             dailyCalls++
             dailyError?.let { throw it }
-            return htmlResponse(dailyHtml, dailyFinalUrl)
+            return testHtmlResponse(dailyHtml, dailyFinalUrl)
         }
 
         override suspend fun redeemDailyMission(once: String, referer: String): Response<ResponseBody> {
             redeemCalls += 1
             lastRedeemOnce = once
             lastRedeemReferer = referer
-            return htmlResponse(redeemHtml, redeemFinalUrl)
+            return testHtmlResponse(redeemHtml, redeemFinalUrl)
         }
 
         override suspend fun balance(): Response<ResponseBody> {
             balanceError?.let { throw it }
-            return htmlResponse(balanceHtml)
-        }
-
-        override suspend fun notifications(page: Int): Response<ResponseBody> = emptyResponse()
-
-        override suspend fun notesHtml(): Response<ResponseBody> = emptyResponse()
-
-        override suspend fun noteEditHtml(id: Long): Response<ResponseBody> = emptyResponse()
-
-        override suspend fun noteEditSubmit(id: Long, content: String, syntax: String): Response<ResponseBody> =
-            emptyResponse()
-
-        override suspend fun noteNewSubmit(content: String, syntax: String): Response<ResponseBody> =
-            emptyResponse()
-
-        override suspend fun favoriteTopic(
-            topicId: Long,
-            once: String,
-            referer: String
-        ): Response<ResponseBody> =
-            emptyResponse()
-
-        override suspend fun unfavoriteTopic(
-            topicId: Long,
-            once: String,
-            referer: String
-        ): Response<ResponseBody> =
-            emptyResponse()
-
-        private fun emptyResponse(): Response<ResponseBody> = htmlResponse("")
-
-        private fun htmlResponse(
-            html: String,
-            finalUrl: String? = null,
-        ): Response<ResponseBody> {
-            val body = html.toResponseBody("text/html".toMediaType())
-            if (finalUrl == null) return Response.success(body)
-            val raw = okhttp3.Response.Builder()
-                .request(Request.Builder().url(finalUrl).build())
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .body(body)
-                .build()
-            return Response.success(body, raw)
+            return testHtmlResponse(balanceHtml)
         }
     }
 

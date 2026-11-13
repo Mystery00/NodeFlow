@@ -63,6 +63,13 @@ class ReplyItemAuthorTest {
             .isEqualTo("#2 · 8 月 21 日")
     }
 
+    @Test
+    fun memberUsernameFromUrl_parsesMemberUrlsAndIgnoresOthers() {
+        assertThat(memberUsernameFromUrl("/member/alice")).isEqualTo("alice")
+        assertThat(memberUsernameFromUrl("https://www.v2ex.com/member/bob")).isEqualTo("bob")
+        assertThat(memberUsernameFromUrl("/t/123")).isNull()
+    }
+
     private fun reply(username: String): Reply = Reply(
         id = 1L,
         topicId = 2L,
