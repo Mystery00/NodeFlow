@@ -11,12 +11,17 @@ import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.ThemeMode
 import app.mystery0.nodeflow.core.model.Topic
 import app.mystery0.nodeflow.core.model.TwoFactorChallenge
+import app.mystery0.nodeflow.core.model.User
+import app.mystery0.nodeflow.core.model.UserRecentActivity
 import app.mystery0.nodeflow.domain.auth.AuthRepository
+import app.mystery0.nodeflow.domain.membertag.MemberTagRepository
 import app.mystery0.nodeflow.domain.node.NodeRepository
 import app.mystery0.nodeflow.domain.settings.SettingsRepository
+import app.mystery0.nodeflow.domain.user.UserRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 /** 测试用可配置认证仓储替身。 */
@@ -125,5 +130,44 @@ open class FakeNodeRepository : NodeRepository {
 
     override suspend fun clearCache() {
         clearCacheCalls++
+    }
+}
+
+/** 测试用用户仓储替身。 */
+open class FakeUserRepository(
+    var userResult: Result<User>? = null,
+    var recentActivityResult: Result<UserRecentActivity> = Result.success(UserRecentActivity()),
+) : UserRepository {
+    override suspend fun user(username: String, forceRefresh: Boolean): Result<User> =
+        userResult ?: Result.success(User(username = username))
+
+    override suspend fun recentActivity(username: String): Result<UserRecentActivity> = recentActivityResult
+
+    override suspend fun clearCache() = Unit
+}
+
+/** 测试用用户标签仓储替身。 */
+open class FakeMemberTagRepository(
+    tags: Map<String, List<String>> = emptyMap(),
+    private val syncedAt: Long? = null,
+    private val setResult: Result<Unit> = Result.success(Unit),
+) : MemberTagRepository {
+    val tagsState = MutableStateFlow(tags)
+    var lastSetTags: Pair<String, List<String>>? = null
+        private set
+
+    override fun observeTags(): Flow<Map<String, List<String>>> = tagsState
+
+    override fun observeSyncedAt(): Flow<Long?> = tagsState.map { syncedAt }
+
+    override suspend fun refresh(force: Boolean): Result<Unit> = Result.success(Unit)
+
+    override suspend fun setTagsForUser(
+        username: String,
+        tags: List<String>,
+        avatarUrl: String?,
+    ): Result<Unit> {
+        lastSetTags = username to tags
+        return setResult
     }
 }

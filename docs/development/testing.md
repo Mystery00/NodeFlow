@@ -26,6 +26,10 @@
 
 JVM 测试位于 `app/src/test/`，重点覆盖 UseCase、Repository、数据源、Parser、链接与格式化、ViewModel 状态转换、缓存策略和网络异常映射。网络测试使用 MockWebServer 或测试替身，不访问真实 V2EX；HTML fixture 最小化且脱敏。协程和 Flow 使用 `kotlinx-coroutines-test`，断言优先使用 Truth。
 
+- **共享测试替身优先**：公共接口（如 `TestV2exRawApi`、`FakeAuthRepository`、`FakeUserRepository`、`FakeMemberTagRepository`、`FakeSettingsRepository`、`FakeNodeRepository`、`FakeStringKeyValueStorage`、`FakeTopicDao`）集中在 `app/src/test/java/app/mystery0/nodeflow/testing/`，新增测试优先复用或扩展，避免在各测试文件中重复实现接口。
+- **`MockWebServer` 使用边界**：仅当测试真实依赖 OkHttp 拦截器、请求头/UA、表单或 Multipart 编码、HTTP 重定向最终 URL 校验或 HTTP 缓存语义时使用 `MockWebServer`；其余远端数据源和仓储测试优先继承或构造 `TestV2exRawApi`。
+- **Robolectric 使用门槛**：Robolectric（含 Compose / Native Graphics）仅用于确需 Android 视图排版几何或 Coil Android 资源/缓存链路的行为回归（现有 `Base64LayoutRobolectricTest`、`CoilImageLoaderTest`、`RichImageRequestTest`）。纯业务逻辑、状态机、Parser、存储与网络映射不得新增 `@RunWith(RobolectricTestRunner::class)`。
+
 图床模块 JVM 测试位于 `image-hosting/src/test/`，使用 `:image-hosting:test` 运行；覆盖契约、注册表及 V2EX/Imgur 协议替身，不访问真实图床。
 
 需要真实 Room 的测试放入 `app/src/androidTest/`，不能用 Fake DAO 的 JVM 测试替代。`DatabaseMigrationPolicyTest` 使用生产 Koin 数据库模块和独立临时目录，覆盖版本 1 草稿重开保留、模拟版本 2→1 缺失迁移时拒绝打开且数据保留；不接触应用的真实 `nodeflow.db`。`ListCacheMergeTest` 额外覆盖列表刷新保留主题/节点详情及显式清除正文。

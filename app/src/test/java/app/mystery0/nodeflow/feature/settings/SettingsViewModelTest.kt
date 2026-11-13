@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import app.mystery0.nodeflow.core.model.AppSettings
 import app.mystery0.nodeflow.core.model.PinnedHomeNode
 import app.mystery0.nodeflow.core.model.ThemeMode
-import app.mystery0.nodeflow.domain.membertag.MemberTagRepository
 import app.mystery0.nodeflow.domain.membertag.ObserveMemberTagSyncedAtUseCase
 import app.mystery0.nodeflow.domain.membertag.RefreshMemberTagsUseCase
 import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
@@ -13,14 +12,13 @@ import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.imagehosting.contract.*
 import app.mystery0.nodeflow.imagehosting.registry.DefaultImageHostRegistry
+import app.mystery0.nodeflow.testing.FakeMemberTagRepository
 import app.mystery0.nodeflow.testing.FakeSettingsRepository
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -129,19 +127,5 @@ class SettingsViewModelTest {
             applicationContext = ContextWrapper(null),
             imageHostRegistry = imageHostRegistry,
         )
-    }
-
-    private class FakeMemberTagRepository : MemberTagRepository {
-        override fun observeTags(): Flow<Map<String, List<String>>> = MutableStateFlow(emptyMap())
-
-        override fun observeSyncedAt(): Flow<Long?> = MutableStateFlow(null)
-
-        override suspend fun refresh(force: Boolean): Result<Unit> = Result.success(Unit)
-
-        override suspend fun setTagsForUser(
-            username: String,
-            tags: List<String>,
-            avatarUrl: String?,
-        ): Result<Unit> = Result.success(Unit)
     }
 }

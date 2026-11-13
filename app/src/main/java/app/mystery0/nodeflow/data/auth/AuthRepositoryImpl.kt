@@ -1,6 +1,5 @@
 package app.mystery0.nodeflow.data.auth
 
-import app.mystery0.nodeflow.core.datastore.MemberTagStore
 import app.mystery0.nodeflow.core.datastore.SessionStore
 import app.mystery0.nodeflow.core.model.AuthLoginResult
 import app.mystery0.nodeflow.core.model.AuthSession
@@ -16,7 +15,7 @@ class AuthRepositoryImpl(
     private val sessionStore: SessionStore,
     private val webAuthRemoteDataSource: WebAuthRemoteDataSource,
     private val cookieJar: V2exCookieJar,
-    private val memberTagStore: MemberTagStore,
+    private val clearMemberTags: suspend () -> Unit,
     private val ioDispatcher: CoroutineDispatcher,
 ) : AuthRepository {
     override val session: Flow<AuthSession> = sessionStore.session
@@ -57,6 +56,6 @@ class AuthRepositoryImpl(
         cookieJar.clear()
         sessionStore.clear()
         // 标签数据属于账号私有内容，登出时一并清空
-        memberTagStore.clear()
+        clearMemberTags()
     }
 }

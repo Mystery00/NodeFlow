@@ -15,8 +15,8 @@ import app.mystery0.nodeflow.domain.auth.ObserveAuthSessionUseCase
 import app.mystery0.nodeflow.domain.notification.ObserveUnreadNotificationCountUseCase
 import app.mystery0.nodeflow.domain.notification.UnreadNotificationRepository
 import app.mystery0.nodeflow.domain.user.GetUserProfileUseCase
-import app.mystery0.nodeflow.domain.user.UserRepository
 import app.mystery0.nodeflow.testing.FakeAuthRepository
+import app.mystery0.nodeflow.testing.FakeUserRepository
 import com.google.common.truth.Truth.assertThat
 import java.time.Instant
 import java.time.ZoneId
@@ -373,16 +373,6 @@ class AccountViewModelTest {
         authRepository = authRepository,
         observeUnreadCount = unreadUseCase(),
     )
-
-    private class FakeUserRepository : UserRepository {
-        override suspend fun user(username: String, forceRefresh: Boolean): Result<User> =
-            Result.success(User(username = username))
-
-        override suspend fun recentActivity(username: String): Result<UserRecentActivity> =
-            Result.success(UserRecentActivity())
-
-        override suspend fun clearCache() = Unit
-    }
 
     private class AuthExpiredOverviewRepository : AccountOverviewRepository {
         override suspend fun overview(): Result<AccountOverview> =

@@ -2,6 +2,7 @@ package app.mystery0.nodeflow.data
 
 import androidx.core.content.FileProvider
 import app.mystery0.nodeflow.core.common.IO_DISPATCHER
+import app.mystery0.nodeflow.core.datastore.MemberTagStore
 import app.mystery0.nodeflow.core.datastore.SessionStore
 import app.mystery0.nodeflow.data.account.AccountOverviewRepositoryImpl
 import app.mystery0.nodeflow.data.auth.AuthRepositoryImpl
@@ -57,7 +58,13 @@ val repositoryModule = module {
     }
 
     single<AuthRepository> {
-        AuthRepositoryImpl(get(), get(), get(), get(), get(named(IO_DISPATCHER)))
+        AuthRepositoryImpl(
+            sessionStore = get(),
+            webAuthRemoteDataSource = get(),
+            cookieJar = get(),
+            clearMemberTags = get<MemberTagStore>()::clear,
+            ioDispatcher = get(named(IO_DISPATCHER)),
+        )
     }
 
     single<AccountOverviewRepository> {

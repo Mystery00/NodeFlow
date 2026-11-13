@@ -10,6 +10,8 @@ import app.mystery0.nodeflow.core.network.V2exRawApi
 import app.mystery0.nodeflow.core.parser.V2exHtmlParser
 import app.mystery0.nodeflow.testing.FakeTopicDao
 import app.mystery0.nodeflow.testing.TestV2exRawApi
+import app.mystery0.nodeflow.testing.testHtmlResponse
+import app.mystery0.nodeflow.testing.testJsonResponse
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -20,20 +22,17 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Protocol
-import okhttp3.Request
 import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
 import retrofit2.Response
-import okhttp3.Response as OkHttpResponse
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TopicRepositoryImplTest {
     @Test
     fun clearCacheResetsOldDenialAfterCacheWasSuccessfullyRemoved() = runTest {
         val dao = FakeTopicDao()
-        val repo = repository(AccessDeniedThenFailingV2exRawApi(), dao, StandardTestDispatcher(testScheduler))
+        val repo = repository(accessDeniedThenFailingApi(), dao, StandardTestDispatcher(testScheduler))
         val pager = repo.topicDetailPager(1221181)
         assertThat(pager.loadFirst().isFailure).isTrue()
         repo.clearCache()
@@ -121,7 +120,7 @@ class TopicRepositoryImplTest {
     fun topicDetail_doesNotReturnCachedDetailWhenRemoteReportsAccessDenied() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
-        val api = AccessDeniedV2exRawApi()
+        val api = accessDeniedApi()
         val repository = repository(api, dao, dispatcher)
         TopicLocalDataSource(dao).cacheTopicDetail(
             TopicDetail(
@@ -147,7 +146,7 @@ class TopicRepositoryImplTest {
     fun topicDetail_clearsCachedDetailAfterAccessDeniedBeforeLaterNetworkFailure() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
-        val api = AccessDeniedThenFailingV2exRawApi()
+        val api = accessDeniedThenFailingApi()
         val repository = repository(api, dao, dispatcher)
         val localDataSource = TopicLocalDataSource(dao)
         localDataSource.cacheTopicDetail(
@@ -186,7 +185,7 @@ class TopicRepositoryImplTest {
     fun topicDetail_concurrentFailureDoesNotUseCapturedCacheAfterAccessDenied() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
-        val api = ConcurrentAccessDeniedV2exRawApi()
+        val api = concurrentAccessDeniedApi()
         val repository = repository(api, dao, dispatcher)
         TopicLocalDataSource(dao).cacheTopicDetail(
             TopicDetail(
@@ -209,7 +208,7 @@ class TopicRepositoryImplTest {
         runCurrent()
         val accessDeniedResult = accessDenied.await()
 
-        api.releaseFirstFailure.complete(Unit)
+        api.releaseFirstRequest.complete(Unit)
         runCurrent()
         val ordinaryFailureResult = ordinaryFailure.await()
 
@@ -226,7 +225,7 @@ class TopicRepositoryImplTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val clearFailure = IllegalStateException("clear failed")
         val dao = FakeTopicDao(clearTopicDetailFailure = clearFailure)
-        val api = AccessDeniedThenFailingV2exRawApi()
+        val api = accessDeniedThenFailingApi()
         val repository = repository(api, dao, dispatcher)
         val localDataSource = TopicLocalDataSource(dao)
         localDataSource.cacheTopicDetail(
@@ -267,7 +266,7 @@ class TopicRepositoryImplTest {
     fun topicDetail_successfulRefreshClearsAccessDeniedForLaterCacheFallback() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
-        val api = AccessDeniedThenSuccessThenFailingV2exRawApi()
+        val api = accessDeniedThenSuccessThenFailingApi()
         val repository = repository(api, dao, dispatcher)
 
         val accessDeniedResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
@@ -287,7 +286,7 @@ class TopicRepositoryImplTest {
     fun topicDetail_doesNotLetOlderSuccessClearNewerAccessDenied() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
-        val api = ConcurrentSuccessThenAccessDeniedV2exRawApi()
+        val api = concurrentSuccessThenAccessDeniedApi()
         val repository = repository(api, dao, dispatcher)
 
         val olderSuccess = async {
@@ -302,7 +301,7 @@ class TopicRepositoryImplTest {
         runCurrent()
         val accessDeniedResult = accessDenied.await()
 
-        api.releaseFirstSuccess.complete(Unit)
+        api.releaseFirstRequest.complete(Unit)
         runCurrent()
         val olderSuccessResult = olderSuccess.await()
 
@@ -318,7 +317,7 @@ class TopicRepositoryImplTest {
     fun topicDetail_doesNotLetOlderSuccessOverwriteRecoveryAfterAccessDenied() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
-        val api = OlderSuccessAccessDeniedThenSuccessV2exRawApi()
+        val api = olderSuccessAccessDeniedThenSuccessApi()
         val repository = repository(api, dao, dispatcher)
 
         val olderSuccess = async {
@@ -329,7 +328,7 @@ class TopicRepositoryImplTest {
 
         val accessDeniedResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
         val recoveredResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
-        api.releaseFirstSuccess.complete(Unit)
+        api.releaseFirstRequest.complete(Unit)
         runCurrent()
         val olderInvocation = olderSuccess.await()
 
@@ -347,7 +346,7 @@ class TopicRepositoryImplTest {
     fun topicDetail_doesNotLetOlderFailureRestoreCacheAfterAccessDeniedRecovery() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
-        val api = OlderFailureAccessDeniedThenSuccessV2exRawApi()
+        val api = olderFailureAccessDeniedThenSuccessApi()
         val repository = repository(api, dao, dispatcher)
         TopicLocalDataSource(dao).cacheTopicDetail(
             TopicDetail(
@@ -366,7 +365,7 @@ class TopicRepositoryImplTest {
 
         val accessDeniedResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
         val recoveredResult = repository.topicDetail(topicId = 1221181, forceRefresh = false)
-        api.releaseFirstFailure.complete(Unit)
+        api.releaseFirstRequest.complete(Unit)
         runCurrent()
         val olderInvocation = olderFailure.await()
 
@@ -385,7 +384,11 @@ class TopicRepositoryImplTest {
     fun topicDetail_propagatesRemoteCancellation() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val cancellation = CancellationException("remote cancelled")
-        val repository = repository(CancellingV2exRawApi(cancellation), FakeTopicDao(), dispatcher)
+        val repository = repository(
+            ScriptedTopicApi { _, _, _ -> throw cancellation },
+            FakeTopicDao(),
+            dispatcher,
+        )
 
         val invocation = runCatching {
             repository.topicDetail(topicId = 1, forceRefresh = false)
@@ -401,7 +404,7 @@ class TopicRepositoryImplTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val cancellation = CancellationException("clear cancelled")
         val dao = FakeTopicDao(clearTopicDetailFailure = cancellation)
-        val repository = repository(AccessDeniedV2exRawApi(), dao, dispatcher)
+        val repository = repository(accessDeniedApi(), dao, dispatcher)
         TopicLocalDataSource(dao).cacheTopicDetail(
             TopicDetail(
                 topic = topic(id = 1221181, replyCount = 0),
@@ -424,7 +427,7 @@ class TopicRepositoryImplTest {
     fun topicDetail_returnsRemoteDetailWhenRemoteSucceeds() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val dao = FakeTopicDao()
-        val repository = repository(SuccessV2exRawApi(), dao, dispatcher)
+        val repository = repository(successTopicApi(), dao, dispatcher)
 
         val result = repository.topicDetail(topicId = 42, forceRefresh = false)
 
@@ -448,321 +451,146 @@ class TopicRepositoryImplTest {
         fallback = { Response.error(500, "".toResponseBody("text/plain".toMediaType())) },
     )
 
-    private class AccessDeniedV2exRawApi : FailingV2exRawApi() {
-        var topicHtmlCalls: Int = 0
-            private set
-
-        override suspend fun topicHtml(
-            topicId: Long,
-            page: Int?,
-        ): Response<ResponseBody> {
-            topicHtmlCalls += 1
-            val rawResponse = OkHttpResponse.Builder()
-                .request(
-                    Request.Builder()
-                        .url("https://www.v2ex.com/restricted")
-                        .build(),
-                )
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(
-                "<html><body>Restricted</body></html>"
-                    .toResponseBody("text/html".toMediaType()),
-                rawResponse,
-            )
-        }
-    }
-
-    private class AccessDeniedThenFailingV2exRawApi : FailingV2exRawApi() {
-        var topicHtmlCalls: Int = 0
-            private set
-
-        override suspend fun topicHtml(
-            topicId: Long,
-            page: Int?,
-        ): Response<ResponseBody> {
-            topicHtmlCalls += 1
-            if (topicHtmlCalls > 1) return super.topicHtml(topicId, page)
-
-            val rawResponse = OkHttpResponse.Builder()
-                .request(
-                    Request.Builder()
-                        .url("https://www.v2ex.com/restricted")
-                        .build(),
-                )
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(
-                "<html><body>Restricted</body></html>"
-                    .toResponseBody("text/html".toMediaType()),
-                rawResponse,
-            )
-        }
-    }
-
-    private class ConcurrentAccessDeniedV2exRawApi : FailingV2exRawApi() {
-        val firstRequestStarted = CompletableDeferred<Unit>()
-        val releaseFirstFailure = CompletableDeferred<Unit>()
-        private var topicHtmlCalls = 0
-
-        override suspend fun topicHtml(
-            topicId: Long,
-            page: Int?,
-        ): Response<ResponseBody> {
-            topicHtmlCalls += 1
-            if (topicHtmlCalls == 1) {
-                firstRequestStarted.complete(Unit)
-                releaseFirstFailure.await()
-                return super.topicHtml(topicId, page)
-            }
-            return accessDeniedHtmlResponse()
-        }
-    }
-
-    private class ConcurrentSuccessThenAccessDeniedV2exRawApi : FailingV2exRawApi() {
-        val firstRequestStarted = CompletableDeferred<Unit>()
-        val releaseFirstSuccess = CompletableDeferred<Unit>()
-        private var topicHtmlCalls = 0
-
-        override suspend fun topicHtml(
-            topicId: Long,
-            page: Int?,
-        ): Response<ResponseBody> {
-            topicHtmlCalls += 1
-            if (topicHtmlCalls > 1) return accessDeniedHtmlResponse()
-
-            firstRequestStarted.complete(Unit)
-            releaseFirstSuccess.await()
-            val rawResponse = OkHttpResponse.Builder()
-                .request(Request.Builder().url("https://www.v2ex.com/t/$topicId").build())
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(
-                """
-                    <html>
-                      <body>
-                        <div id="Main">
-                          <h1>较早成功响应</h1>
-                          <div class="topic_content"><p>较早正文</p></div>
-                        </div>
-                      </body>
-                    </html>
-                """.trimIndent().toResponseBody("text/html".toMediaType()),
-                rawResponse,
-            )
-        }
-    }
-
-    private class OlderSuccessAccessDeniedThenSuccessV2exRawApi : FailingV2exRawApi() {
-        val firstRequestStarted = CompletableDeferred<Unit>()
-        val releaseFirstSuccess = CompletableDeferred<Unit>()
-        private var topicHtmlCalls = 0
-
-        override suspend fun topicHtml(
-            topicId: Long,
-            page: Int?,
-        ): Response<ResponseBody> {
-            topicHtmlCalls += 1
-            return when (topicHtmlCalls) {
-                1 -> {
-                    firstRequestStarted.complete(Unit)
-                    releaseFirstSuccess.await()
-                    topicHtmlResponse(topicId, "较早正文")
-                }
-                2 -> accessDeniedHtmlResponse()
-                else -> topicHtmlResponse(topicId, "最新正文")
-            }
-        }
-
-        private fun topicHtmlResponse(
-            topicId: Long,
-            content: String,
-        ): Response<ResponseBody> {
-            val rawResponse = OkHttpResponse.Builder()
-                .request(Request.Builder().url("https://www.v2ex.com/t/$topicId").build())
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(
-                """
-                    <html>
-                      <body>
-                        <div id="Main">
-                          <h1>并发恢复主题</h1>
-                          <div class="topic_content"><p>$content</p></div>
-                        </div>
-                      </body>
-                    </html>
-                """.trimIndent().toResponseBody("text/html".toMediaType()),
-                rawResponse,
-            )
-        }
-    }
-
-    private class OlderFailureAccessDeniedThenSuccessV2exRawApi : FailingV2exRawApi() {
-        val firstRequestStarted = CompletableDeferred<Unit>()
-        val releaseFirstFailure = CompletableDeferred<Unit>()
-        private var topicHtmlCalls = 0
-
-        override suspend fun topicHtml(
-            topicId: Long,
-            page: Int?,
-        ): Response<ResponseBody> {
-            topicHtmlCalls += 1
-            return when (topicHtmlCalls) {
-                1 -> {
-                    firstRequestStarted.complete(Unit)
-                    releaseFirstFailure.await()
-                    super.topicHtml(topicId, page)
-                }
-                2 -> accessDeniedHtmlResponse()
-                else -> topicHtmlResponse(topicId)
-            }
-        }
-
-        private fun topicHtmlResponse(topicId: Long): Response<ResponseBody> {
-            val rawResponse = OkHttpResponse.Builder()
-                .request(Request.Builder().url("https://www.v2ex.com/t/$topicId").build())
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(
-                """
-                    <html>
-                      <body>
-                        <div id="Main">
-                          <h1>并发恢复主题</h1>
-                          <div class="topic_content"><p>最新正文</p></div>
-                        </div>
-                      </body>
-                    </html>
-                """.trimIndent().toResponseBody("text/html".toMediaType()),
-                rawResponse,
-            )
-        }
-    }
-
-    private class CancellingV2exRawApi(
-        private val cancellation: CancellationException,
+    private class ScriptedTopicApi(
+        private val onTopic: (suspend (topicId: Long, callCount: Int) -> Response<ResponseBody>?)? = null,
+        private val onReplies: (suspend (topicId: Long, callCount: Int) -> Response<ResponseBody>?)? = null,
+        private val onTopicHtml: suspend ScriptedTopicApi.(topicId: Long, page: Int?, callCount: Int) -> Response<ResponseBody>,
     ) : FailingV2exRawApi() {
-        override suspend fun topicHtml(
-            topicId: Long,
-            page: Int?,
-        ): Response<ResponseBody> = throw cancellation
-    }
-
-    private class AccessDeniedThenSuccessThenFailingV2exRawApi : FailingV2exRawApi() {
-        private var topicHtmlCalls = 0
-
-        override suspend fun topicHtml(
-            topicId: Long,
-            page: Int?,
-        ): Response<ResponseBody> {
-            topicHtmlCalls += 1
-            return when (topicHtmlCalls) {
-                1 -> accessDeniedHtmlResponse()
-                2, 3 -> topicHtmlResponse(topicId)
-                else -> super.topicHtml(topicId, page)
-            }
-        }
+        val firstRequestStarted = CompletableDeferred<Unit>()
+        val releaseFirstRequest = CompletableDeferred<Unit>()
+        var topicHtmlCalls: Int = 0
+            private set
 
         override suspend fun topic(id: Long): Response<ResponseBody> =
-            if (topicHtmlCalls in 2..3) {
-                jsonResponse(
-                    """
-                        [{"id": $id, "title": "新标题", "content": "新缓存正文", "content_rendered": "<p>新缓存正文</p>", "replies": 0}]
-                    """.trimIndent(),
-                )
-            } else {
-                super.topic(id)
-            }
+            onTopic?.invoke(id, topicHtmlCalls) ?: super.topic(id)
 
         override suspend fun replies(topicId: Long): Response<ResponseBody> =
-            if (topicHtmlCalls in 2..3) {
-                jsonResponse("[]")
+            onReplies?.invoke(topicId, topicHtmlCalls) ?: super.replies(topicId)
+
+        override suspend fun topicHtml(topicId: Long, page: Int?): Response<ResponseBody> {
+            topicHtmlCalls += 1
+            return onTopicHtml(topicId, page, topicHtmlCalls)
+        }
+
+        suspend fun failTopicHtml(topicId: Long, page: Int?): Response<ResponseBody> =
+            super.topicHtml(topicId, page)
+    }
+
+    private fun accessDeniedApi(): ScriptedTopicApi =
+        ScriptedTopicApi { _, _, _ -> accessDeniedHtmlResponse() }
+
+    private fun accessDeniedThenFailingApi(): ScriptedTopicApi =
+        ScriptedTopicApi { topicId, page, callCount ->
+            if (callCount == 1) accessDeniedHtmlResponse() else failTopicHtml(topicId, page)
+        }
+
+    private fun concurrentAccessDeniedApi(): ScriptedTopicApi =
+        ScriptedTopicApi { topicId, page, callCount ->
+            if (callCount == 1) {
+                firstRequestStarted.complete(Unit)
+                releaseFirstRequest.await()
+                failTopicHtml(topicId, page)
             } else {
-                super.replies(topicId)
+                accessDeniedHtmlResponse()
             }
-
-        private fun topicHtmlResponse(topicId: Long): Response<ResponseBody> {
-            val rawResponse = OkHttpResponse.Builder()
-                .request(Request.Builder().url("https://www.v2ex.com/t/$topicId").build())
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(
-                "<html><body></body></html>"
-                    .toResponseBody("text/html".toMediaType()),
-                rawResponse,
-            )
         }
 
-        private fun jsonResponse(body: String): Response<ResponseBody> =
-            Response.success(body.toResponseBody("application/json".toMediaType()))
-    }
+    private fun concurrentSuccessThenAccessDeniedApi(): ScriptedTopicApi =
+        ScriptedTopicApi { topicId, _, callCount ->
+            if (callCount > 1) {
+                accessDeniedHtmlResponse()
+            } else {
+                firstRequestStarted.complete(Unit)
+                releaseFirstRequest.await()
+                renderedTopicHtmlResponse(topicId, title = "较早成功响应", paragraph = "较早正文")
+            }
+        }
 
-    private companion object {
-        fun accessDeniedHtmlResponse(): Response<ResponseBody> {
-            val rawResponse = OkHttpResponse.Builder()
-                .request(
-                    Request.Builder()
-                        .url("https://www.v2ex.com/restricted")
-                        .build(),
+    private fun olderSuccessAccessDeniedThenSuccessApi(): ScriptedTopicApi =
+        ScriptedTopicApi { topicId, _, callCount ->
+            when (callCount) {
+                1 -> {
+                    firstRequestStarted.complete(Unit)
+                    releaseFirstRequest.await()
+                    renderedTopicHtmlResponse(topicId, title = "并发恢复主题", paragraph = "较早正文")
+                }
+                2 -> accessDeniedHtmlResponse()
+                else -> renderedTopicHtmlResponse(topicId, title = "并发恢复主题", paragraph = "最新正文")
+            }
+        }
+
+    private fun olderFailureAccessDeniedThenSuccessApi(): ScriptedTopicApi =
+        ScriptedTopicApi { topicId, page, callCount ->
+            when (callCount) {
+                1 -> {
+                    firstRequestStarted.complete(Unit)
+                    releaseFirstRequest.await()
+                    failTopicHtml(topicId, page)
+                }
+                2 -> accessDeniedHtmlResponse()
+                else -> renderedTopicHtmlResponse(topicId, title = "并发恢复主题", paragraph = "最新正文")
+            }
+        }
+
+    private fun accessDeniedThenSuccessThenFailingApi(): ScriptedTopicApi =
+        ScriptedTopicApi(
+            onTopic = { id, callCount ->
+                if (callCount in 2..3) {
+                    testJsonResponse(
+                        """[{"id": $id, "title": "新标题", "content": "新缓存正文", "content_rendered": "<p>新缓存正文</p>", "replies": 0}]""",
+                    )
+                } else {
+                    null
+                }
+            },
+            onReplies = { _, callCount ->
+                if (callCount in 2..3) testJsonResponse("[]") else null
+            },
+            onTopicHtml = { topicId, page, callCount ->
+                when (callCount) {
+                    1 -> accessDeniedHtmlResponse()
+                    2, 3 -> testHtmlResponse("<html><body></body></html>", "https://www.v2ex.com/t/$topicId")
+                    else -> failTopicHtml(topicId, page)
+                }
+            },
+        )
+
+    private fun successTopicApi(): ScriptedTopicApi =
+        ScriptedTopicApi(
+            onTopic = { id, _ ->
+                testJsonResponse(
+                    """[{"id": $id, "title": "远端标题", "content": "hello", "content_rendered": "<p>hello</p>", "replies": 1}]""",
                 )
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(
-                "<html><body>Restricted</body></html>"
-                    .toResponseBody("text/html".toMediaType()),
-                rawResponse,
-            )
-        }
-    }
-
-    private class SuccessV2exRawApi : FailingV2exRawApi() {
-        override suspend fun topic(id: Long): Response<ResponseBody> = jsonResponse(
-            """
-                [{"id": $id, "title": "远端标题", "content": "hello", "content_rendered": "<p>hello</p>", "replies": 1}]
-            """.trimIndent(),
+            },
+            onReplies = { topicId, _ ->
+                testJsonResponse(
+                    """[{"id": 100, "topic_id": $topicId, "content": "reply", "content_rendered": "<p>reply</p>", "member": {"username": "livid"}}]""",
+                )
+            },
+            onTopicHtml = { topicId, page, _ ->
+                val finalUrl = "https://www.v2ex.com/t/$topicId" + page?.let { "?p=$it" }.orEmpty()
+                testHtmlResponse("<html><body></body></html>", finalUrl)
+            },
         )
 
-        override suspend fun replies(topicId: Long): Response<ResponseBody> = jsonResponse(
-            """
-                [{"id": 100, "topic_id": $topicId, "content": "reply", "content_rendered": "<p>reply</p>", "member": {"username": "livid"}}]
-            """.trimIndent(),
-        )
+    private fun accessDeniedHtmlResponse(): Response<ResponseBody> =
+        testHtmlResponse("<html><body>Restricted</body></html>", "https://www.v2ex.com/restricted")
 
-        override suspend fun topicHtml(
-            topicId: Long,
-            page: Int?,
-        ): Response<ResponseBody> {
-            val finalUrl = "https://www.v2ex.com/t/$topicId" +
-                page?.let { "?p=$it" }.orEmpty()
-            val rawResponse = OkHttpResponse.Builder()
-                .request(Request.Builder().url(finalUrl).build())
-                .protocol(Protocol.HTTP_1_1)
-                .code(200)
-                .message("OK")
-                .build()
-            return Response.success(
-                "<html><body></body></html>"
-                    .toResponseBody("text/html".toMediaType()),
-                rawResponse,
-            )
-        }
-
-        private fun jsonResponse(body: String): Response<ResponseBody> =
-            Response.success(body.toResponseBody("application/json".toMediaType()))
-    }
+    private fun renderedTopicHtmlResponse(
+        topicId: Long,
+        title: String,
+        paragraph: String,
+    ): Response<ResponseBody> = testHtmlResponse(
+        html = """
+            <html>
+              <body>
+                <div id="Main">
+                  <h1>$title</h1>
+                  <div class="topic_content"><p>$paragraph</p></div>
+                </div>
+              </body>
+            </html>
+        """.trimIndent(),
+        finalUrl = "https://www.v2ex.com/t/$topicId",
+    )
 }
