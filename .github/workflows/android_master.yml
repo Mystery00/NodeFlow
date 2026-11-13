@@ -79,7 +79,6 @@ jobs:
 
           mkdir -p outputs
           cp "app/build/outputs/apk/release/$output_file" "outputs/NodeFlow-release-${version_name}.apk"
-          cp app/build/outputs/mapping/release/mapping.txt "outputs/NodeFlow-${version_name}-mapping.txt"
           printf 'versionName=%s\n' "$version_name" >> "$GITHUB_OUTPUT"
 
       - name: Cleanup keystore
@@ -131,4 +130,3 @@ jobs:
             原 debug 包签名不同，不能直接覆盖安装；卸载旧包前请注意本地数据会被清除。
           files: |
             outputs/NodeFlow-release-*.apk
-            outputs/NodeFlow-*-mapping.txt
