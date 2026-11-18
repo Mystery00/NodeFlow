@@ -35,6 +35,8 @@ class SettingsStore(
             customImageHosts = decodeCustomImageHosts(preferences[Keys.customImageHosts]),
             replyImageHost = preferences[Keys.replyImageHost] ?: "v2ex",
             showMemberTags = preferences[Keys.showMemberTags] ?: true,
+            echEnabled = preferences[Keys.echEnabled] ?: false,
+            echFallbackDns = preferences[Keys.echFallbackDns].orEmpty(),
             notificationReminder = preferences[Keys.notificationReminder] ?: false,
         )
     }
@@ -96,7 +98,17 @@ class SettingsStore(
         }
     }
 
+    suspend fun setEchEnabled(enabled: Boolean) {
+        context.nodeFlowDataStore.edit { it[Keys.echEnabled] = enabled }
+    }
+
+    suspend fun setEchFallbackDns(server: String) {
+        context.nodeFlowDataStore.edit { it[Keys.echFallbackDns] = server }
+    }
+
     private object Keys {
+        val echEnabled = booleanPreferencesKey("ech_enabled")
+        val echFallbackDns = stringPreferencesKey("ech_fallback_dns")
         val themeMode = stringPreferencesKey("theme_mode")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
         val pinnedHomeNodeName = stringPreferencesKey("pinned_home_node_name")

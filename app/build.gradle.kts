@@ -118,6 +118,11 @@ ksp {
     arg("room.incremental", "true")
 }
 
+// JVM 测试使用桌面 JNI，应用与设备测试使用 Android ABI。
+configurations.matching { it.name.endsWith("UnitTestRuntimeClasspath") }.configureEach {
+    exclude(group = "org.conscrypt", module = "conscrypt-android")
+}
+
 dependencies {
     implementation(project(":image-hosting"))
     implementation(platform(libs.androidx.compose.bom))
@@ -154,12 +159,15 @@ dependencies {
     implementation(libs.koin.androidx.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.conscrypt)
+    implementation(libs.dnsjava)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.retrofit)
 
     ksp(libs.androidx.room.compiler)
 
+    testRuntimeOnly(libs.conscryptJvm)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.compose.ui.test.junit4)

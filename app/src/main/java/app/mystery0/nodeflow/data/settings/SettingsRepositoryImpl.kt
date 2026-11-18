@@ -18,6 +18,10 @@ class SettingsRepositoryImpl(
 ) : SettingsRepository {
     override val settings: Flow<AppSettings> = settingsStore.settings
 
+    override suspend fun setEchEnabled(enabled: Boolean) = settingsStore.setEchEnabled(enabled)
+
+    override suspend fun setEchFallbackDns(server: String) = settingsStore.setEchFallbackDns(server)
+
     override suspend fun setThemeMode(themeMode: ThemeMode) {
         settingsStore.setThemeMode(themeMode)
     }

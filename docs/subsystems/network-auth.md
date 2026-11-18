@@ -14,6 +14,12 @@ NodeFlow 同时使用 V2EX 公开 JSON API、HTML 页面和需要登录态的网
 - V2EX descriptor 上限为 6 MiB，Imgur 为 10 MiB，均声明 PNG/JPEG/GIF/WebP。app 的 `AndroidImageContentReader` 按所选 provider 的上限读取，额外读取 1 字节检测超限；超限映射为 `FileTooLarge`，不会把截断数据交给上传适配器。
 - 历史调查中的 `native-http-supported` 表示代码和本地替身覆盖了 HTTP 流程，不是当前真实服务可用性保证。浏览器观察、MockWebServer 测试和 Android 原生客户端真实上传应分别记录，详见[调查记录](../investigations/2026-09-24-imgur-web-upload.md)。
 
+## ECH 直连
+
+设置 → 网络中的「尝试 ECH 直连」默认关闭。开启后仅为 `https://www.v2ex.com:443` 选择 ECH 连接，依次使用系统 DNS、AliDNS DoH、DNSPod DoH，最后使用用户填写的备用 DNS（IPv4、IPv6 或 HTTPS DoH 地址）。每个来源先查目标域名的 HTTPS 记录，再尝试 `cloudflare-ech.com`。记录需提供 `ech`，地址取自同一记录的地址提示或同一解析器的地址查询。
+
+匿名探测要求证书校验通过，且 `/cdn-cgi/trace` 确认目标主机及 `sni=encrypted`。可用结果按网络和 DNS 配置缓存至 TTL 到期，最长一小时。所有来源都失败时，设置页显示错误并提供重新检测，用户可关闭开关恢复常规请求。登录、回复等业务请求继续使用既有认证和写请求重试策略。
+
 ## 页面分类与错误处理约束
 
 V2EX 可能返回正常内容、登录页、`/restricted`、首页重定向、Cloudflare 页面或非预期 HTML。RemoteDataSource 应结合最终响应 URL和 DOM 结构先分类，再交给业务 Parser；不能仅根据 HTTP 200 或可见文案判断成功。

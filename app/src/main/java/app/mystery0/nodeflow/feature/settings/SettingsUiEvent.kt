@@ -10,6 +10,9 @@ sealed interface SettingsUiEvent {
     data class RemoveCustomImageHost(val host: String) : SettingsUiEvent
     data class MemberTagVisibilityChanged(val enabled: Boolean) : SettingsUiEvent
     data class NotificationReminderChanged(val enabled: Boolean) : SettingsUiEvent
+    data class EchChanged(val enabled: Boolean) : SettingsUiEvent
+    data class EchDnsChanged(val server: String) : SettingsUiEvent
+    data object CheckEch : SettingsUiEvent
     data object SyncMemberTags : SettingsUiEvent
     data object ClearCache : SettingsUiEvent
     data object MessageShown : SettingsUiEvent

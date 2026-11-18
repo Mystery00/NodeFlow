@@ -10,6 +10,9 @@ import app.mystery0.nodeflow.domain.settings.ClearCacheUseCase
 import app.mystery0.nodeflow.domain.settings.ObserveSettingsUseCase
 import app.mystery0.nodeflow.domain.settings.UpdateSettingsUseCase
 import app.mystery0.nodeflow.imagehosting.registry.ImageHostRegistry
+import app.mystery0.nodeflow.domain.settings.EchConnection
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +29,7 @@ class SettingsViewModel(
     private val refreshMemberTags: RefreshMemberTagsUseCase,
     private val applicationContext: Context,
     imageHostRegistry: ImageHostRegistry,
+    private val ech: EchConnection,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         SettingsUiState(imageHostDescriptors = imageHostRegistry.descriptors()),
@@ -33,6 +37,13 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            ech.status.collect { status -> _uiState.update { it.copy(echStatus = status) } }
+        }
+        viewModelScope.launch {
+            observeSettings().map { it.echEnabled to it.echFallbackDns }.distinctUntilChanged()
+                .collectLatest { ech.check() }
+        }
         viewModelScope.launch {
             observeSettings().collectLatest { settings ->
                 _uiState.update { it.copy(settings = settings) }
@@ -47,6 +58,9 @@ class SettingsViewModel(
 
     fun onEvent(event: SettingsUiEvent) {
         when (event) {
+            is SettingsUiEvent.EchChanged -> viewModelScope.launch { updateSettings.setEchEnabled(event.enabled) }
+            is SettingsUiEvent.EchDnsChanged -> viewModelScope.launch { updateSettings.setEchFallbackDns(event.server.trim()) }
+            SettingsUiEvent.CheckEch -> viewModelScope.launch { ech.check(force = true) }
             is SettingsUiEvent.ThemeModeChanged -> viewModelScope.launch {
                 updateSettings.setThemeMode(event.mode)
             }

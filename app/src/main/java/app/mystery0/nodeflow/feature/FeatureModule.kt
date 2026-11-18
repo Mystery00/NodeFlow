@@ -47,7 +47,7 @@ val featureModule = module {
     }
 
     viewModel {
-        SettingsViewModel(get(), get(), get(), get(), get(), androidContext(), get<ImageHostRegistry>())
+        SettingsViewModel(get(), get(), get(), get(), get(), androidContext(), get<ImageHostRegistry>(), get())
     }
 
     viewModel {

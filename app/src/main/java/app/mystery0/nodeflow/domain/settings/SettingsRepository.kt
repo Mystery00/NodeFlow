@@ -14,5 +14,7 @@ interface SettingsRepository {
     suspend fun setReplyImageHost(hostId: String) = Unit
     suspend fun setShowMemberTags(enabled: Boolean)
     suspend fun setNotificationReminder(enabled: Boolean)
+    suspend fun setEchEnabled(enabled: Boolean)
+    suspend fun setEchFallbackDns(server: String)
     suspend fun clearCache()
 }

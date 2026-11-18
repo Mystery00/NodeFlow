@@ -14,6 +14,8 @@ data class AppSettings(
     val replyImageHost: String = "v2ex",
     val showMemberTags: Boolean = true,
     val notificationReminder: Boolean = false,
+    val echEnabled: Boolean = false,
+    val echFallbackDns: String = "",
 )
 
 data class PinnedHomeNode(

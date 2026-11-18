@@ -78,6 +78,14 @@ open class FakeSettingsRepository(initialSettings: AppSettings = AppSettings()) 
 
     override val settings: Flow<AppSettings> = settingsState
 
+    override suspend fun setEchEnabled(enabled: Boolean) {
+        settingsState.update { it.copy(echEnabled = enabled) }
+    }
+
+    override suspend fun setEchFallbackDns(server: String) {
+        settingsState.update { it.copy(echFallbackDns = server) }
+    }
+
     override suspend fun setThemeMode(themeMode: ThemeMode) {
         settingsState.update { it.copy(themeMode = themeMode) }
     }

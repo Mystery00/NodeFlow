@@ -119,6 +119,9 @@ fun SettingsScreen(
                 },
             )
             HorizontalDivider()
+            SettingsSectionTitle("网络")
+            EchSettings(state, onEvent)
+            HorizontalDivider()
             SettingsSectionTitle("内容浏览")
             var showAddImageHostDialog by remember { mutableStateOf(false) }
             ListItem(

@@ -1,5 +1,9 @@
 package app.mystery0.nodeflow.core.network
 
+import android.content.Context
+import android.net.ConnectivityManager
+import app.mystery0.nodeflow.core.network.ech.EchRouting
+import app.mystery0.nodeflow.domain.settings.EchConnection
 import app.mystery0.nodeflow.BuildConfig
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -28,6 +32,10 @@ val networkModule = module {
         V2exCookieJar(get())
     }
 
+    single { get<Context>().getSystemService(ConnectivityManager::class.java) }
+    single { EchRouting(get(), get()) }
+    single<EchConnection> { get<EchRouting>() }
+
     single {
         UserAgentInterceptor()
     }
@@ -43,6 +51,7 @@ val networkModule = module {
         }
         OkHttpClient.Builder()
             .cookieJar(get<V2exCookieJar>())
+            .addInterceptor(get<EchRouting>())
             .addInterceptor(get<UserAgentInterceptor>())
             .addInterceptor(get<AuthInterceptor>())
             .addInterceptor(loggingInterceptor)

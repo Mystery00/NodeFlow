@@ -119,6 +119,10 @@ class SettingsViewModelTest {
         }
         val memberTagRepository = FakeMemberTagRepository()
         return SettingsViewModel(
+            ech = object : app.mystery0.nodeflow.domain.settings.EchConnection {
+                override val status = kotlinx.coroutines.flow.MutableStateFlow(app.mystery0.nodeflow.domain.settings.EchStatus.Idle)
+                override suspend fun check(force: Boolean) = Unit
+            },
             observeSettings = ObserveSettingsUseCase(settingsRepository),
             observeMemberTagSyncedAt = ObserveMemberTagSyncedAtUseCase(memberTagRepository),
             updateSettings = UpdateSettingsUseCase(settingsRepository),

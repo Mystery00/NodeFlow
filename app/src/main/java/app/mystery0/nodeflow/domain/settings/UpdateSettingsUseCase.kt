@@ -6,6 +6,10 @@ import app.mystery0.nodeflow.core.model.ThemeMode
 class UpdateSettingsUseCase(
     private val repository: SettingsRepository,
 ) {
+    suspend fun setEchEnabled(enabled: Boolean) = repository.setEchEnabled(enabled)
+
+    suspend fun setEchFallbackDns(server: String) = repository.setEchFallbackDns(server)
+
     suspend fun setThemeMode(themeMode: ThemeMode) {
         repository.setThemeMode(themeMode)
     }
