@@ -37,4 +37,8 @@
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
 
+# dnsjava 的生成代码含 Lombok 标记；SLF4J 1.x 缺少可选日志绑定时使用空实现。
+-dontwarn lombok.Generated
+-dontwarn org.slf4j.impl.StaticLoggerBinder
+
 # OkHttp、Coil、Media3、Koin 等其余规则由依赖和 Android 默认规则提供。
