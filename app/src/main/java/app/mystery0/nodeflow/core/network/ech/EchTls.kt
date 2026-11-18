@@ -43,9 +43,9 @@ internal class EchTrustManager(private val system: X509ExtendedTrustManager) : X
     fun checkServerTrusted(c: Array<X509Certificate>, a: String, e: SSLEngine) = system.checkServerTrusted(c, a, e)
 }
 
-internal class EchSocketFactory(private val delegate: SSLSocketFactory, private val config: ByteArray) : SSLSocketFactory() {
+internal class EchSocketFactory(private val delegate: SSLSocketFactory, private val targetHost: String, private val config: ByteArray) : SSLSocketFactory() {
     override fun createSocket(socket: Socket, host: String, port: Int, autoClose: Boolean): Socket {
-        if (host != V2EX_HOST || port != 443) throw IOException("Unexpected ECH origin")
+        if (host != targetHost || port != 443) throw IOException("Unexpected ECH origin")
         val tls = delegate.createSocket(socket, host, port, autoClose) as SSLSocket
         Conscrypt.setHostname(tls, host)
         Conscrypt.setEchConfigList(tls, config)
@@ -70,24 +70,24 @@ internal class EchTls {
         init(null, arrayOf(EchTrustManager(manager)), null)
     }
 
-    fun socketFactory(config: ByteArray): SSLSocketFactory = EchSocketFactory(context.socketFactory, config)
+    fun socketFactory(host: String, config: ByteArray): SSLSocketFactory = EchSocketFactory(context.socketFactory, host, config)
 
-    fun verify(candidate: EchCandidate): OkHttpClient? {
+    fun verify(host: String, candidate: EchCandidate): OkHttpClient? {
         val client = OkHttpClient.Builder().proxy(Proxy.NO_PROXY)
             .dns(object : Dns {
                 override fun lookup(hostname: String): List<InetAddress> {
-                    if (hostname != V2EX_HOST) throw UnknownHostException("Unexpected ECH origin")
+                    if (hostname != host) throw UnknownHostException("Unexpected ECH origin")
                     return listOf(candidate.address)
                 }
-            }).sslSocketFactory(socketFactory(candidate.config), manager)
+            }).sslSocketFactory(socketFactory(host, candidate.config), manager)
             .retryOnConnectionFailure(false).followRedirects(false).callTimeout(3, TimeUnit.SECONDS).build()
-        val request = Request.Builder().url("https://$V2EX_HOST/cdn-cgi/trace").build()
+        val request = Request.Builder().url("https://$host/cdn-cgi/trace").build()
         // 探测客户端没有账号拦截器或 Cookie。只接受目标站点确认加密的响应。
         return client.newCall(request).execute().use { response ->
             val source = response.body.source()
             if (!response.isSuccessful || source.request(8193)) return@use null
             val fields = source.readUtf8().lineSequence().toSet()
-            client.takeIf { "sni=encrypted" in fields && "h=$V2EX_HOST" in fields }
+            client.takeIf { "sni=encrypted" in fields && "h=$host" in fields }
         }
     }
 }

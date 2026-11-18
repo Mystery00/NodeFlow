@@ -10,6 +10,10 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.gif.AnimatedImageDecoder
 import coil3.svg.SvgDecoder
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import okhttp3.Call
+import okhttp3.OkHttpClient
+import org.koin.core.qualifier.named
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,12 +25,7 @@ import org.koin.core.context.startKoin
 
 class NodeFlowApplication : Application(), SingletonImageLoader.Factory {
     override fun newImageLoader(context: PlatformContext): ImageLoader =
-        ImageLoader.Builder(context)
-            .components {
-                add(AnimatedImageDecoder.Factory())
-                add(SvgDecoder.Factory())
-            }
-            .build()
+        createNodeFlowImageLoader(context) { GlobalContext.get().get<OkHttpClient>(named("imageDownloadClient")) }
 
     override fun onCreate() {
         super.onCreate()
@@ -50,3 +49,12 @@ class NodeFlowApplication : Application(), SingletonImageLoader.Factory {
         }
     }
 }
+
+internal fun createNodeFlowImageLoader(context: PlatformContext, callFactory: () -> Call.Factory): ImageLoader =
+    ImageLoader.Builder(context)
+        .components {
+            add(OkHttpNetworkFetcherFactory(callFactory = callFactory))
+            add(AnimatedImageDecoder.Factory())
+            add(SvgDecoder.Factory())
+        }
+        .build()

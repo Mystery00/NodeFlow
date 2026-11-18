@@ -19,14 +19,20 @@ import okhttp3.Response
 import java.io.IOException
 import java.net.Proxy
 
+private val echImageHosts = setOf("cdn.v2ex.com", "i.v2ex.co", "i.v2ex.com")
+
+internal fun usesEch(url: okhttp3.HttpUrl, images: Boolean): Boolean =
+    url.isHttps && url.port == 443 && (url.host == V2EX_HOST || (images && url.host in echImageHosts))
+
 /** 单个来源的所有候选都失败后才切换来源。用户配置始终排在内置来源之后。 */
 internal fun <T> findEchRoute(
     fallback: String,
     lookup: (String, String) -> List<EchCandidate>,
+    targetHost: String = V2EX_HOST,
     verify: (EchCandidate) -> T?,
 ): Pair<T, Long>? {
     for (resolver in (builtInResolvers + fallback).filter(String::isNotBlank).distinct()) {
-        for (host in listOf(V2EX_HOST, BOOTSTRAP_HOST)) {
+        for (host in listOf(targetHost, BOOTSTRAP_HOST)) {
             val candidates = try { lookup(resolver, host) } catch (_: Exception) { continue }
             for (candidate in candidates) {
                 val route = try { verify(candidate) } catch (_: IOException) { null }
@@ -43,45 +49,57 @@ internal class EchRouting(
 ) : EchConnection, Interceptor {
     private val dns by lazy { EchDns() }
     private val tls by lazy { EchTls() }
-    private val mutex = Mutex()
+    // 独立的探测锁和缓存，列表中并发加载头像时只探测一次，不阻塞主站。
+    private class HostRoute {
+        val mutex = Mutex()
+        var cached: Cached? = null
+    }
+    private val hosts = (echImageHosts + V2EX_HOST).associateWith { HostRoute() }
     private val state = MutableStateFlow(EchStatus.Idle)
     override val status = state.asStateFlow()
     private data class Cached(val network: Long?, val fallback: String, val until: Long, val client: OkHttpClient?)
-    private var cached: Cached? = null
+    private fun publish(host: String, status: EchStatus) {
+        if (host == V2EX_HOST) state.value = status
+    }
 
-    private suspend fun route(force: Boolean): OkHttpClient? = withContext(Dispatchers.IO) {
-        mutex.withLock {
+    private suspend fun route(host: String, force: Boolean): OkHttpClient? = withContext(Dispatchers.IO) {
+        val slot = hosts.getValue(host)
+        slot.mutex.withLock {
             val settings = store.settings.first()
             if (!settings.echEnabled) {
-                cached = null
-                state.value = EchStatus.Idle
+                slot.cached = null
+                publish(host, EchStatus.Idle)
                 return@withLock null
             }
             val network = connectivity.activeNetwork?.networkHandle
             val fallback = settings.echFallbackDns
-            cached?.takeIf { !force && it.network == network && it.fallback == fallback && it.until > SystemClock.elapsedRealtime() }?.let {
+            slot.cached?.takeIf { !force && it.network == network && it.fallback == fallback && it.until > SystemClock.elapsedRealtime() }?.let {
                 return@withLock it.client ?: throw IOException("ECH connection unavailable")
             }
-            state.value = EchStatus.Checking
+            publish(host, EchStatus.Checking)
             val result = try {
-                findEchRoute(fallback, dns::lookup) { tls.verify(it) }
+                findEchRoute(fallback, dns::lookup, host) { tls.verify(host, it) }
             } catch (_: java.security.GeneralSecurityException) { null }
               catch (_: LinkageError) { null }
             val client = result?.first
-            cached = Cached(network, fallback, SystemClock.elapsedRealtime() + (result?.second?.coerceIn(0, 3600) ?: 5) * 1000, client)
-            state.value = if (client != null) EchStatus.Ready else EchStatus.Unavailable
+            slot.cached = Cached(network, fallback, SystemClock.elapsedRealtime() + (result?.second?.coerceIn(0, 3600) ?: 5) * 1000, client)
+            publish(host, if (client != null) EchStatus.Ready else EchStatus.Unavailable)
             client ?: throw IOException("ECH connection unavailable")
         }
     }
 
     override suspend fun check(force: Boolean) {
-        try { route(force) } catch (_: IOException) { /* 失败状态已发布到设置页。 */ }
+        try { route(V2EX_HOST, force) } catch (_: IOException) { /* 失败状态已发布到设置页。 */ }
     }
 
-    override fun intercept(chain: Interceptor.Chain): Response {
+    override fun intercept(chain: Interceptor.Chain): Response = intercept(chain, images = false)
+
+    val imageInterceptor = Interceptor { intercept(it, images = true) }
+
+    private fun intercept(chain: Interceptor.Chain, images: Boolean): Response {
         val request = chain.request()
-        if (!request.url.isHttps || request.url.host != V2EX_HOST || request.url.port != 443) return chain.proceed(request)
-        val route = runBlocking { route(false) } ?: return chain.proceed(request)
+        if (!usesEch(request.url, images)) return chain.proceed(request)
+        val route = runBlocking { route(request.url.host, false) } ?: return chain.proceed(request)
         // 仅覆盖连接参数，沿用认证拦截器、Cookie 和写请求的重试策略。
         return chain.withProxy(Proxy.NO_PROXY).withDns(route.dns)
             .withSslSocketFactory(route.sslSocketFactory, route.x509TrustManager)

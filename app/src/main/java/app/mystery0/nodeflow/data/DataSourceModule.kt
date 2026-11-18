@@ -38,6 +38,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 import org.koin.core.qualifier.named
 import app.mystery0.nodeflow.core.common.IO_DISPATCHER
+import app.mystery0.nodeflow.core.network.ech.EchRouting
 import okhttp3.OkHttpClient
 
 val dataSourceModule = module {
@@ -117,7 +118,9 @@ val dataSourceModule = module {
     single { ReplyDraftLocalDataSource(get()) }
     single<ImageContentReader> { AndroidImageContentReader(androidContext().contentResolver) }
     // 图片下载客户端不携带 V2EX 的认证拦截器或 Cookie。
-    single(named("imageDownloadClient")) { OkHttpClient.Builder().build() }
+    single(named("imageDownloadClient")) {
+        OkHttpClient.Builder().addInterceptor(get<EchRouting>().imageInterceptor).build()
+    }
     single<ImageDownloader> {
         DefaultImageDownloader(androidContext(), get(named("imageDownloadClient")), get(named(IO_DISPATCHER)))
     }

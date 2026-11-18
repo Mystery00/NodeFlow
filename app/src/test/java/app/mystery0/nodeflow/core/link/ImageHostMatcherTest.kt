@@ -43,7 +43,7 @@ class ImageHostMatcherTest {
     fun builtInHosts_containCommonImageHosts() {
         // 内置图床无需用户手动添加，锁定内容防止误删
         assertThat(ImageHostMatcher.BUILT_IN_IMAGE_HOSTS)
-            .containsExactly("i.imgur.com", "i.v2ex.co")
+            .containsExactly("i.imgur.com", "i.v2ex.co", "i.v2ex.com")
     }
 
     @Test

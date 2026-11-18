@@ -53,7 +53,10 @@ class CoilImageLoaderTest {
     @Test fun networkSvgCanBeDecodedAndSavedFromDiskCache() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         val bytes = """<svg xmlns="http://www.w3.org/2000/svg" width="8" height="6"><rect width="8" height="6" fill="red"/></svg>""".toByteArray()
-        val loader = NodeFlowApplication().newImageLoader(context).newBuilder()
+        val client = okhttp3.OkHttpClient.Builder().addInterceptor { chain ->
+            chain.proceed(chain.request().newBuilder().header("X-Test-Image-Client", "1").build())
+        }.build()
+        val loader = createNodeFlowImageLoader(context) { client }.newBuilder()
             .diskCache(DiskCache.Builder().directory(temporaryFolder.newFolder("cache").toOkioPath()).build())
             .build()
         val server = MockWebServer()
@@ -75,6 +78,7 @@ class CoilImageLoaderTest {
             DefaultImageDownloader(context).downloadImage(url, target)
             assertThat(target.readBytes()).isEqualTo(bytes)
             assertThat(server.requestCount).isEqualTo(1)
+            assertThat(server.takeRequest().getHeader("X-Test-Image-Client")).isEqualTo("1")
         } finally {
             SingletonImageLoader.reset()
             loader.shutdown()

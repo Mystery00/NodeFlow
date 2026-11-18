@@ -16,11 +16,17 @@ import org.junit.Test
 class EchTlsInstrumentedTest {
     @Test
     fun clientHelloExposesOnlyCoverName() {
+        for (host in listOf(V2EX_HOST, "cdn.v2ex.com", "i.v2ex.co", "i.v2ex.com")) {
+            assertCoverName(host)
+        }
+    }
+
+    private fun assertCoverName(host: String) {
         // 合成配置中的外层名称为 cover.example，只在回环地址捕获握手首包。
         val config = Base64.getDecoder().decode(
             "AED+DQA8AQAgACAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAEAAQANY292ZXIuZXhhbXBsZQAA",
         )
-        val factory = EchTls().socketFactory(config)
+        val factory = EchTls().socketFactory(host, config)
         val loopback = InetAddress.getLoopbackAddress()
         ServerSocket(0, 1, loopback).use { listener ->
             listener.soTimeout = 5000
@@ -35,7 +41,7 @@ class EchTlsInstrumentedTest {
             })
             Thread(firstRecord).start()
             Socket(loopback, listener.localPort).use { tcp ->
-                (factory.createSocket(tcp, V2EX_HOST, 443, true) as SSLSocket).use { tls ->
+                (factory.createSocket(tcp, host, 443, true) as SSLSocket).use { tls ->
                     tls.soTimeout = 5000
                     try {
                         tls.startHandshake()
@@ -46,7 +52,7 @@ class EchTlsInstrumentedTest {
             }
             val hello = firstRecord.get(6, TimeUnit.SECONDS).toString(Charsets.ISO_8859_1)
             assertThat(hello).contains("cover.example")
-            assertThat(hello).doesNotContain(V2EX_HOST)
+            assertThat(hello).doesNotContain(host)
         }
     }
 }

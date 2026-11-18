@@ -11,6 +11,7 @@ object ImageHostMatcher {
     val BUILT_IN_IMAGE_HOSTS: Set<String> = setOf(
         "i.imgur.com",
         "i.v2ex.co",
+        "i.v2ex.com",
     )
 
     // 合法主机名：字母数字与连字符组成的标签，点分隔；单标签（如 localhost）也允许

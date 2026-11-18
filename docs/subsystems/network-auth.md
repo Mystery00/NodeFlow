@@ -16,9 +16,9 @@ NodeFlow 同时使用 V2EX 公开 JSON API、HTML 页面和需要登录态的网
 
 ## ECH 直连
 
-设置 → 网络中的「尝试 ECH 直连」默认关闭。开启后仅为 `https://www.v2ex.com:443` 选择 ECH 连接，依次使用系统 DNS、AliDNS DoH、DNSPod DoH，最后使用用户填写的备用 DNS（IPv4、IPv6 或 HTTPS DoH 地址）。每个来源先查目标域名的 HTTPS 记录，再尝试 `cloudflare-ech.com`。记录需提供 `ech`，地址取自同一记录的地址提示或同一解析器的地址查询。
+设置 → 网络中的「尝试 ECH 直连」默认关闭。开启后为主站以及图片请求中的 `cdn.v2ex.com`、`i.v2ex.co` 和 `i.v2ex.com` 选择 ECH 连接（HTTPS 443），依次使用系统 DNS、AliDNS DoH、DNSPod DoH，最后使用用户填写的备用 DNS（IPv4、IPv6 或 HTTPS DoH 地址）。每个来源先查目标域名的 HTTPS 记录，再尝试 `cloudflare-ech.com`。记录需提供 `ech`，地址取自同一记录的地址提示或同一解析器的地址查询。
 
-匿名探测要求证书校验通过，且 `/cdn-cgi/trace` 确认目标主机及 `sni=encrypted`。可用结果按网络和 DNS 配置缓存至 TTL 到期，最长一小时。所有来源都失败时，设置页显示错误并提供重新检测，用户可关闭开关恢复常规请求。登录、回复等业务请求继续使用既有认证和写请求重试策略。
+匿名探测要求证书校验通过，且 `/cdn-cgi/trace` 确认目标主机及 `sni=encrypted`。Coil 图片加载和保存共用匿名图片客户端，各域名独立探测并校验证书，设置页展示主站状态。可用结果按目标域名、网络和 DNS 配置缓存至 TTL 到期，最长一小时。所有来源都失败时，设置页显示错误并提供重新检测，用户可关闭开关恢复常规请求。登录、回复等业务请求继续使用既有认证和写请求重试策略。
 
 ## 页面分类与错误处理约束
 

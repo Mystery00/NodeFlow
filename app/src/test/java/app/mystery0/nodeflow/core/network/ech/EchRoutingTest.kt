@@ -1,6 +1,7 @@
 package app.mystery0.nodeflow.core.network.ech
 
 import com.google.common.truth.Truth.assertThat
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.io.IOException
 import java.net.InetAddress
 import org.junit.Test
@@ -45,6 +46,24 @@ class EchRoutingTest {
         }
         assertThat(result.single().address).isEqualTo(ip)
         assertThat(result.single().ttl).isEqualTo(10L)
+    }
+
+    @Test
+    fun onlyKnownHttpsImageOriginsUseImageRoute() {
+        for (host in listOf("cdn.v2ex.com", "i.v2ex.co", "i.v2ex.com")) {
+            val url = "https://$host/a.png".toHttpUrl()
+            assertThat(usesEch(url, images = true)).isTrue()
+            assertThat(usesEch(url, images = false)).isFalse()
+            val queries = mutableListOf<String>()
+            findEchRoute("", { _, name ->
+                queries += name
+                if (name == BOOTSTRAP_HOST) listOf(candidate) else emptyList()
+            }, host) { true }
+            assertThat(queries).containsExactly(host, BOOTSTRAP_HOST).inOrder()
+        }
+        for (url in listOf("http://cdn.v2ex.com/a", "https://i.v2ex.com:8443/a", "https://cdn.v2ex.com.example/a", "https://i.imgur.com/a")) {
+            assertThat(usesEch(url.toHttpUrl(), images = true)).isFalse()
+        }
     }
 
     @Test
