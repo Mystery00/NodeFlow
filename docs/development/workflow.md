@@ -49,15 +49,16 @@ Release 验证使用 `.\gradlew.bat :app:assembleRelease`。`signing.gradle` 按
 
 主分支 CI 先执行 `:app:testDebugUnitTest` 与 `:image-hosting:test`，通过后再执行 `:app:assembleRelease`，由 Gradle 完成签名、R8 混淆和资源压缩。工作流尚未运行 Lint、Debug 打包或模拟器测试，CI 绿色不能替代设备验收。
 
-构建成功后，从 release 的 `output-metadata.json` 读取版本号及 APK 文件名，收集并上传 `NodeFlow-release-<versionName>.apk` 和对应 `NodeFlow-<versionName>-mapping.txt`；预发布附件保留该构建对应的 mapping，完整 R8 报告作为 Actions Artifact 保留 90 天。签名不同的旧 Debug 包不能覆盖安装；遇到冲突时停止，保留原安装及其本地数据。
+构建成功后，从 release 的 `output-metadata.json` 读取版本号及 APK 文件名，收集并上传 `NodeFlow-release-<versionName>.apk` 到预发布附件；完整 R8 报告作为 Actions Artifact 保留 90 天，不再放入预发布公开附件。签名不同的旧 Debug 包不能覆盖安装；遇到冲突时停止，保留原安装及其本地数据。
 
 ## 正式发布工作流
 
 `.github/workflows/release.yml` 与主分支预发布是两条独立工作流：
 
-- `v*` tag 推送或手动选择 `v*` tag 时运行；分支及其他 tag 跳过正式发布 job。使用 JDK 21 和正式签名 Secrets，先执行 app/图床 JVM 测试，再调用 `:app:assembleRelease`。
-- 脚本从 Release 的 `output-metadata.json` 读取 APK 文件名，上传带版本名的 APK、固定名 `NodeFlow.apk` 和对应 mapping；固定名保留稳定下载入口。发布标题和 tag 使用 `github.ref_name`，自动生成 GitHub release notes。
-- 正式发布归档 R8 报告 90 天，Release 附件包含 mapping；工作流执行 app/图床 JVM 测试，仍不执行设备测试。
+- 每次发版前，手动使用 `generating-version-changelog` 技能，根据上一个正式 tag 以来面向用户的变更更新根目录的 [CHANGELOG.md](../../CHANGELOG.md)。用本版说明替换上一版内容，核对后随版本变更一起提交，再为该提交打 tag。GitHub Release 直接使用该文件全文作为正文。
+- 推送 `v*` tag 或手动选择该 tag 时触发正式发布。工作流使用 JDK 21，先运行 app 和图床模块的 JVM 测试，再用 `:app:bundleRelease` 构建签名 AAB。
+- 工作流下载固定版本的 bundletool 并校验 SHA-256，从 AAB 的 manifest 读取 `versionName`，再用同一发布密钥生成 universal APK。GitHub Release 同时提供 `NodeFlow-<versionName>.aab` 和 `NodeFlow-<versionName>.apk`。发布标题和 tag 使用 `github.ref_name`。
+- 正式发布归档 R8 报告作为 Actions Artifact 保留 90 天，Release 附件不包含 mapping；工作流执行 app/图床 JVM 测试，仍不执行设备测试。
 - 手动触发同样受 `refs/tags/v` 条件限制；版本号继续取 Git 提交数，tag 不会自动修改 App 版本配置。
 - 工作流最后清理临时 keystore。发布、推送 tag 和执行远端工作流均需要明确授权，本地构建不等于已发布。
 

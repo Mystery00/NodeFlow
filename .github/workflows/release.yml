@@ -35,27 +35,44 @@ jobs:
         run: |
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/key.jks"
 
-      - name: Verify and build Release APK
-        env:
+      - name: Verify and build Release app bundle
+        env: &release_signing
           SIGN_KEY_STORE_FILE: ${{ runner.temp }}/key.jks
           SIGN_KEY_STORE_PASSWORD: ${{ secrets.SIGN_KEY_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
           SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS || secrets.KEY_ALIAS }}
           SIGN_KEY_PASSWORD: ${{ secrets.SIGN_KEY_PASSWORD || secrets.KEY_PASSWORD }}
         run: |
           ./gradlew --no-daemon :app:testDebugUnitTest :image-hosting:test
-          ./gradlew --no-daemon :app:assembleRelease
+          ./gradlew --no-daemon :app:bundleRelease
 
-      - name: Parse build files
+      - name: Download bundletool
+        env:
+          BUNDLETOOL_VERSION: '1.18.3'
+          BUNDLETOOL_SHA256: a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29
+        run: |
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 --output bundletool.jar \
+            "https://github.com/google/bundletool/releases/download/$BUNDLETOOL_VERSION/bundletool-all-$BUNDLETOOL_VERSION.jar"
+          echo "$BUNDLETOOL_SHA256  bundletool.jar" | sha256sum --check
+
+      - name: Generate signed universal APK from app bundle
+        env: *release_signing
         run: |
           set -euo pipefail
-          METADATA_FILE=app/build/outputs/apk/release/output-metadata.json
-          versionName=$(jq -er '.elements[0].versionName' "$METADATA_FILE")
-          APK_NAME=$(jq -er '.elements[0].outputFile' "$METADATA_FILE")
-          APK_FILE="$(dirname "$METADATA_FILE")/$APK_NAME"
+          aab=app/build/outputs/bundle/release/app-release.aab
+          bundletool="$RUNNER_TEMP/bundletool.jar"
+          versionName=$(java -jar "$bundletool" dump manifest --bundle="$aab" --xpath='/manifest/@android:versionName')
+          work=$(mktemp -d)
+          trap 'rm -rf "$work"' EXIT
+          printf '%s' "$SIGN_KEY_STORE_PASSWORD" > "$work/store.pass"
+          printf '%s' "$SIGN_KEY_PASSWORD" > "$work/key.pass"
+          java -jar "$bundletool" build-apks --bundle="$aab" --mode=universal --output="$work/release.apks" \
+            --ks="$SIGN_KEY_STORE_FILE" --ks-key-alias="$SIGN_KEY_ALIAS" \
+            --ks-pass="file:$work/store.pass" --key-pass="file:$work/key.pass"
 
           mkdir -p outputs
-          cp "$APK_FILE" "outputs/NodeFlow-${versionName}.apk"
-          cp "$APK_FILE" "outputs/NodeFlow.apk"
+          cp "$aab" "outputs/NodeFlow-${versionName}.aab"
+          unzip -p "$work/release.apks" universal.apk > "outputs/NodeFlow-${versionName}.apk"
 
       - name: Upload R8 reports
         if: always()
@@ -71,11 +88,11 @@ jobs:
         with:
           name: NodeFlow ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
+          body_path: CHANGELOG.md
           fail_on_unmatched_files: true
           files: |
+            outputs/NodeFlow-*.aab
             outputs/NodeFlow-*.apk
-            outputs/NodeFlow.apk
 
       - name: Cleanup Keystore
         if: always()
